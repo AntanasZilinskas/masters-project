@@ -10,3 +10,5 @@
 *.fls
 *.gz
 .DS_Store
+*.fits
+*.fit
