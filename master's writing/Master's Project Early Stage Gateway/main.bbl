@@ -1,0 +1,75 @@
+\begin{thebibliography}{xx}
+
+\harvarditem[Abduallah et~al.]{Abduallah, Wang, Wang \harvardand\ Xu}{2023}{RefWorks:RefID:2-abduallah2023operational}
+Abduallah, Y., Wang, J. T.~L., Wang, H. \harvardand\ Xu, Y.  \harvardyearleft 2023\harvardyearright , `Operational prediction of solar flares using a transformer-based framework', {\em Scientific Reports} {\bf 13}(1).
+
+\harvarditem{Blumenfeld}{n.d.}{RefWorks:RefID:24-blumenfeldnasa}
+Blumenfeld, J.  \harvardyearleft n.d.\harvardyearright , `Nasa and ibm research apply ai to weather and climate | nasa earthdata'.
+
+\harvarditem[Devlin et~al.]{Devlin, Chang, Lee \harvardand\ Toutanova}{n.d.}{RefWorks:RefID:17-devlinbert:}
+Devlin, J., Chang, M.-W., Lee, K. \harvardand\ Toutanova, K.  \harvardyearleft n.d.\harvardyearright , `Bert: Pre-training of deep bidirectional transformers for language understanding'.
+
+\harvarditem{{\em ESA - What are solar flares?}}{n.d.}{RefWorks:RefID:11-esa}
+{\em ESA - What are solar flares?}  \harvardyearleft n.d.\harvardyearright .
+
+\harvarditem[Fedus et~al.]{Fedus, Zoph, Shazeer \harvardand\ Clark}{2022}{RefWorks:RefID:21-fedus2022switch}
+Fedus, W., Zoph, B., Shazeer, N. \harvardand\ Clark, A.  \harvardyearleft 2022\harvardyearright , `Switch transformers: Scaling to trillion parameter models with simple and e cient sparsity'.
+
+\harvarditem[Francisco et~al.]{Francisco, Guastavino, Fernandes, Barata \harvardand\ Moro}{2024}{RefWorks:RefID:33-francisco2024multimodal}
+Francisco, G., Guastavino, S., Fernandes, J., Barata, T. \harvardand\ Moro, D.~D.  \harvardyearleft 2024\harvardyearright , `Multimodal flare forecasting with deep learning'.
+
+\harvarditem[Gallagher et~al.]{Gallagher, Moon \harvardand\ Wang}{n.d.}{RefWorks:RefID:34-gallagheri.}
+Gallagher, P.~T., Moon, Y.~J. \harvardand\ Wang, H.  \harvardyearleft n.d.\harvardyearright , `I. data processing and first results'.
+
+\harvarditem[Gao et~al.]{Gao, Thite, Nabeshima, Presser \harvardand\ Leahy}{2020}{RefWorks:RefID:22-gao2020pile:}
+Gao, L., Thite, A., Nabeshima, N., Presser, S. \harvardand\ Leahy, C.  \harvardyearleft 2020\harvardyearright , `The pile: An 800gb dataset of diverse text for language modeling'.
+
+\harvarditem[Gettelman et~al.]{Gettelman, Geer, Forbes, Carmichael, Feingold, Posselt, Stephens, Heever, Varble \harvardand\ Zuidema}{1997}{RefWorks:RefID:1-gettelman1997future}
+Gettelman, A., Geer, A.~J., Forbes, R.~M., Carmichael, G.~R., Feingold, G., Posselt, D.~J., Stephens, G.~L., Heever, S. C. V.~D., Varble, A.~C. \harvardand\ Zuidema, P.  \harvardyearleft 1997\harvardyearright , `The future of earth system prediction: Advances in model-data fusion', {\em Science Advances} {\bf 8}(14).
+
+\harvarditem[Harra et~al.]{Harra, Schrijver, Janvier, Toriumi, Hudson, Matthews, Woods, Hara, Guedel, Kowalski, Osten, Kusano \harvardand\ Lueftinger}{2016}{RefWorks:RefID:15-harra2016characteristics}
+Harra, L.~K., Schrijver, C.~J., Janvier, M., Toriumi, S., Hudson, H., Matthews, S., Woods, M.~M., Hara, H., Guedel, M., Kowalski, A., Osten, R., Kusano, K. \harvardand\ Lueftinger, T.  \harvardyearleft 2016\harvardyearright , `The characteristics of solar x-class flares and cmes: A paradigm for stellar superflares and eruptions?', {\em Solar Physics} {\bf 291}(6),~1761.
+
+\harvarditem[Hayes et~al.]{Hayes, O’hara, Murray \harvardand\ Gallagher}{2021}{RefWorks:RefID:14-hayes2021solar}
+Hayes, L.~A., O’hara, O. S.~D., Murray, S.~A. \harvardand\ Gallagher, P.~T.  \harvardyearleft 2021\harvardyearright , `Solar flare effects on the earth’s lower ionosphere', {\em Solar Physics} {\bf 296}(11).
+
+\harvarditem[Hoffmann et~al.]{Hoffmann, &#x1d43f;, Mensch, Buchatskaya, Cai, Rutherford, De, Casas, Hendricks, Welbl, Clark, Hennigan, Noland, Millican, Driessche, Damoc, Guy, Osindero, Simonyan, Elsen, Rae, Vinyals \harvardand\ Sifre}{n.d.}{RefWorks:RefID:29-hoffmanntraining}
+Hoffmann, J., &#x1d43f;, S.~B., Mensch, A., Buchatskaya, E., Cai, T., Rutherford, E., De, D., Casas, L., Hendricks, L.~A., Welbl, J., Clark, A., Hennigan, T., Noland, E., Millican, K., Driessche, G. V.~D., Damoc, B., Guy, A., Osindero, S., Simonyan, K., Elsen, E., Rae, J.~W., Vinyals, O. \harvardand\ Sifre, L.  \harvardyearleft n.d.\harvardyearright , `Training compute-optimal large language models'.
+
+\harvarditem[Jiao et~al.]{Jiao, Sun, Wang, Manchester, Gombosi, Hero \harvardand\ Chen}{2020}{RefWorks:RefID:10-jiao2020solar}
+Jiao, Z., Sun, H., Wang, X., Manchester, W., Gombosi, T., Hero, A. \harvardand\ Chen, Y.  \harvardyearleft 2020\harvardyearright , `Solar flare intensity prediction with machine learning models'.
+
+\harvarditem[Kaplan et~al.]{Kaplan, Mccandlish, Openai, Henighan, Brown, Gray, Radford, Wu \harvardand\ Amodei}{n.d.}{RefWorks:RefID:25-kaplanscaling}
+Kaplan, J., Mccandlish, S., Openai, �., Henighan, T., Brown, T.~B., Gray, S., Radford, A., Wu, J. \harvardand\ Amodei, D.  \harvardyearleft n.d.\harvardyearright , `Scaling laws for neural language models'.
+
+\harvarditem[Li et~al.]{Li, Wang, Wang, Kai, Lau \harvardand\ Qu}{n.d.}{RefWorks:RefID:35-licllmate:}
+Li, H., Wang, Z., Wang, J., Kai, A., Lau, H. \harvardand\ Qu, H.  \harvardyearleft n.d.\harvardyearright , `Cllmate: A multimodal llm for weather and climate events forecasting'.
+
+\harvarditem[Liu et~al.]{Liu, Cao, Liu, Ding \harvardand\ Jin}{2024}{RefWorks:RefID:26-liu2024datasets}
+Liu, Y., Cao, J., Liu, C., Ding, K. \harvardand\ Jin, L.  \harvardyearleft 2024\harvardyearright , `Datasets for large language models: A comprehensive survey'.
+
+\harvarditem[Minaee et~al.]{Minaee, Mikolov, Nikzad, Chenaghlu, Socher, Amatriain \harvardand\ Gao}{n.d.}{RefWorks:RefID:27-minaeelarge}
+Minaee, S., Mikolov, T., Nikzad, N., Chenaghlu, M., Socher, R., Amatriain, X. \harvardand\ Gao, J.  \harvardyearleft n.d.\harvardyearright , `Large language models: A survey'.
+
+\harvarditem{Omatola \harvardand\ Okeme}{n.d.}{RefWorks:RefID:6-omatolaimpacts}
+Omatola, . \harvardand\ Okeme, K.~M.  \harvardyearleft n.d.\harvardyearright , `Impacts of solar storms on energy and communications technologies'.
+
+\harvarditem[Rajbhandari et~al.]{Rajbhandari, Rasley, Ruwase \harvardand\ He}{n.d.}{RefWorks:RefID:18-rajbhandarizero:}
+Rajbhandari, S., Rasley, J., Ruwase, O. \harvardand\ He, Y.  \harvardyearleft n.d.\harvardyearright , `Zero: Memory optimizations toward training trillion parameter models'.
+
+\harvarditem[Schmude et~al.]{Schmude, Roy, Trojak, Jakubik, Civitarese, Singh, Kuehnert, Ankur, Gupta, Phillips, Kienzler, Szwarcman, Gaur, Shinde, Lal, Silva, Luis, Diaz, Jones, Pfreundschuh, Lin, Sheshadri, Nair, Anantharaj, Hamann, Watson, Maskey, Lee, Moreno \harvardand\ Ramachandran}{2024}{RefWorks:RefID:30-schmude2024prithvi}
+Schmude, J., Roy, S., Trojak, W., Jakubik, J., Civitarese, D.~S., Singh, S., Kuehnert, J., Ankur, K., Gupta, A., Phillips, C.~E., Kienzler, R., Szwarcman, D., Gaur, V., Shinde, R., Lal, R., Silva, A.~D., Luis, J., Diaz, G., Jones, A., Pfreundschuh, S., Lin, A., Sheshadri, A., Nair, U., Anantharaj, V., Hamann, H., Watson, C., Maskey, M., Lee, T.~J., Moreno, J.~B. \harvardand\ Ramachandran, R.  \harvardyearleft 2024\harvardyearright , `Prithvi wxc: Foundation model for weather and climate'.
+
+\harvarditem{Schrijver}{2009}{RefWorks:RefID:7-schrijver2009driving}
+Schrijver, C.~J.  \harvardyearleft 2009\harvardyearright , `Driving major solar flares and eruptions: A review', {\em Advances in Space Research} {\bf 43}(5),~739.
+
+\harvarditem[Vaswani et~al.]{Vaswani, Brain, Shazeer, Parmar, Research, Uszkoreit, Jones \harvardand\ Gomez}{2023}{RefWorks:RefID:3-vaswani2023provided}
+Vaswani, A., Brain, �.~G., Shazeer, N., Parmar, N., Research, G., Uszkoreit, J., Jones, L. \harvardand\ Gomez, A.~N.  \harvardyearleft 2023\harvardyearright , `Provided proper attribution is provided, google hereby grants permission to reproduce the tables and figures in this paper solely for use in journalistic or scholarly works. attention is all you need'.
+
+\harvarditem{Yıldız \harvardand\ Timoçin}{2023}{RefWorks:RefID:13-yıldız2023effect}
+Yıldız, L.~B. \harvardand\ Timoçin, E.  \harvardyearleft 2023\harvardyearright , `The effect of solar flares on hf radio communications over turkey', {\em Geomagnetism and Aeronomy} {\bf 63}(5),~642.
+
+\harvarditem[Zheng et~al.]{Zheng, Qin, Li, Ling, Huang, Li, Yan, Yan \harvardand\ Lou}{2023}{RefWorks:RefID:12-zheng2023comparative}
+Zheng, Y., Qin, W., Li, X., Ling, Y., Huang, X., Li, X., Yan, P., Yan, S. \harvardand\ Lou, H.  \harvardyearleft 2023\harvardyearright , `Comparative analysis of machine learning models for solar flare prediction', {\em Astrophysics and Space Science} {\bf 368}(7).
+
+\end{thebibliography}
