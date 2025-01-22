@@ -1,12 +1,1 @@
 *.pt
-*.fts
-*.aux
-*.log
-*.out
-*.toc
-*.bbl
-*.blg
-*.fdb_latexmk
-*.fls
-*.gz
-.DS_Store
