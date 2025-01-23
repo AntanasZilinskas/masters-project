@@ -15,7 +15,7 @@ def download_hmi_data():
     # 1) Choose the time range you're interested in. This example is short to limit data volume.
     #    Increase it if you want more data.
     start_time = "2022-01-01 00:00" 
-    end_time   = "2022-01-01 00:15"  # 1-hour window
+    end_time   = "2022-01-01 01:30"  # 1-hour window
     
     # 2) Specify which product to download by adjusting the attrs.
     #    - a.Instrument.hmi: The SDO/HMI instrument.
