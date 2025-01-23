@@ -38,7 +38,7 @@ def download_hmi_data():
     
     # 4) Download the files to a new folder named "sunpy/" in your current directory.
     #    "{file}" preserves the original JSOC-style naming, e.g. hmi.M_720s.20220101...
-    files = Fido.fetch(result, path="sunpy/SDO/data/{file}")
+    files = Fido.fetch(result, path="SDO/data/hmi.m_45s/{file}")
     
     print(f"Downloaded files to './sunpy' folder:\n{files}")
 

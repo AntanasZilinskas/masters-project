@@ -32,4 +32,4 @@ def show_fits_image(path_to_fits):
 
 # Example usage, adjust path accordingly:
 # show_fits_image("data/example_file.fits")
-show_fits_image("data/hmi.M_720s.20130101_000000_TAI.fits")
+show_fits_image("data/hmi.m_45s/hmi.m_45s.2022.01.01_00_01_30_TAI.magnetogram.fits")
