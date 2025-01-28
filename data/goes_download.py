@@ -29,7 +29,7 @@ This will search for and fetch the relevant GOES data in the specified time rang
 
 from sunpy.net import Fido, attrs as a
 
-def download_goes_data(start_time="2022-01-01 00:00", end_time="2022-12-01 00:15"):
+def download_goes_data(start_time="2014-11-01 00:00", end_time="2018-11-01 00:00"):
     """
     Downloads GOES data (X-ray flux) from the given time range using SunPy.
     
@@ -42,7 +42,7 @@ def download_goes_data(start_time="2022-01-01 00:00", end_time="2022-12-01 00:15
 
     Example:
     --------
-    download_goes_data("2022-01-01 00:00", "2022-12-01 06:00")
+    download_goes_data("2011-01-01 00:00", "2011-12-01 06:00")
     """
     # 1) Search for GOES data between start_time and end_time.
     #    a.Instrument("goes") includes GOES X-ray flux data.
@@ -55,13 +55,12 @@ def download_goes_data(start_time="2022-01-01 00:00", end_time="2022-12-01 00:15
     
     # 2) Fetch (download) the resulting files into the "GOES/data/test" folder.
     #    The "{file}" token preserves original filenames for each downloaded file.
-    downloaded_files = Fido.fetch(result, path="GOES/data/test/{file}")
+    downloaded_files = Fido.fetch(result, path="GOES/data/avg1m_2010_to_2024/{file}")
     
     # 3) Log or print out which files were downloaded.
     print(f"Downloaded GOES files for {start_time} to {end_time}:")
     for f in downloaded_files:
         print(f)
 
-# Optional: Set default parameters to demonstrate usage.
 if __name__ == "__main__":
     download_goes_data()
