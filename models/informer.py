@@ -24,33 +24,22 @@ logging.basicConfig(
 
 class GOESDataset(Dataset):
     """
-    Loads GOES netCDF files that contain "avg1m" in the filename
-    (e.g., sci_xrsf-l2-avg1m_g14_d20121030_v2-2-0.nc), merges them
-    chronologically, and creates sliding windows for training.
-
-    Example usage:
-        dataset = GOESDataset(
-            data_dir="data/GOES/data/avg1m_2010_to_2024",
-            lookback_len=24,  # hours
-            forecast_len=24,  # hours
-            step_per_hour=60,
-            train=True,
-            train_split=0.8,
-            max_files=5
-        )
+    Loads GOES netCDF files containing "avg1m" in the filename
+    (e.g., sci_xrsf-l2-avg1m_g16_d20180908_v2-2-0.nc), merges them
+    chronologically, and creates sliding windows (lookback -> forecast).
     """
 
     def __init__(self,
                  data_dir,
-                 lookback_len=24,      # hours
-                 forecast_len=24,      # hours
-                 step_per_hour=60,     # 1-minute resolution => 60 steps/hour
+                 lookback_len=24,     # hours
+                 forecast_len=24,     # hours
+                 step_per_hour=60,    # 1-min data => 60 steps/hour
                  train=True,
                  train_split=0.8,
                  max_files=None):
         super().__init__()
-        self.lookback_len = lookback_len * step_per_hour     # e.g. 24 * 60 = 1440
-        self.forecast_len = forecast_len * step_per_hour     # another 1440 steps
+        self.lookback_len = lookback_len * step_per_hour
+        self.forecast_len = forecast_len * step_per_hour
         self.train = train
 
         logging.debug(
@@ -58,25 +47,33 @@ class GOESDataset(Dataset):
             f"forecast_len={forecast_len}, step_per_hour={step_per_hour}, train={train}"
         )
 
-        # 1) Gather ONLY netCDF files that contain "avg1m" in the filename
+        # ------------------------------------------------------------------------------
+        # Use the EXACT method for fetching files with 'avg1m' in the name (no ellipses).
+        # ------------------------------------------------------------------------------
         pattern = os.path.join(data_dir, "*avg1m*.nc")
+        logging.debug(f"DEBUG: Looking for files with pattern: {pattern}")
+
         all_files = sorted(glob.glob(pattern))
+        logging.debug(f"DEBUG: All matching files found: {all_files}")
+
         if max_files is not None:
             all_files = all_files[:max_files]
 
-        logging.info(f"Looking for netCDF files with pattern: {pattern}")
-        logging.info(f"Found {len(all_files)} matching 'avg1m' files in {data_dir}")
+        logging.info(f"Found {len(all_files)} netCDF files containing 'avg1m' in {data_dir}")
 
         if len(all_files) == 0:
+            # If no files found, raise a FileNotFoundError
             raise FileNotFoundError(f"No .nc files matching '*avg1m*.nc' found in {data_dir}")
 
+        # ------------------------------------------------------------------------------
+        # 2) Load flux data from each file
+        # ------------------------------------------------------------------------------
         flux_list = []
-        for f in all_files:
+        for fpath in all_files:
             try:
-                logging.debug(f"Opening {f}")
-                ds = xr.open_dataset(f)
-                # Attempt to find a flux variable
-                flux_var = None
+                logging.debug(f"Opening file: {fpath}")
+                ds = xr.open_dataset(fpath)
+                # Choose a flux variable if it exists
                 if 'xrsb_flux' in ds.variables:
                     flux_var = 'xrsb_flux'
                 elif 'b_flux' in ds.variables:
@@ -84,47 +81,47 @@ class GOESDataset(Dataset):
                 elif 'a_flux' in ds.variables:
                     flux_var = 'a_flux'
                 else:
+                    # If none of these variables are present, skip the file
                     ds.close()
-                    logging.warning(f"No recognized flux variable in {f}, skipping.")
+                    logging.warning(f"No recognized flux variable in: {fpath}, skipping.")
                     continue
 
-                flux_values = ds[flux_var].values
+                flux_vals = ds[flux_var].values
                 ds.close()
-                flux_list.append(flux_values)
-                logging.debug(f"Loaded {len(flux_values)} timesteps from {f} (var={flux_var})")
+                flux_list.append(flux_vals)
+                logging.debug(f"Loaded {len(flux_vals)} timesteps from {fpath}")
 
-            except Exception as e:
-                logging.warning(f"Could not load {f}, skipping. Error: {e}")
+            except Exception as err:
+                logging.warning(f"Could not load {fpath}, skipping. Error: {err}")
                 continue
 
         if len(flux_list) == 0:
-            raise ValueError("No valid flux data found among netCDF files.")
+            raise ValueError("No valid flux data found among the selected netCDF files.")
 
-        # Concatenate all flux arrays to form one long time-series
+        # Concatenate all flux arrays into a single time-series
         all_flux = np.concatenate(flux_list, axis=0)
 
-        # 2) Fill NaNs and optionally do a log transform
+        # 3) Fill NaNs and apply small transform if desired
         all_flux = np.nan_to_num(all_flux, nan=1e-9)
-        self.data = np.log1p(all_flux)  # log(1 + x)
-        logging.info(f"Combined flux array shape: {self.data.shape}, "
-                     f"example values (first 5): {self.data[:5]}")
+        self.data = np.log1p(all_flux)  # For instance, log-transform
 
-        # 3) Train/test split
+        # 4) Train/test split
         N = len(self.data)
         split_index = int(N * train_split)
         if train:
             self.data = self.data[:split_index]
-            logging.info(f"Training portion: {self.data.shape[0]} samples")
+            logging.info(f"Training portion: {len(self.data)} samples")
         else:
             self.data = self.data[split_index:]
-            logging.info(f"Validation/Test portion: {self.data.shape[0]} samples")
+            logging.info(f"Validation/Testing portion: {len(self.data)} samples")
 
-        # 4) Build sliding window indices
+        # 5) Build sliding window indices
         self.indices = []
         max_start = len(self.data) - self.lookback_len - self.forecast_len
-        for i in range(max_start):
+        for i in range(max_start + 1 if max_start >= 0 else 0):
             self.indices.append(i)
-        logging.debug(f"Total dataset samples (sliding windows): {len(self.indices)}")
+
+        logging.debug(f"Total sliding-window samples: {len(self.indices)}")
 
     def __len__(self):
         return len(self.indices)
@@ -132,8 +129,8 @@ class GOESDataset(Dataset):
     def __getitem__(self, idx):
         start = self.indices[idx]
         end = start + self.lookback_len
-        x_seq = self.data[start:end]    # shape: [lookback_len]
-        y_seq = self.data[end : end + self.forecast_len]  # shape: [forecast_len]
+        x_seq = self.data[start:end]  # shape: [lookback_len]
+        y_seq = self.data[end:end + self.forecast_len]  # shape: [forecast_len]
 
         x_tensor = torch.tensor(x_seq, dtype=torch.float32)
         y_tensor = torch.tensor(y_seq, dtype=torch.float32)
@@ -236,7 +233,6 @@ class DecoderLayer(nn.Module):
         self.cross_attn = nn.MultiheadAttention(d_model, n_heads, dropout=dropout)
         self.linear1 = nn.Linear(d_model, d_ff)
         self.linear2 = nn.Linear(d_ff, d_model)
-
         self.dropout = nn.Dropout(dropout)
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
@@ -331,18 +327,17 @@ class Informer(nn.Module):
         _, tgt_len = tgt.shape
 
         # Prepare for encoder
-        enc_in = src.unsqueeze(1)              # [batch, 1, src_len]
+        enc_in = src.unsqueeze(1)              # -> [batch, 1, src_len]
         enc_in = self.token_embedding(enc_in)  # -> [batch, d_model, src_len]
         enc_in = enc_in.permute(2, 0, 1)       # -> [src_len, batch, d_model]
         enc_in = enc_in + self.pos_embedding(enc_in.permute(1, 0, 2)).permute(1, 0, 2)
-
         enc_out = self.encoder(enc_in)         # -> [src_len, batch, d_model]
         logging.debug(f"Encoder output shape: {enc_out.shape}")
 
         # Prepare for decoder (naive approach: zero future)
-        dec_in = torch.zeros(batch_size, 1, tgt_len).to(src.device)
-        dec_in = self.token_embedding(dec_in)  # -> [batch, d_model, tgt_len]
-        dec_in = dec_in.permute(2, 0, 1)       # -> [tgt_len, batch, d_model]
+        dec_in = torch.zeros(batch_size, 1, tgt_len).to(src.device)  # [batch, 1, tgt_len]
+        dec_in = self.token_embedding(dec_in)                        # -> [batch, d_model, tgt_len]
+        dec_in = dec_in.permute(2, 0, 1)                              # -> [tgt_len, batch, d_model]
         dec_in = dec_in + self.pos_embedding(dec_in.permute(1, 0, 2)).permute(1, 0, 2)
 
         dec_out = self.decoder(dec_in, enc_out)  # -> [tgt_len, batch, d_model]
@@ -373,18 +368,18 @@ def select_device():
         return torch.device("cpu")
 
 def train_informer(
-    data_dir="/Users/.../data/GOES/data/avg1m_2010_to_2024",
-    lookback_len=24,      # 24-hour history
-    forecast_len=24,      # 24-hour forecast
+    data_dir="/Users/antanaszilinskas/Desktop/Imperial College London/D2P/Coursework/masters-project/data/GOES/data/avg1m_2010_to_2024",
+    lookback_len=24,       # 24-hour history
+    forecast_len=24,       # 24-hour forecast
     epochs=2,
     batch_size=16,
     lr=1e-4,
     device='cpu',
     max_files=None,
-    model_save_path="informer-24h.pth"
+    model_save_path="informer-24h-new_test_split.pth"
 ):
     """
-    data_dir       : folder with netCDF files (should contain "avg1m" in filenames)
+    data_dir       : folder with netCDF files (contains 'avg1m' in filenames)
     lookback_len   : hours of history
     forecast_len   : hours to forecast
     epochs         : full training epochs
@@ -507,12 +502,15 @@ def train_informer(
 # MAIN ENTRY (OPTIONAL)
 #######################################################################
 if __name__ == "__main__":
+    # Use the full path without ellipses:
+    DATA_DIR = "/Users/antanaszilinskas/Desktop/Imperial College London/D2P/Coursework/masters-project/data/GOES/data/avg1m_2010_to_2024"
+
     device = select_device()
     logging.info(f"Using device: {device}")
 
     # Start small: load 5 daily files, each ~1440 steps (24h)
     trained_model = train_informer(
-        data_dir="/Users/.../data/GOES/data/avg1m_2010_to_2024",
+        data_dir=DATA_DIR,
         lookback_len=24,
         forecast_len=24,
         epochs=2,
@@ -520,7 +518,7 @@ if __name__ == "__main__":
         lr=1e-4,
         device=device,
         max_files=5,  # Only load 5 daily files for debugging
-        model_save_path="informer-24h.pth"
+        model_save_path="informer-24h-new_test_split.pth"
     )
 
     # Quick forward pass check with random input
