@@ -29,7 +29,7 @@ This will search for and fetch the relevant GOES data in the specified time rang
 
 from sunpy.net import Fido, attrs as a
 
-def download_goes_data(start_time="2014-11-01 00:00", end_time="2015-11-01 00:00"):
+def download_goes_data(start_time="2021-01-01 00:00", end_time="2023-01-01 00:00"):
     """
     Downloads GOES data (X-ray flux) from the given time range using SunPy.
     
