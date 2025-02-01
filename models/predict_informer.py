@@ -3,6 +3,9 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt  # <-- new import for plotting
 from torch.utils.data import Dataset, DataLoader
+import os
+import glob
+import pprint
 
 # 1) Local import of the same-folder module (no leading dot).
 from informer import (
@@ -19,7 +22,7 @@ logging.basicConfig(
 
 class GOESDataset(Dataset):
     """
-    Loads GOES netCDF files containing "avg1m" in the filename (e.g. sci_xrsf-l2-avg1m_g16_d20180908_v2-2-0.nc),
+    Loads GOES netCDF files containing "avg1m_g13" in the filename (e.g. sci_xrsf-l2-avg1m_g16_d20180908_v2-2-0.nc),
     merges them, and creates sliding windows (lookback -> forecast).
     """
 
@@ -36,35 +39,33 @@ class GOESDataset(Dataset):
         self.forecast_len = forecast_len * step_per_hour
         self.train = train
 
-        logging.debug(
-            f"GOESDataset init: data_dir={data_dir}, lookback_len={lookback_len}, "
-            f"forecast_len={forecast_len}, step_per_hour={step_per_hour}, train={train}"
-        )
-
-        # ------------------------------------------------------------------------------
-        # 1) Use the EXACT method for fetching files with 'avg1m' in the name.
-        # ------------------------------------------------------------------------------
-        import os, glob, xarray as xr
-        pattern = os.path.join(data_dir, "*avg1m*.nc")
-        logging.debug(f"DEBUG: Looking for files with pattern: {pattern}")
-
+        # 1) Debugging: Show pattern and matched files.
+        pattern = os.path.join(data_dir, "*avg1m_g13*.nc")
+        print("\n[DEBUG] GOESDataset __init__ (predict_informer.py)")
+        print(f"[DEBUG] data_dir = {data_dir}")
+        print(f"[DEBUG] Glob pattern = {pattern}")
         all_files = sorted(glob.glob(pattern))
-        logging.debug(f"DEBUG: All matching files found: {all_files}")
+        print("[DEBUG] All matching files found:")
+        pprint.pprint(all_files)
 
         if max_files is not None:
             all_files = all_files[:max_files]
+            print(f"[DEBUG] After max_files={max_files}, truncated list:")
+            pprint.pprint(all_files)
 
-        logging.info(f"Found {len(all_files)} netCDF files containing 'avg1m' in {data_dir}")
+        logging.info(f"Found {len(all_files)} netCDF files in '{data_dir}' with 'avg1m_g13'")
         if len(all_files) == 0:
-            raise FileNotFoundError(f"No .nc files matching '*avg1m*.nc' found in {data_dir}")
+            raise FileNotFoundError(
+                f"No .nc files matching '*avg1m_g13*.nc' in {data_dir}"
+            )
 
         # ------------------------------------------------------------------------------
         # 2) Load flux data from each file
         # ------------------------------------------------------------------------------
         flux_list = []
         for fpath in all_files:
+            print(f"[DEBUG] Attempting to open: {fpath}")
             try:
-                logging.debug(f"Opening file: {fpath}")
                 ds = xr.open_dataset(fpath)
                 if 'xrsb_flux' in ds.variables:
                     flux_var = 'xrsb_flux'
@@ -80,9 +81,9 @@ class GOESDataset(Dataset):
                 flux_vals = ds[flux_var].values
                 ds.close()
                 flux_list.append(flux_vals)
-                logging.debug(f"Loaded {len(flux_vals)} timesteps from {fpath}")
-            except Exception as err:
-                logging.warning(f"Could not load {fpath}, skipping. Error: {err}")
+                print(f"[DEBUG] Loaded {len(flux_vals)} timesteps from {fpath} (var='{flux_var}')")
+            except Exception as e:
+                logging.warning(f"Could not load {fpath}. Error: {e}")
                 continue
 
         if len(flux_list) == 0:
@@ -94,6 +95,7 @@ class GOESDataset(Dataset):
         # 3) Fill NaNs and apply small transform if desired
         all_flux = np.nan_to_num(all_flux, nan=1e-9)
         self.data = np.log1p(all_flux)  # e.g. log-transform
+        print(f"[DEBUG] Total concatenated timesteps = {len(self.data)}")
 
         # 4) Train/test split
         N = len(self.data)

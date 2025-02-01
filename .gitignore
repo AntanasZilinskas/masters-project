@@ -13,3 +13,6 @@
 *.fits
 *.fit
 *.nc
+*.parquet
+*.pth
+*.pyc
