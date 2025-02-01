@@ -7,7 +7,11 @@ import xarray as xr
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import pandas as pd
 from torch.utils.data import Dataset, DataLoader
+from tqdm.auto import tqdm
+
+os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
 
 #######################################################################
 # 1) DEVICE SELECTION (MPS/CUDA/CPU)
@@ -21,14 +25,13 @@ def select_device():
         return torch.device("cpu")
 
 #######################################################################
-# 2) DATASET
+# 2) DATASET (For NetCDF files)
 #######################################################################
 class GOESDataset(Dataset):
     """
     Loads GOES netCDF files containing 'avg1m_g13' in the filename,
     merges them, and creates sliding windows (lookback -> forecast).
     """
-
     def __init__(self,
                  data_dir,
                  lookback_len=72,      # default: 3 days
@@ -120,6 +123,66 @@ class GOESDataset(Dataset):
             self.indices.append(i)
 
         logging.info(f"Total sliding-window samples: {len(self.indices)}")
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        start = self.indices[idx]
+        end = start + self.lookback_len
+        x_seq = self.data[start:end]
+        y_seq = self.data[end:end + self.forecast_len]
+
+        x_tensor = torch.tensor(x_seq, dtype=torch.float32)
+        y_tensor = torch.tensor(y_seq, dtype=torch.float32)
+        return x_tensor, y_tensor
+
+#######################################################################
+# 2B) DATASET (Using the precombined Parquet file)
+#######################################################################
+class GOESParquetDataset(Dataset):
+    """
+    Loads the precombined Parquet file (created by data processing) that
+    contains minute-level 'flux' data. It then builds sliding-windows for
+    forecasting.
+    """
+    def __init__(self,
+                 parquet_file,
+                 lookback_len=72,      # default: 3 days
+                 forecast_len=24,      # default: 1 day
+                 train=True,
+                 train_split=0.8):
+        super().__init__()
+        # Read the parquet file
+        df = pd.read_parquet(parquet_file)
+        if 'time' not in df.columns or 'flux' not in df.columns:
+            raise ValueError("Parquet file must contain 'time' and 'flux' columns.")
+        df['time'] = pd.to_datetime(df['time'])
+        df.sort_values('time', inplace=True)
+        
+        # Assuming the parquet file is continuous minute data with no gaps because
+        # the processing ensured that for each minute some satellite data was used.
+        self.data = df['flux'].values.astype(np.float32)
+        # Optional: apply pre-processing (e.g., log-transform)
+        self.data = np.log1p(self.data)
+
+        # Save lengths in number of time-steps (minutes)
+        self.lookback_len = lookback_len * 60  # lookback_len is given in hours here (72 h = 3 days)
+        self.forecast_len = forecast_len * 60  # forecast_len in hours (24 h = 1 day)
+        self.train = train
+
+        total_steps = len(self.data)
+        split_index = int(total_steps * train_split)
+        if train:
+            self.data = self.data[:split_index]
+            logging.info(f"[ParquetDataset] Training portion: {len(self.data)} samples")
+        else:
+            self.data = self.data[split_index:]
+            logging.info(f"[ParquetDataset] Validation/Testing portion: {len(self.data)} samples")
+
+        max_start = len(self.data) - self.lookback_len - self.forecast_len
+        self.indices = list(range(max_start + 1 if max_start >= 0 else 0))
+        logging.info(f"[ParquetDataset] Total sliding-window samples: {len(self.indices)}")
 
     def __len__(self):
         return len(self.indices)
@@ -293,38 +356,62 @@ class Informer(nn.Module):
 #######################################################################
 # 4) TRAINING
 #######################################################################
-def train_informer(data_dir,
+def train_informer(data_source,
                    lookback_len=72,     # 3 days
                    forecast_len=24,     # 1 day
                    epochs=5,
                    batch_size=16,
                    lr=1e-4,
                    device=None,
+                   parquet_file=None,
+                   data_dir=None,
                    max_files=None,
                    model_save_path="informer-72h-1d.pth"):
+    """
+    If a parquet_file is provided, load from the precombined Parquet.
+    Otherwise, fall back to loading from netCDF files under data_dir.
+    """
     if device is None:
         device = select_device()
     logging.info(f"Using device: {device}")
 
     # Prepare datasets
-    train_dataset = GOESDataset(
-        data_dir=data_dir,
-        lookback_len=lookback_len,
-        forecast_len=forecast_len,
-        step_per_hour=60,
-        train=True,
-        train_split=0.8,
-        max_files=max_files
-    )
-    test_dataset = GOESDataset(
-        data_dir=data_dir,
-        lookback_len=lookback_len,
-        forecast_len=forecast_len,
-        step_per_hour=60,
-        train=False,
-        train_split=0.8,
-        max_files=max_files
-    )
+    if parquet_file is not None:
+        logging.info(f"Using Parquet file: {parquet_file}")
+        train_dataset = GOESParquetDataset(
+            parquet_file=parquet_file,
+            lookback_len=lookback_len,
+            forecast_len=forecast_len,
+            train=True,
+            train_split=0.8
+        )
+        test_dataset = GOESParquetDataset(
+            parquet_file=parquet_file,
+            lookback_len=lookback_len,
+            forecast_len=forecast_len,
+            train=False,
+            train_split=0.8
+        )
+    else:
+        logging.info(f"Loading netCDF files from: {data_dir}")
+        train_dataset = GOESDataset(
+            data_dir=data_dir,
+            lookback_len=lookback_len,
+            forecast_len=forecast_len,
+            step_per_hour=60,
+            train=True,
+            train_split=0.8,
+            max_files=max_files
+        )
+        test_dataset = GOESDataset(
+            data_dir=data_dir,
+            lookback_len=lookback_len,
+            forecast_len=forecast_len,
+            step_per_hour=60,
+            train=False,
+            train_split=0.8,
+            max_files=max_files
+        )
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
@@ -344,35 +431,34 @@ def train_informer(data_dir,
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
-    # Training loop
     for epoch in range(1, epochs + 1):
         model.train()
         total_loss = 0.0
 
-        for x, y in train_loader:
-            x, y = x.to(device), y.to(device)
-            future_dummy = torch.zeros_like(y).to(device)
-            pred = model(x, future_dummy)
-            loss = criterion(pred, y)
+        with tqdm(train_loader, desc=f"Epoch {epoch}/{epochs}", unit="batch") as tepoch:
+            for batch_idx, (x, y) in enumerate(tepoch):
+                x, y = x.to(device), y.to(device)
+                future_dummy = torch.zeros_like(y).to(device)
+                pred = model(x, future_dummy)
+                loss = criterion(pred, y)
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            total_loss += loss.item()
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                total_loss += loss.item()
+                tepoch.set_postfix(loss=loss.item())
 
         avg_loss = total_loss / max(len(train_loader), 1)
         logging.info(f"Epoch [{epoch}/{epochs}] - Train Loss: {avg_loss:.6f}")
 
-        # Log how many days were in the training set
-        train_hours = len(train_dataset.data)
-        train_days = train_hours / (24.0 * 60)
+        train_minutes = len(train_dataset.data)
+        train_days = train_minutes / (24.0 * 60)
         logging.info(f"Trained so far on ~{train_days:.2f} days of data")
 
-        # Evaluate on test set
         test_mse = evaluate_informer(model, test_loader, device=device, criterion=criterion)
         logging.info(f"Test MSE after epoch {epoch}: {test_mse:.6f}")
 
-    # Save model
     torch.save(model.state_dict(), model_save_path)
     logging.info(f"Model weights saved to {model_save_path}")
 
@@ -403,16 +489,32 @@ if __name__ == "__main__":
         datefmt="%H:%M:%S"
     )
 
-    data_folder = "/Users/antanaszilinskas/Desktop/Imperial College London/D2P/Coursework/masters-project/data/GOES/data/avg1m_2010_to_2024"
+    # To use the combined Parquet file (make sure it has been created already):
+    parquet_path = "/Users/antanaszilinskas/Desktop/Imperial College London/D2P/Coursework/masters-project/models/goes_avg1m_combined.parquet"
     dev = select_device()
     train_informer(
-        data_dir=data_folder,
-        lookback_len=72,       # 3 days
-        forecast_len=24,       # 1 day
+        data_source="parquet",
+        parquet_file=parquet_path,
+        lookback_len=72,       # 3 days (in hours)
+        forecast_len=24,       # 1 day (in hours)
         epochs=2,
         batch_size=16,
         lr=1e-4,
         device=dev,
-        max_files=None,
         model_save_path="informer-72h-1d.pth"
-    ) 
+    )
+
+    # Alternatively, to fall back to netCDF files:
+    # data_folder = "/path/to/avg1m/data"
+    # train_informer(
+    #     data_source="netcdf",
+    #     data_dir=data_folder,
+    #     lookback_len=72,
+    #     forecast_len=24,
+    #     epochs=2,
+    #     batch_size=16,
+    #     lr=1e-4,
+    #     device=dev,
+    #     max_files=None,
+    #     model_save_path="informer-72h-1d.pth"
+    # ) 
