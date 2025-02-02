@@ -54,8 +54,8 @@ def main(args):
         "enc_layers": 3,
         "dec_layers": 2,
         "dropout": 0.1,
-        "lookback_len": 24,   # 24 hours of context
-        "forecast_len": 12    # 12 hours forecast
+        "lookback_len": 72,   # 72 hours of context
+        "forecast_len": 2     # 2 hours forecast
     }
     
     if args.model_archive is not None:
@@ -86,12 +86,29 @@ def main(args):
     x, y_true = get_sample(dataset, sample_index=args.sample_index)
     # x and y_true are torch tensors of shape [context] and [forecast] respectively.
     x = x.unsqueeze(0).to(device)  # shape: [1, lookback_len]
-    # For inference, we will use a dummy (zeros) forecast input.
-    tgt_dummy = torch.zeros(1, y_true.shape[0]).to(device)
     
-    with torch.no_grad():
-        y_pred = model(x, tgt_dummy)
-    # y_pred is [1, forecast_len]
+    # Autoregressive decoding: gradually build the decoder input and predict one step at a time.
+    forecast_steps = y_true.shape[0]
+    predictions = []
+    
+    # Initialize decoder input with the last observed value from the context.
+    dec_input = x[:, -1:]  # shape: [1, 1]
+    
+    for t in range(forecast_steps):
+         current_length = dec_input.shape[1]
+         # Create a target sequence of length `forecast_steps`, filling in the known steps.
+         dummy = torch.zeros(1, forecast_steps, device=device)
+         dummy[:, :current_length] = dec_input
+         
+         with torch.no_grad():
+              pred_full = model(x, dummy)  # shape: [1, forecast_steps]
+         # Select the prediction corresponding to the next time step.
+         pred_next = pred_full[:, current_length:current_length+1]
+         predictions.append(pred_next)
+         # Append the new prediction so it becomes part of the decoder input.
+         dec_input = torch.cat([dec_input, pred_next], dim=1)
+    
+    y_pred = torch.cat(predictions, dim=1)
     y_pred = y_pred.squeeze(0).cpu().numpy()
     y_true = y_true.cpu().numpy()
     x = x.squeeze(0).cpu().numpy()

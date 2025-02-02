@@ -390,72 +390,57 @@ class Informer(nn.Module):
                  lookback_len=72,
                  forecast_len=24):
         super().__init__()
-        # If using the MPS device, disable dropout to avoid numerical issues
         if torch.backends.mps.is_available():
             dropout = 0.0
         self.lookback_len = lookback_len
         self.forecast_len = forecast_len
 
-        # In univariate, c_in=1
         self.token_embedding = TokenEmbedding(c_in=1, d_model=d_model)
         self.pos_embedding = PositionalEmbedding(d_model=d_model)
 
         self.encoder = InformerEncoder(d_model, n_heads, d_ff, enc_layers, dropout)
         self.decoder = InformerDecoder(d_model, n_heads, d_ff, dec_layers, dropout)
-
+        
+        # Bridging layer to transform the encoder's last output for the decoder.
+        self.bridge = nn.Linear(d_model, d_model)
+        
         self.proj = nn.Linear(d_model, 1)
 
     def forward(self, src, tgt, use_causal_mask=True, tgt_mask=None):
-        """
-        src: [batch_size, lookback_len]
-        tgt: [batch_size, forecast_len]
-        
-        If use_causal_mask=True, we apply a causal mask in the decoder self-attn 
-        to prevent attending to future positions in the forecast sequence.
-        """
         batch_size, src_len = src.shape
         _, tgt_len = tgt.shape
 
-        # ------------------------------------------------------
-        # 1) Encoder
-        # ------------------------------------------------------
-        # [batch_size, 1, src_len]
-        enc_in = src.unsqueeze(1)
+        # Encoder: embed and add positional encoding.
+        enc_in = src.unsqueeze(1)  # [batch_size, 1, src_len]
         enc_in = self.token_embedding(enc_in)  # [batch_size, d_model, src_len]
-        enc_in = enc_in.permute(2, 0, 1)       # [src_len, batch_size, d_model]
+        enc_in = enc_in.permute(2, 0, 1)  # [src_len, batch_size, d_model]
 
-        # apply positional embedding (requires shape [batch_size, seq_len, d_model])
-        enc_in_pe = enc_in.permute(1, 0, 2)    # [batch_size, src_len, d_model]
+        enc_in_pe = enc_in.permute(1, 0, 2)  # [batch_size, src_len, d_model]
         enc_in_pe = enc_in_pe + self.pos_embedding(enc_in_pe)
-        enc_in = enc_in_pe.permute(1, 0, 2)    # back to [src_len, batch_size, d_model]
+        enc_in = enc_in_pe.permute(1, 0, 2)  # [src_len, batch_size, d_model]
 
-        enc_out = self.encoder(enc_in)         # [src_len, batch_size, d_model]
+        enc_out = self.encoder(enc_in)  # [src_len, batch_size, d_model]
+        # Bridge: transform the final encoder output (last time step) 
+        # to serve as an initializer for the decoder.
+        bridge_out = self.bridge(enc_out[-1]).unsqueeze(0)  # [1, batch_size, d_model]
 
-        # ------------------------------------------------------
-        # 2) Decoder
-        # ------------------------------------------------------
-        # Example: teacher-forcing approach => pass ground truth
-        # (Alternatively, if you prefer the "dummy zeros" method, do that instead)
-        dec_in = tgt.unsqueeze(1)             # [batch_size, 1, tgt_len]
-        dec_in = self.token_embedding(dec_in) # -> [batch_size, d_model, tgt_len]
-        dec_in = dec_in.permute(2, 0, 1)      # -> [tgt_len, batch_size, d_model]
+        # Decoder: embed target sequence and add positional encoding.
+        dec_in = tgt.unsqueeze(1)  # [batch_size, 1, tgt_len]
+        dec_in = self.token_embedding(dec_in)  # [batch_size, d_model, tgt_len]
+        dec_in = dec_in.permute(2, 0, 1)  # [tgt_len, batch_size, d_model]
 
-        dec_in_pe = dec_in.permute(1, 0, 2)   # [batch_size, tgt_len, d_model]
+        dec_in_pe = dec_in.permute(1, 0, 2)  # [batch_size, tgt_len, d_model]
         dec_in_pe = dec_in_pe + self.pos_embedding(dec_in_pe)
-        dec_in = dec_in_pe.permute(1, 0, 2)   # back to [tgt_len, batch_size, d_model]
+        dec_in = dec_in_pe.permute(1, 0, 2)  # [tgt_len, batch_size, d_model]
+        # Add the bridged encoder summary to the decoder input
+        dec_in = dec_in + bridge_out
 
-        # Optionally create a causal mask so the decoder cannot see future steps
         if use_causal_mask and tgt_mask is None:
             tgt_mask = generate_square_subsequent_mask(tgt_len).to(src.device)
 
-        dec_out = self.decoder(dec_in, enc_out, tgt_mask=tgt_mask)  # [tgt_len, batch_size, d_model]
+        dec_out = self.decoder(dec_in, enc_out, tgt_mask=tgt_mask)
 
-        # ------------------------------------------------------
-        # 3) Projection to univariate
-        # ------------------------------------------------------
-        # shape: [tgt_len, batch_size, 1]
         dec_out = self.proj(dec_out)
-        # final shape: [batch_size, tgt_len]
         dec_out = dec_out.permute(1, 0, 2).squeeze(-1)
 
         return dec_out
@@ -600,21 +585,38 @@ def train_informer(data_source,
 
         # Use tqdm progress bar for training
         with tqdm(train_loader, desc=f"Epoch {epoch}/{epochs}", unit="batch") as tepoch:
+            # Determine teacher forcing ratio (e.g. decaying over epochs)
+            teacher_forcing_ratio = max(0.0, 1.0 - (epoch / epochs))  # For illustration
             for batch_idx, (x, y) in enumerate(tepoch):
                 x, y = x.to(device), y.to(device)
-
-                # Dummy future input (the standard approach in this example code)
-                future_dummy = torch.zeros_like(y).to(device)
-
-                # Forward pass
-                pred = model(x, future_dummy)
+                
+                # Scheduled sampling: decide whether to use teacher forcing.
+                if torch.rand(1).item() < teacher_forcing_ratio:
+                     # Teacher forcing mode: use ground truth forecast as decoder input.
+                     dec_input = y
+                else:
+                     # Autoregressive mode: start with the last observed value and construct forecast iteratively.
+                     forecast_steps = y.shape[1]
+                     dec_input = x[:, -1:].clone()  # initialize with last observed value; shape: [batch_size, 1]
+                     for t in range(forecast_steps):
+                          current_length = dec_input.shape[1]
+                          batch_size = x.size(0)
+                          dummy = torch.zeros(batch_size, forecast_steps, device=device)
+                          dummy[:, :current_length] = dec_input
+                          with torch.no_grad():
+                               pred_full = model(x, dummy)
+                          pred_next = pred_full[:, current_length:current_length+1]
+                          dec_input = torch.cat([dec_input, pred_next], dim=1)
+                
+                # Forward pass with the chosen decoder input.
+                pred = model(x, dec_input)
                 loss = criterion(pred, y)
-
+                
                 optimizer.zero_grad()
                 loss.backward()
                 utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
-
+                
                 total_loss += loss.item()
                 tepoch.set_postfix(loss=loss.item())
 
@@ -727,12 +729,12 @@ if __name__ == "__main__":
     parquet_path = "/Users/antanaszilinskas/Desktop/Imperial College London/D2P/Coursework/masters-project/models/goes_avg1m_combined.parquet"
     dev = select_device()
 
-    # Try smaller lookback/forecast and fewer samples
+    # Use longer context (72 hours) to predict a shorter future (2 hours)
     train_informer(
         data_source="parquet",
         parquet_file=parquet_path,
-        lookback_len=24,
-        forecast_len=12,
+        lookback_len=72,    # 72 hours of context
+        forecast_len=2,     # 2 hours forecast
         epochs=10,
         batch_size=16,
         lr=1e-6,
