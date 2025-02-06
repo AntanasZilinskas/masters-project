@@ -396,6 +396,10 @@ class Informer(nn.Module):
         self.forecast_len = forecast_len
 
         self.token_embedding = TokenEmbedding(c_in=1, d_model=d_model)
+        self.downsample = nn.Conv1d(in_channels=d_model,
+                                    out_channels=d_model,
+                                    kernel_size=4,
+                                    stride=4)
         self.pos_embedding = PositionalEmbedding(d_model=d_model)
 
         self.encoder = InformerEncoder(d_model, n_heads, d_ff, enc_layers, dropout)
@@ -410,16 +414,17 @@ class Informer(nn.Module):
         batch_size, src_len = src.shape
         _, tgt_len = tgt.shape
 
-        # Encoder: embed and add positional encoding.
+        # Encoder: embed, downsample, and add positional encoding.
         enc_in = src.unsqueeze(1)  # [batch_size, 1, src_len]
         enc_in = self.token_embedding(enc_in)  # [batch_size, d_model, src_len]
-        enc_in = enc_in.permute(2, 0, 1)  # [src_len, batch_size, d_model]
+        enc_in = self.downsample(enc_in)  # [batch_size, d_model, new_src_len]
+        enc_in = enc_in.permute(2, 0, 1)  # [new_src_len, batch_size, d_model]
 
-        enc_in_pe = enc_in.permute(1, 0, 2)  # [batch_size, src_len, d_model]
+        enc_in_pe = enc_in.permute(1, 0, 2)  # [batch_size, new_src_len, d_model]
         enc_in_pe = enc_in_pe + self.pos_embedding(enc_in_pe)
-        enc_in = enc_in_pe.permute(1, 0, 2)  # [src_len, batch_size, d_model]
+        enc_in = enc_in_pe.permute(1, 0, 2)  # [new_src_len, batch_size, d_model]
 
-        enc_out = self.encoder(enc_in)  # [src_len, batch_size, d_model]
+        enc_out = self.encoder(enc_in)  # [new_src_len, batch_size, d_model]
         # Bridge: transform the final encoder output (last time step) 
         # to serve as an initializer for the decoder.
         bridge_out = self.bridge(enc_out[-1]).unsqueeze(0)  # [1, batch_size, d_model]
@@ -533,8 +538,20 @@ def train_informer(data_source,
     logging.info(f"Final train samples: {len(train_dataset.indices)}")
     logging.info(f"Final validation samples: {len(val_dataset.indices)}")
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        pin_memory=True,      # Enables faster CPU->GPU transfer
+        num_workers=4         # Parallel data loading (adjust number based on your CPU)
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        pin_memory=True,
+        num_workers=4
+    )
 
     # After you create train_dataset (and before DataLoader), do something like:
     all_x = []
@@ -548,6 +565,10 @@ def train_informer(data_source,
     print("Max value in training samples:", np.max(all_x))
     print("Any NaN in training samples?", np.isnan(all_x).any(), np.isnan(all_x).sum())
     print("Any Inf in training samples?", np.isinf(all_x).any())
+    # Save normalization parameters for deployment.
+    train_mean = np.nanmean(all_x)
+    train_std = np.nanstd(all_x)
+    np.save("scaling_params.npy", {"mean": train_mean, "std": train_std})
 
     # --------------------------------------------------------------------------
     # 2) Build the model
@@ -564,7 +585,7 @@ def train_informer(data_source,
     ).to(device)
 
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=1e-6)
+    optimizer = optim.RMSprop(model.parameters(), lr=1e-4, alpha=0.9)
 
     # --------------------------------------------------------------------------
     # 3) Training Setup (Early Stopping + Checkpoints)
@@ -585,30 +606,40 @@ def train_informer(data_source,
 
         # Use tqdm progress bar for training
         with tqdm(train_loader, desc=f"Epoch {epoch}/{epochs}", unit="batch") as tepoch:
-            # Determine teacher forcing ratio (e.g. decaying over epochs)
-            teacher_forcing_ratio = max(0.0, 1.0 - (epoch / epochs))  # For illustration
             for batch_idx, (x, y) in enumerate(tepoch):
+                # Move batch data to device.
                 x, y = x.to(device), y.to(device)
+                batch_size = x.size(0)
                 
-                # Scheduled sampling: decide whether to use teacher forcing.
-                if torch.rand(1).item() < teacher_forcing_ratio:
-                     # Teacher forcing mode: use ground truth forecast as decoder input.
+                # Determine the current teacher forcing ratio.
+                # For example, start with ratio=1.0 and decay linearly to 0.0 over all epochs.
+                teacher_forcing_ratio = np.exp(-epoch / (epochs / 5))  # Adjust the decay constant as needed
+                
+                # Use teacher forcing or autoregressive decoding based on a random draw.
+                if torch.rand(batch_size).mean().item() < teacher_forcing_ratio:
+                     # Teacher Forcing Mode: use the ground truth forecast as decoder input.
                      dec_input = y
                 else:
-                     # Autoregressive mode: start with the last observed value and construct forecast iteratively.
+                     # Autoregressive Mode: initialize decoder input with the last observed value.
                      forecast_steps = y.shape[1]
-                     dec_input = x[:, -1:].clone()  # initialize with last observed value; shape: [batch_size, 1]
-                     for t in range(forecast_steps):
+                     dec_input = x[:, -1:].clone()   # shape: [batch_size, 1]
+                     # Define a temperature parameter to control sampling randomness.
+                     temperature = 0.7
+                     # Iterate forecast_steps - 1 times so that final sequence length equals forecast_steps.
+                     for t in range(forecast_steps - 1):
                           current_length = dec_input.shape[1]
-                          batch_size = x.size(0)
-                          dummy = torch.zeros(batch_size, forecast_steps, device=device)
+                          # Create a dummy sequence with length (current_length + 1).
+                          dummy = torch.zeros(batch_size, current_length + 1, device=device)
                           dummy[:, :current_length] = dec_input
                           with torch.no_grad():
-                               pred_full = model(x, dummy)
-                          pred_next = pred_full[:, current_length:current_length+1]
+                               pred_full = model(x, dummy)  # shape: [batch_size, current_length+1]
+                          pred_next = pred_full[:, -1].unsqueeze(1)  # shape: [batch_size, 1]
+                          # Add Gaussian noise scaled by temperature as a soft sampling mechanism.
+                          noise = torch.randn_like(pred_next) * temperature
+                          pred_next = pred_next + noise
                           dec_input = torch.cat([dec_input, pred_next], dim=1)
                 
-                # Forward pass with the chosen decoder input.
+                # Run the forward pass to compute the batch prediction.
                 pred = model(x, dec_input)
                 loss = criterion(pred, y)
                 
@@ -715,6 +746,62 @@ def evaluate_informer(model, data_loader, device="cpu", criterion=None):
     mse_avg = mse_sum / max(count, 1)
     return mse_avg
 
+def pretrain_informer(data_source,
+                      lookback_len=72,
+                      forecast_len=24,
+                      epochs=5,
+                      batch_size=16,
+                      lr=1e-4,
+                      device=None,
+                      parquet_file=None):
+    """
+    Pretrain the model using a self-supervised masked prediction task.
+    Random segments of the input time series are masked and the model
+    is trained to reconstruct those masked parts.
+    """
+    # (Pseudo-code below; implement according to your data pipeline.)
+    # 1. Load your dataset (using GOESParquetDataset, for example) without split.
+    # 2. For each batch, randomly mask a percentage of the input values.
+    # 3. The target becomes the original values at the masked locations.
+    # 4. Use an MSE loss between the reconstruction and the original.
+    # 5. Pretrain the encoder (and possibly the decoder) using this task.
+    #
+    # This pretraining phase can help the model learn general time-series features.
+    #
+    # Example (pseudocode):
+    dataset = GOESParquetDataset(parquet_file=parquet_file,
+                                 lookback_len=lookback_len,
+                                 forecast_len=forecast_len,
+                                 train=True,
+                                 train_split=1.0)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    model = Informer(
+        d_model=128, n_heads=8, d_ff=256, enc_layers=3,
+        dec_layers=2, dropout=0.1,
+        lookback_len=lookback_len, forecast_len=forecast_len
+    ).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    criterion = nn.MSELoss()
+    for epoch in range(epochs):
+        model.train()
+        for x, _ in dataloader:
+            x = x.to(device)
+            # Create a masked version of x; here we randomly zero out 20% of the entries.
+            mask = (torch.rand_like(x) > 0.2).float()
+            x_masked = x * mask
+            # Target: predict the original x where mask==0.
+            target = x
+            # Use the model to reconstruct the full sequence.
+            # You might use x_masked for both encoder and a dummy decoder input.
+            dummy = torch.zeros(x.shape, device=device)
+            output = model(x_masked, dummy)
+            loss = criterion(output, target)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        print(f"Pretraining Epoch {epoch}: Loss {loss.item()}")
+    return model
+
 #######################################################################
 # MAIN (OPTIONAL)
 #######################################################################
@@ -726,7 +813,8 @@ if __name__ == "__main__":
     )
 
     # To use the combined Parquet file (make sure it has been created already):
-    parquet_path = "/Users/antanaszilinskas/Desktop/Imperial College London/D2P/Coursework/masters-project/models/goes_avg1m_combined.parquet"
+    # parquet_path = "/Users/antanaszilinskas/Desktop/Imperial College London/D2P/Coursework/masters-project/models/goes_avg1m_combined.parquet"
+    parquet_path = "/Users/antanaszilinskas/Desktop/Imperial College London/D2P/Coursework/masters-project/models/synthetic_flux_data.parquet"
     dev = select_device()
 
     # Use longer context (72 hours) to predict a shorter future (2 hours)
@@ -757,4 +845,8 @@ if __name__ == "__main__":
     #     device=dev,
     #     max_files=None,
     #     model_save_path="informer-72h-1d.pth"
-    # ) 
+    # )
+
+    # Optionally, script and save the model for faster deployment.
+    scripted_model = torch.jit.script(model)
+    torch.jit.save(scripted_model, "informer_scripted.pth") 
