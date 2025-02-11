@@ -457,7 +457,7 @@ def train_informer(data_source,
                    lookback_len=24,     # For example, 24 hours
                    forecast_len=12,     # For example, 12 hours
                    epochs=10,
-                   batch_size=16,
+                   batch_size=8,
                    lr=1e-6,
                    device=None,
                    parquet_file=None,
@@ -750,7 +750,7 @@ def pretrain_informer(data_source,
                       lookback_len=72,
                       forecast_len=24,
                       epochs=5,
-                      batch_size=16,
+                      batch_size=8,
                       lr=1e-4,
                       device=None,
                       parquet_file=None):
@@ -814,7 +814,7 @@ if __name__ == "__main__":
 
     # To use the combined Parquet file (make sure it has been created already):
     # parquet_path = "/Users/antanaszilinskas/Desktop/Imperial College London/D2P/Coursework/masters-project/models/goes_avg1m_combined.parquet"
-    parquet_path = "/Users/antanaszilinskas/Desktop/Imperial College London/D2P/Coursework/masters-project/models/synthetic_flux_data.parquet"
+    parquet_path = "/Users/antanaszilinskas/Documents/GitHub/masters-project/models/synthetic_flux_data.parquet"
     dev = select_device()
 
     # Use longer context (72 hours) to predict a shorter future (2 hours)
@@ -824,7 +824,7 @@ if __name__ == "__main__":
         lookback_len=72,    # 72 hours of context
         forecast_len=2,     # 2 hours forecast
         epochs=10,
-        batch_size=16,
+        batch_size=8,
         lr=1e-6,
         device=dev,
         model_save_path="informer-archive.pth",
