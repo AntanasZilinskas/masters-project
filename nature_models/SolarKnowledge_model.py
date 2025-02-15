@@ -14,7 +14,8 @@
  software for any purpose.  It is provided "as is" without
  express or implied warranty.
 
- @author: Yasser Abduallah
+ Alternative transformer-based model with improved capacity for time-series classification.
+ @author: Yasser Abduallah (modified)
 '''
 
 import warnings
@@ -23,18 +24,23 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import tensorflow as tf
+# Set up mixed precision (for improved performance on MPS/M2)
+tf.keras.mixed_precision.set_global_policy('mixed_float16')
+print("Mixed precision enabled. Current policy:", tf.keras.mixed_precision.global_policy())
+
 from tensorflow.keras import layers, models, regularizers
 from tensorflow.keras.callbacks import EarlyStopping
 import numpy as np
 import shutil
 
-if tf.test.gpu_device_name() != '/device:GPU:0':
-    print('WARNING: GPU device not found.')
+# Set GPU memory growth (this works for both GPU/MPS on Apple Silicon)
+physical_devices = tf.config.list_physical_devices('GPU')
+if physical_devices:
+    for device in physical_devices:
+        tf.config.experimental.set_memory_growth(device, enable=True)
+    print(f"SUCCESS: Found and set memory growth for {len(physical_devices)} GPU device(s).")
 else:
-    print('SUCCESS: Found GPU: {}'.format(tf.test.gpu_device_name()))
-    physical_devices = tf.config.list_physical_devices('GPU')
-    if len(physical_devices) > 0:
-        tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
+    print("WARNING: GPU device not found.")
 
 # -----------------------------
 # Positional Encoding Layer
@@ -42,6 +48,7 @@ else:
 class PositionalEncoding(layers.Layer):
     def __init__(self, max_len, embed_dim):
         super(PositionalEncoding, self).__init__()
+        # Precompute positional encoding (in float32) and cast later in call().
         self.pos_encoding = self.positional_encoding(max_len, embed_dim)
 
     def get_angles(self, pos, i, d_model):
@@ -61,17 +68,21 @@ class PositionalEncoding(layers.Layer):
 
     def call(self, inputs):
         seq_len = tf.shape(inputs)[1]
-        return inputs + self.pos_encoding[:, :seq_len, :]
+        # Cast the positional encoding to the same dtype as inputs (for mixed precision)
+        pos_encoding = tf.cast(self.pos_encoding[:, :seq_len, :], dtype=inputs.dtype)
+        return inputs + pos_encoding
 
 # -----------------------------
-# Transformer Block
+# Improved Transformer Block
 # -----------------------------
 class TransformerBlock(layers.Layer):
-    def __init__(self, embed_dim, num_heads, ff_dim, dropout_rate=0.1):
+    def __init__(self, embed_dim, num_heads, ff_dim, dropout_rate=0.2):
         super(TransformerBlock, self).__init__()
         self.att = layers.MultiHeadAttention(num_heads=num_heads, key_dim=embed_dim)
+        # Use GELU activation in the feed-forward network for smoother nonlinearities.
         self.ffn = models.Sequential([
-            layers.Dense(ff_dim, activation="relu"),
+            layers.Dense(ff_dim, activation=tf.keras.activations.gelu),
+            layers.Dropout(dropout_rate),
             layers.Dense(embed_dim)
         ])
         self.layernorm1 = layers.LayerNormalization(epsilon=1e-6)
@@ -88,7 +99,7 @@ class TransformerBlock(layers.Layer):
         return self.layernorm2(out1 + ffn_output)
 
 # -----------------------------
-# SolarKnowledge Model Class
+# Improved SolarKnowledge Model Class
 # -----------------------------
 class SolarKnowledge:
     model = None
@@ -101,11 +112,11 @@ class SolarKnowledge:
         self.callbacks = [EarlyStopping(monitor='loss', patience=early_stopping_patience, restore_best_weights=True)]
 
     def build_base_model(self, input_shape, 
-                         embed_dim=64, 
+                         embed_dim=128,        # Increased embedding dimension
                          num_heads=4, 
-                         ff_dim=128, 
-                         num_transformer_blocks=4,
-                         dropout_rate=0.1,
+                         ff_dim=256,           # Increased feed-forward dimension
+                         num_transformer_blocks=6,  # Use more transformer blocks
+                         dropout_rate=0.2,
                          num_classes=2):
         """
         Build a transformer-based model for time-series classification.
@@ -114,19 +125,22 @@ class SolarKnowledge:
         inputs = layers.Input(shape=input_shape)
         self.input_tensor = inputs
 
-        # Project input features to the embed_dim space
+        # Project the input features into a higher-dimensional embedding space.
         x = layers.Dense(embed_dim)(inputs)
-        # Add positional encoding to capture order information
+        x = layers.LayerNormalization(epsilon=1e-6)(x)
+        x = layers.Dropout(dropout_rate)(x)
+        
+        # Add positional encoding.
         x = PositionalEncoding(max_len=input_shape[0], embed_dim=embed_dim)(x)
 
-        # Apply a series of transformer blocks
+        # Apply several transformer blocks.
         for i in range(num_transformer_blocks):
             x = TransformerBlock(embed_dim, num_heads, ff_dim, dropout_rate)(x)
 
-        # Global pooling to collapse the sequence dimension
+        # Global average pooling and a dense classification head.
         x = layers.GlobalAveragePooling1D()(x)
         x = layers.Dropout(dropout_rate)(x)
-        x = layers.Dense(64, activation='relu',
+        x = layers.Dense(128, activation=tf.keras.activations.gelu,
                          kernel_regularizer=regularizers.l1_l2(l1=1e-5, l2=1e-4))(x)
         x = layers.Dropout(dropout_rate)(x)
         outputs = layers.Dense(num_classes, activation='softmax',
@@ -195,7 +209,10 @@ class SolarKnowledge:
         if self.model is None:
             print("You must build the model first before loading weights.")
             exit()
-        self.model.load_weights(os.path.join(weight_dir, 'model_weights')).expect_partial()
+        filepath = os.path.join(weight_dir, 'model_weights.weights.h5')
+        status = self.model.load_weights(filepath)
+        if status is not None:
+            status.expect_partial()
 
     def load_model(self, input_shape, flare_class, w_dir=None, verbose=True):
         self.build_base_model(input_shape)
@@ -208,7 +225,7 @@ class SolarKnowledge:
 
 if __name__ == '__main__':
     # Example usage for debugging: build, compile, and show summary.
-    # Here, input_shape is (timesteps, features), e.g., (100, 14)
+    # For example, input_shape is (timesteps, features) e.g., (100, 14)
     example_input_shape = (100, 14)
     model_instance = SolarKnowledge(early_stopping_patience=3)
     model_instance.build_base_model(example_input_shape)

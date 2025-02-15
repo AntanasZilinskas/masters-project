@@ -24,3 +24,5 @@ master's writing/Master's Project Early Stage Gateway/main.pdf
 *.zip
 *.csv
 *.npy
+*.h5
+/nature_models/models/24/C/model_weights.weights.h5
