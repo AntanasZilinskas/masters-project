@@ -1,18 +1,5 @@
-#!/usr/bin/env python3
 '''
- (c) Copyright 2023
- All rights reserved
- Programs written by Yasser Abduallah
- Department of Computer Science
- New Jersey Institute of Technology
- University Heights, Newark, NJ 07102, USA
-
- This script tests the transformer-based SolarKnowledge model by loading pre-trained
- weights and evaluating on the test datasets for various time windows and flare classes.
- It prints the accuracy and classification report for every combination.
- Additionally, it computes key metrics and writes out a JSON file that stores these results
- for each time window so that they can be automatically integrated into the final report.
- @author: Yasser Abduallah
+ author: Antanas Zilinskas
 '''
 
 import warnings

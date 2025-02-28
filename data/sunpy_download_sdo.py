@@ -10,38 +10,76 @@ easier to start with, but vector data theoretically holds more complete magnetic
 """
 
 from sunpy.net import Fido, attrs as a
+import datetime
+import astropy.units as u
 
-def download_hmi_data():
-    # 1) Choose the time range you're interested in. This example is short to limit data volume.
-    #    Increase it if you want more data.
-    start_time = "2022-01-01 00:00" 
-    end_time   = "2022-01-01 01:30"  # 1-hour window
+def download_hmi_data(start_time=None, end_time=None, cadence=12*u.minute, product="hmi.M_45s"):
+    """
+    Download HMI data for a specific time range and cadence.
     
-    # 2) Specify which product to download by adjusting the attrs.
-    #    - a.Instrument.hmi: The SDO/HMI instrument.
-    #    - a.Physobs.los_magnetic_field: line-of-sight magnetograms
-    #      If you want vector magnetograms, you can use a.Physobs.vector_magnetic_field
-    #      or check the SunPy documentation for additional parameters.
+    Parameters:
+    -----------
+    start_time : str
+        Start time in format "YYYY-MM-DD HH:MM"
+    end_time : str
+        End time in format "YYYY-MM-DD HH:MM"
+    cadence : astropy.units.Quantity
+        Time cadence for data (e.g., 12*u.minute, 45*u.second)
+    product : str
+        HMI data product (e.g., "hmi.M_45s", "hmi.M_720s", "hmi.B_720s")
+    """
+    # 1) Use the provided time range or default to the example range
+    if start_time is None:
+        start_time = "2010-05-01 00:00"  # Matching first entry in your CSV
+    if end_time is None:
+        end_time = "2010-06-01 00:00"    # Matching last entry in your CSV
     
-    # For line-of-sight magnetograms:
-    product_physobs = a.Physobs.los_magnetic_field
+    # 2) Determine which product and physical observable to use
+    if "M_" in product:
+        # For line-of-sight magnetograms:
+        product_physobs = a.Physobs.los_magnetic_field
+    elif "B_" in product:
+        # For vector magnetograms:
+        product_physobs = a.Physobs.vector_magnetic_field
+    else:
+        raise ValueError(f"Unknown product type: {product}")
     
-    # For vector magnetograms:
-    # product_physobs = a.Physobs.vector_magnetic_field
-    
-    # 3) Perform the data search.
+    # 3) Perform the data search with specified cadence
     result = Fido.search(
         a.Time(start_time, end_time),
         a.Instrument.hmi,
-        product_physobs
+        product_physobs,
+        a.Sample(cadence)
     )
     
-    # 4) Download the files to a new folder named "sunpy/" in your current directory.
-    #    "{file}" preserves the original JSOC-style naming, e.g. hmi.M_720s.20220101...
-    files = Fido.fetch(result, path="SDO/data/hmi.m_45s/{file}")
+    print(f"Found {len(result)} files matching the search criteria")
     
-    print(f"Downloaded files to './sunpy' folder:\n{files}")
+    # 4) Download the files to a folder structure that includes the product name
+    output_dir = f"SDO/data/{product.lower()}"
+    files = Fido.fetch(result, path=f"{output_dir}/{{file}}")
+    
+    print(f"Downloaded {len(files)} files to '{output_dir}' folder")
+    return files
 
 
 if __name__ == "__main__":
-    download_hmi_data()
+    # Example: Download data matching the timestamps in your CSV file
+    # Using 12-minute cadence to match the SHARP parameter cadence
+    download_hmi_data(
+        start_time="2022-01-01 14:58", 
+        end_time="2022-01-02 10:46",
+        cadence=12*u.minute,
+        product="hmi.M_45s"  # Use 45-second line-of-sight data (can be changed to hmi.B_720s for vector)
+    )
+    
+    # Alternative: Download data for a specific HARP/SHARP region
+    # Uncomment and modify as needed
+    """
+    # The CSV shows HARP number 7890 and NOAA AR 12916
+    download_hmi_data(
+        start_time="2022-01-01 14:58", 
+        end_time="2022-01-02 10:46",
+        cadence=12*u.minute,
+        product="hmi.M_45s"
+    )
+    """
