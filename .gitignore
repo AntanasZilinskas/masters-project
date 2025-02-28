@@ -1,0 +1,28 @@
+*.pt
+*.fts
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.gz
+.DS_Store
+*.fits
+*.fit
+*.nc
+*.parquet
+*.pth
+*.pyc
+*.pdf
+main.pdf
+master's\ writing/Master's\ Project\ Early\ Stage\ Gateway/main.pdf
+master's writing/Master's Project Early Stage Gateway/main.pdf
+*.txt
+*.zip
+*.csv
+*.npy
+*.h5
+/nature_models/models/24/C/model_weights.weights.h5
