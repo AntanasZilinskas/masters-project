@@ -30,9 +30,9 @@ def download_hmi_data(start_time=None, end_time=None, cadence=12*u.minute, produ
     """
     # 1) Use the provided time range or default to the example range
     if start_time is None:
-        start_time = "2010-05-01 00:00"  # Matching first entry in your CSV
+        start_time = "2010-06-01 00:00"  # Matching first entry in your CSV
     if end_time is None:
-        end_time = "2010-06-01 00:00"    # Matching last entry in your CSV
+        end_time = "2010-12-01 00:00"    # Matching last entry in your CSV
     
     # 2) Determine which product and physical observable to use
     if "M_" in product:
@@ -66,8 +66,8 @@ if __name__ == "__main__":
     # Example: Download data matching the timestamps in your CSV file
     # Using 12-minute cadence to match the SHARP parameter cadence
     download_hmi_data(
-        start_time="2022-01-01 14:58", 
-        end_time="2022-01-02 10:46",
+        start_time="2010-05-01 00:00", 
+        end_time="2015-12-01 00:00",
         cadence=12*u.minute,
         product="hmi.M_45s"  # Use 45-second line-of-sight data (can be changed to hmi.B_720s for vector)
     )
