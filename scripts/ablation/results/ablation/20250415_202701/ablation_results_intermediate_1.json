@@ -1,0 +1,24 @@
+{
+  "config_name": "Full model",
+  "description": "(Conv1D + BN) + LSTM + 4 TEBs + heavy dropout",
+  "params": {
+    "name": "Full model",
+    "description": "(Conv1D + BN) + LSTM + 4 TEBs + heavy dropout",
+    "use_conv": true,
+    "use_lstm": true,
+    "teb_layers": 4,
+    "dropout_rate": 0.2,
+    "use_class_weighting": true
+  },
+  "folds": [
+    {
+      "fold": 1,
+      "train_metrics": {
+        "accuracy": 0.8929134659408862,
+        "precision": 0.2511801242236025,
+        "recall": 0.45808790212958767,
+        "f1": 0.32445442875481384,
+        "tss": 0.37686333533626026,
+        "hss": 0.2716377662380078,
+        "auc": 0.8502169035677558,
+        "tn": 
