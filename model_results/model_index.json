@@ -1,0 +1,10 @@
+{
+  "models": [
+    {
+      "name": "baseline_model",
+      "timestamp": "2025-04-15_14-16-36",
+      "description": "Initial baseline model with standard parameters",
+      "file": "baseline_model_2025-04-15_14-16-36.json"
+    }
+  ]
+}

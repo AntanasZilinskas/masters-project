@@ -1,0 +1,80 @@
+{
+  "models": [
+    {
+      "name": "enhanced_model",
+      "timestamp": "2025-04-15_14-19-56",
+      "description": "Model with additional magnetic features and CNN layers",
+      "results": {
+        "24": {
+          "C": {
+            "accuracy": 0.9871,
+            "precision": 0.989,
+            "recall": 0.9921,
+            "balanced_accuracy": 0.9843,
+            "TSS": 0.9687
+          },
+          "M": {
+            "accuracy": 0.9927,
+            "precision": 0.8694,
+            "recall": 0.8757,
+            "balanced_accuracy": 0.9359,
+            "TSS": 0.8719
+          },
+          "M5": {
+            "accuracy": 0.9995,
+            "precision": 0.8611,
+            "recall": 0.8942,
+            "balanced_accuracy": 0.947,
+            "TSS": 0.8939
+          }
+        },
+        "48": {
+          "C": {
+            "accuracy": 0.9894,
+            "precision": 0.9942,
+            "recall": 0.9898,
+            "balanced_accuracy": 0.9892,
+            "TSS": 0.9783
+          },
+          "M": {
+            "accuracy": 0.9948,
+            "precision": 0.9024,
+            "recall": 0.9166,
+            "balanced_accuracy": 0.9569,
+            "TSS": 0.9137
+          },
+          "M5": {
+            "accuracy": 0.9995,
+            "precision": 0.8304,
+            "recall": 0.8942,
+            "balanced_accuracy": 0.947,
+            "TSS": 0.8939
+          }
+        },
+        "72": {
+          "C": {
+            "accuracy": 0.9863,
+            "precision": 0.9898,
+            "recall": 0.9891,
+            "balanced_accuracy": 0.985,
+            "TSS": 0.97
+          },
+          "M": {
+            "accuracy": 0.9932,
+            "precision": 0.857,
+            "recall": 0.9254,
+            "balanced_accuracy": 0.9603,
+            "TSS": 0.9207
+          },
+          "M5": {
+            "accuracy": 0.9995,
+            "precision": 0.7787,
+            "recall": 0.9135,
+            "balanced_accuracy": 0.9565,
+            "TSS": 0.9131
+          }
+        }
+      }
+    }
+  ]
+}

@@ -7,6 +7,7 @@ warnings.filterwarnings("ignore")
 import os
 import numpy as np
 import json
+import argparse
 from sklearn.metrics import accuracy_score, classification_report, precision_score, recall_score, balanced_accuracy_score, confusion_matrix
 
 # Import utility functions and configuration from your project
@@ -19,8 +20,10 @@ from SolarKnowledge_model import SolarKnowledge
 #              "72": { ... } }
 all_metrics = {}
 
-def test_model(time_window, flare_class):
+def test_model(time_window, flare_class, timestamp=None):
     log("Testing initiated for time window: " + str(time_window) + " and flare class: " + flare_class, verbose=True)
+    if timestamp:
+        log(f"Using model with timestamp: {timestamp}", verbose=True)
     
     # Load the testing data using your project's utility function
     X_test, y_test = get_testing_data(time_window, flare_class)
@@ -39,8 +42,9 @@ def test_model(time_window, flare_class):
     model.build_base_model(input_shape)
     model.compile()
     
-    # Define the weights directory
-    weight_dir = os.path.join("models", str(time_window), flare_class)
+    # Use the weights directory structure
+    weight_dir = os.path.join("weights", str(time_window), flare_class)
+        
     if not os.path.exists(weight_dir):
         print(f"Warning: Model weights directory: {weight_dir} does not exist! Skipping test for time window {time_window} and flare class {flare_class}.")
         # Ensure we record placeholders for missing models.
@@ -57,7 +61,8 @@ def test_model(time_window, flare_class):
         return
 
     print("Loading weights from model dir:", weight_dir)
-    model.load_weights(flare_class=flare_class, w_dir=weight_dir, verbose=True)
+    # Pass the timestamp to load specific model version if requested
+    model.load_weights(flare_class=flare_class, w_dir=weight_dir, timestamp=timestamp, verbose=True)
     
     # Run predictions on test data
     predictions = model.predict(X_test)
@@ -81,30 +86,50 @@ def test_model(time_window, flare_class):
     print(classification_report(y_true, predicted_classes))
     print("==============================================\n\n")
     
-    # Store metrics for the given time window and flare class.
-    time_key = str(time_window)
-    if time_key not in all_metrics:
-        all_metrics[time_key] = {}
-    all_metrics[time_key][flare_class] = {
+    # Store metrics for the given time window and flare class
+    metrics_dict = {
         "accuracy": round(acc, 4),
         "precision": round(prec, 4),
         "recall": round(rec, 4),
         "balanced_accuracy": round(bal_acc, 4),
         "TSS": round(TSS, 4)
     }
+    
+    # Store in consolidated metrics for all models
+    time_key = str(time_window)
+    if time_key not in all_metrics:
+        all_metrics[time_key] = {}
+    all_metrics[time_key][flare_class] = metrics_dict
+    
+    # Update the model's metadata with the results
+    model.update_results(metrics_dict)
+    
+    return metrics_dict
 
 if __name__ == '__main__':
-    # Loop over the desired time windows and flare classes.
+    # Add command line argument for timestamp
+    parser = argparse.ArgumentParser(description="Test SolarKnowledge models for solar flare prediction")
+    parser.add_argument("--timestamp", "-t", help="Specific model timestamp to test")
+    args = parser.parse_args()
+    
+    # Loop over the desired time windows and flare classes
     for time_window in [24, 48, 72]:
         for flare_class in ['C', 'M', 'M5']:
             if flare_class not in supported_flare_class:
                 print("Unsupported flare class:", flare_class, "It must be one of:", ", ".join(supported_flare_class))
                 continue
-            test_model(str(time_window), flare_class)
+            test_model(str(time_window), flare_class, args.timestamp)
             log("===========================================================\n\n", verbose=True)
     
-    # Save the metrics for all time windows into a JSON file.
+    # Save the metrics for all time windows into a JSON file
     output_file = "this_work_results.json"
     with open(output_file, "w") as f:
         json.dump(all_metrics, f, indent=4)
-    print(f"Saved test metrics for 'This work' into {output_file}") 
+    print(f"Saved test metrics for 'This work' into {output_file}")
+    
+    # If a specific timestamp was tested, also save results to a timestamped file
+    if args.timestamp:
+        timestamped_output = f"results_{args.timestamp}.json"
+        with open(timestamped_output, "w") as f:
+            json.dump(all_metrics, f, indent=4)
+        print(f"Saved test metrics for timestamp {args.timestamp} into {timestamped_output}") 
