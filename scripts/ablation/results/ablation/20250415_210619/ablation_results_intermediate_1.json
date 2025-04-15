@@ -1,0 +1,50 @@
+{
+  "config_name": "Full model",
+  "description": "(Conv1D + BN) + LSTM + 4 TEBs + heavy dropout",
+  "params": {
+    "name": "Full model",
+    "description": "(Conv1D + BN) + LSTM + 4 TEBs + heavy dropout",
+    "use_conv": true,
+    "use_lstm": true,
+    "teb_layers": 4,
+    "dropout_rate": 0.2,
+    "use_class_weighting": true
+  },
+  "folds": [
+    {
+      "fold": 1,
+      "train_metrics": {
+        "accuracy": 0.7956198809584372,
+        "precision": 0.19902912621359223,
+        "recall": 0.87313094698686,
+        "f1": 0.32416519471780636,
+        "tss": 0.6641407295076782,
+        "hss": 0.25615271163084513,
+        "auc": 0.9136372778319263,
+        "tn": 29352,
+        "fp": 7755,
+        "fn": 280,
+        "tp": 1927
+      },
+      "val_metrics": {
+        "accuracy": 0.8006918302980974,
+        "precision": 0.19496587030716722,
+        "recall": 0.8638941398865785,
+        "f1": 0.31813435433344933,
+        "tss": 0.6609909140801269,
+        "hss": 0.2524870272313133,
+        "auc": 0.911310242494461,
+        "tn": 7413,
+        "fp": 1887,
+        "fn": 72,
+        "tp": 457
+      },
+      "overfitting_assessment": {
+        "train_loss": 0.7766293525695801,
+        "val_loss": 0.5396370649337768,
+        "loss_gap": 0.23699228763580327,
+        "train_acc": 0.73717759847641,
+        "val_acc": 0.8263913035392761,
+        "acc_gap": -0.08921370506286619,
+        "min_val_loss_epoch": 6,
+        "early_stopping_triggered": 

@@ -2,67 +2,45 @@
   {
     "config_name": "Full model",
     "description": "(Conv1D + BN) + LSTM + 4 TEBs + heavy dropout",
-    "tss": 0.872,
+    "tss": 0.40828294014930444,
     "use_conv": true,
     "use_lstm": true,
     "teb_layers": 4,
     "dropout_rate": 0.2,
     "use_class_weighting": true,
-    "timestamp": "20250415_182753"
+    "timestamp": "20250415_191516"
   },
   {
     "config_name": "No LSTM",
     "description": "only conv + BN, then TEBs",
-    "tss": 0.856,
+    "tss": 0.3716357918629185,
     "use_conv": true,
     "use_lstm": false,
     "teb_layers": 4,
     "dropout_rate": 0.2,
     "use_class_weighting": true,
-    "timestamp": "20250415_182753"
+    "timestamp": "20250415_191659"
   },
   {
     "config_name": "No conv",
     "description": "BN then LSTM",
-    "tss": 0.849,
+    "tss": 0.3445470454207793,
     "use_conv": false,
     "use_lstm": true,
     "teb_layers": 4,
     "dropout_rate": 0.2,
     "use_class_weighting": true,
-    "timestamp": "20250415_182753"
+    "timestamp": "20250415_192042"
   },
   {
     "config_name": "Reduced TEBs",
     "description": "2 layers instead of 4",
-    "tss": 0.838,
+    "tss": 0.28962646099594025,
     "use_conv": true,
     "use_lstm": true,
     "teb_layers": 2,
     "dropout_rate": 0.2,
     "use_class_weighting": true,
-    "timestamp": "20250415_182753"
-  },
-  {
-    "config_name": "No class weighting",
-    "description": "No class weights for imbalanced data",
-    "tss": 0.785,
-    "use_conv": true,
-    "use_lstm": true,
-    "teb_layers": 4,
-    "dropout_rate": 0.2,
-    "use_class_weighting": false,
-    "timestamp": "20250415_182753"
-  },
-  {
-    "config_name": "Light dropout",
-    "description": "dropout = 0.1 (lighter)",
-    "tss": 0.81,
-    "use_conv": true,
-    "use_lstm": true,
-    "teb_layers": 4,
-    "dropout_rate": 0.1,
-    "use_class_weighting": true,
-    "timestamp": "20250415_182753"
+    "timestamp": "20250415_192302"
   }
 ]
