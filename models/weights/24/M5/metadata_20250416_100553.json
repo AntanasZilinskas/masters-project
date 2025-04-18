@@ -1,0 +1,28 @@
+{
+  "timestamp": "20250416_100553",
+  "description": "SolarKnowledge model for M5-class flares with 24h prediction window",
+  "training": {
+    "optimizer": "Adam",
+    "learning_rate": 0.0001,
+    "loss": "categorical_crossentropy",
+    "metrics": [
+      "accuracy"
+    ],
+    "training_time_seconds": 2907.8293488025665,
+    "batch_size": 256,
+    "training_samples": 47879,
+    "actual_epochs": 46,
+    "final_loss": 0.012886552140116692,
+    "final_accuracy": 0.9976189732551575
+  },
+  "model_architecture": {
+    "num_transformer_blocks": 6,
+    "embed_dim": 128,
+    "num_heads": 4,
+    "ff_dim": 256,
+    "dropout_rate": 0.2,
+    "total_params": 1999746
+  },
+  "flare_class": "M5",
+  "time_window": "24"
+}

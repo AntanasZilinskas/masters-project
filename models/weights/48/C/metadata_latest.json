@@ -1,0 +1,36 @@
+{
+  "timestamp": "20250416_105426",
+  "description": "SolarKnowledge model for C-class flares with 48h prediction window",
+  "training": {
+    "optimizer": "Adam",
+    "learning_rate": 0.0001,
+    "loss": "categorical_crossentropy",
+    "metrics": [
+      "accuracy"
+    ],
+    "training_time_seconds": 8585.258197069168,
+    "batch_size": 256,
+    "training_samples": 54471,
+    "actual_epochs": 100,
+    "final_loss": 0.04546281695365906,
+    "final_accuracy": 0.9865065813064575
+  },
+  "model_architecture": {
+    "num_transformer_blocks": 6,
+    "embed_dim": 128,
+    "num_heads": 4,
+    "ff_dim": 256,
+    "dropout_rate": 0.2,
+    "total_params": 1999746
+  },
+  "flare_class": "C",
+  "time_window": "48",
+  "file_path": "weights/48/C/metadata_latest.json",
+  "results": {
+    "accuracy": 0.9936,
+    "precision": 0.9969,
+    "recall": 0.9935,
+    "balanced_accuracy": 0.9937,
+    "TSS": 0.9873
+  }
+}
