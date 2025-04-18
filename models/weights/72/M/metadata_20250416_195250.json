@@ -1,0 +1,28 @@
+{
+  "timestamp": "20250416_195250",
+  "description": "SolarKnowledge model for M-class flares with 72h prediction window",
+  "training": {
+    "optimizer": "Adam",
+    "learning_rate": 0.0001,
+    "loss": "categorical_crossentropy",
+    "metrics": [
+      "accuracy"
+    ],
+    "training_time_seconds": 8704.239825963974,
+    "batch_size": 256,
+    "training_samples": 73860,
+    "actual_epochs": 100,
+    "final_loss": 0.02210669033229351,
+    "final_accuracy": 0.9931627511978149
+  },
+  "model_architecture": {
+    "num_transformer_blocks": 6,
+    "embed_dim": 128,
+    "num_heads": 4,
+    "ff_dim": 256,
+    "dropout_rate": 0.2,
+    "total_params": 1999746
+  },
+  "flare_class": "M",
+  "time_window": "72"
+}
