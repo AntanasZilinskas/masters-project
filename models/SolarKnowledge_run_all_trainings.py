@@ -1,6 +1,5 @@
 '''
  author: Antanas Zilinskas
- Based on work by Yasser Abduallah
  
  This script runs all training processes for flare class: C, M, M5 and time window: 24, 48, 72
  using the transformer-based SolarKnowledge model.

@@ -17,6 +17,11 @@ import numpy as np
 import json
 import argparse
 import glob
+from datetime import datetime
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.metrics import accuracy_score, classification_report, precision_score, recall_score, balanced_accuracy_score, confusion_matrix
 
 # Import utility functions and configuration from your project
@@ -28,6 +33,43 @@ from SolarKnowledge_model import SolarKnowledge
 #              "48": { ... },
 #              "72": { ... } }
 all_metrics = {}
+
+def plot_confusion_matrix(cm, classes, output_path, title='Confusion Matrix', normalize=False):
+    """
+    Generate and save a confusion matrix visualization.
+    
+    Args:
+        cm: Confusion matrix from sklearn
+        classes: Class names
+        output_path: Where to save the image
+        title: Plot title
+        normalize: Whether to normalize the confusion matrix
+    """
+    plt.figure(figsize=(8, 6))
+    
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        fmt = '.2f'
+    else:
+        fmt = 'd'
+    
+    # Create heatmap with seaborn
+    sns.heatmap(cm, annot=True, fmt=fmt, cmap='Blues', 
+                xticklabels=classes, yticklabels=classes)
+    
+    plt.title(title, fontsize=14)
+    plt.ylabel('True Label', fontsize=12)
+    plt.xlabel('Predicted Label', fontsize=12)
+    
+    # Ensure the directory exists
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    # Save the figure
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    log(f"Saved confusion matrix plot to {output_path}", verbose=True)
 
 def find_latest_model_version(flare_class, time_window):
     """Find the latest model version for a specific flare class and time window"""
@@ -171,8 +213,36 @@ def test_model(time_window, flare_class, timestamp=None, use_latest=False):
     
     # Add version and test date to metrics
     from datetime import datetime
+    test_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     metrics_dict["version"] = version
-    metrics_dict["test_date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    metrics_dict["test_date"] = test_date
+    
+    # Generate and save confusion matrix visualization
+    timestamp_str = datetime.now().strftime("%Y%m%d%H%M%S")
+    cm_filename = f"confusion_matrix_{timestamp_str}.png"
+    cm_filepath = os.path.join(weight_dir, cm_filename)
+    
+    # Create confusion matrix plot with both raw counts and normalized versions
+    plot_confusion_matrix(
+        cm, 
+        classes=["No Flare", f"{flare_class} Flare"],
+        output_path=cm_filepath,
+        title=f"Confusion Matrix - {flare_class} Flare ({time_window}h window)"
+    )
+    
+    # Save normalized version too
+    norm_cm_filepath = os.path.join(weight_dir, f"confusion_matrix_norm_{timestamp_str}.png")
+    plot_confusion_matrix(
+        cm, 
+        classes=["No Flare", f"{flare_class} Flare"],
+        output_path=norm_cm_filepath,
+        title=f"Normalized Confusion Matrix - {flare_class} Flare ({time_window}h window)",
+        normalize=True
+    )
+    
+    # Add paths to confusion matrix plots in metrics
+    metrics_dict["confusion_matrix_plot"] = cm_filename
+    metrics_dict["confusion_matrix_norm_plot"] = f"confusion_matrix_norm_{timestamp_str}.png"
     
     # Store in consolidated metrics for all models
     time_key = str(time_window)
@@ -193,7 +263,7 @@ def test_model(time_window, flare_class, timestamp=None, use_latest=False):
                 metadata['test_results'] = {}
             
             # Use test date as a key to allow multiple test runs
-            test_key = datetime.now().strftime("%Y%m%d%H%M%S")
+            test_key = timestamp_str
             metadata['test_results'][test_key] = metrics_dict
             
             # Add latest test results at the top level for easy access
