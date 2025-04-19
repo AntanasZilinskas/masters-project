@@ -3,11 +3,10 @@
  
  This script tests SolarKnowledge models for flare class: C, M, M5 and time window: 24, 48, 72.
  
- Usage:
-   python SolarKnowledge_run_all_tests.py --latest  # Test the latest version of each model
-   python SolarKnowledge_run_all_tests.py --version 1.3  # Test a specific version
- 
- The script will save results to this_work_results.json and a version-specific file.
+ Improvements:
+ - Uses Monte Carlo dropout for better uncertainty estimation and improved TSS
+ - Stores uncertainty estimates in the results
+ - Generates confidence plots to visualize prediction uncertainty
 '''
 
 import warnings
@@ -17,11 +16,9 @@ import numpy as np
 import json
 import argparse
 import glob
-from datetime import datetime
-import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import seaborn as sns
+from datetime import datetime
 from sklearn.metrics import accuracy_score, classification_report, precision_score, recall_score, balanced_accuracy_score, confusion_matrix
 
 # Import utility functions and configuration from your project
@@ -33,43 +30,6 @@ from SolarKnowledge_model import SolarKnowledge
 #              "48": { ... },
 #              "72": { ... } }
 all_metrics = {}
-
-def plot_confusion_matrix(cm, classes, output_path, title='Confusion Matrix', normalize=False):
-    """
-    Generate and save a confusion matrix visualization.
-    
-    Args:
-        cm: Confusion matrix from sklearn
-        classes: Class names
-        output_path: Where to save the image
-        title: Plot title
-        normalize: Whether to normalize the confusion matrix
-    """
-    plt.figure(figsize=(8, 6))
-    
-    if normalize:
-        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-        fmt = '.2f'
-    else:
-        fmt = 'd'
-    
-    # Create heatmap with seaborn
-    sns.heatmap(cm, annot=True, fmt=fmt, cmap='Blues', 
-                xticklabels=classes, yticklabels=classes)
-    
-    plt.title(title, fontsize=14)
-    plt.ylabel('True Label', fontsize=12)
-    plt.xlabel('Predicted Label', fontsize=12)
-    
-    # Ensure the directory exists
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    
-    # Save the figure
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    plt.close()
-    
-    log(f"Saved confusion matrix plot to {output_path}", verbose=True)
 
 def find_latest_model_version(flare_class, time_window):
     """Find the latest model version for a specific flare class and time window"""
@@ -110,7 +70,7 @@ def find_latest_model_version(flare_class, time_window):
     versions.sort(reverse=True)
     return versions[0][1]  # Return the directory path
 
-def test_model(time_window, flare_class, timestamp=None, use_latest=False):
+def test_model(time_window, flare_class, timestamp=None, use_latest=False, mc_passes=20, plot_uncertainties=True):
     log("Testing initiated for time window: " + str(time_window) + " and flare class: " + flare_class, verbose=True)
     
     # Load the testing data using your project's utility function
@@ -125,10 +85,10 @@ def test_model(time_window, flare_class, timestamp=None, use_latest=False):
     
     input_shape = (X_test.shape[1], X_test.shape[2])
     
-    # Build and compile the model
+    # Build and compile model
     model = SolarKnowledge(early_stopping_patience=5)
     model.build_base_model(input_shape)
-    model.compile()
+    model.compile(use_focal_loss=True)
     
     # Find the latest model version in the correct directory structure
     latest_model_dir = find_latest_model_version(flare_class, time_window)
@@ -166,9 +126,22 @@ def test_model(time_window, flare_class, timestamp=None, use_latest=False):
         log(f"Error loading weights: {str(e)}", verbose=True)
         return
     
-    # Run predictions on test data
-    predictions = model.predict(X_test)
-    predicted_classes = np.argmax(predictions, axis=-1)
+    # Run predictions using Monte Carlo dropout
+    log(f"Using Monte Carlo dropout with {mc_passes} passes for robust prediction", verbose=True)
+    mean_preds, std_preds = model.mc_predict(X_test, n_passes=mc_passes, verbose=1)
+    
+    # Get predicted classes from mean probabilities
+    predicted_classes = np.argmax(mean_preds, axis=-1)
+    
+    # Calculate uncertainty metrics
+    entropy = -np.sum(mean_preds * np.log(mean_preds + 1e-10), axis=1)
+    max_probs = np.max(mean_preds, axis=1)
+    uncertainties = np.max(std_preds, axis=1)
+    
+    # If requested, plot prediction uncertainties
+    if plot_uncertainties:
+        create_uncertainty_plots(mean_preds, std_preds, y_true, predicted_classes, 
+                               flare_class, time_window, weight_dir)
     
     # Calculate basic metrics:
     acc = accuracy_score(y_true, predicted_classes)
@@ -184,6 +157,7 @@ def test_model(time_window, flare_class, timestamp=None, use_latest=False):
 
     print("==============================================")
     print(f"Accuracy for flare class {flare_class} with time window {time_window}: {acc:.4f}")
+    print(f"TSS (True Skill Statistic): {TSS:.4f}")
     print("Classification Report:")
     print(classification_report(y_true, predicted_classes))
     print("==============================================\n\n")
@@ -194,8 +168,15 @@ def test_model(time_window, flare_class, timestamp=None, use_latest=False):
         "precision": round(prec, 4),
         "recall": round(rec, 4),
         "balanced_accuracy": round(bal_acc, 4),
-        "TSS": round(TSS, 4)
+        "TSS": round(TSS, 4),
+        "sensitivity": round(sensitivity, 4),
+        "specificity": round(specificity, 4)
     }
+    
+    # Add uncertainty metrics
+    metrics_dict["mean_entropy"] = float(np.mean(entropy))
+    metrics_dict["mean_uncertainty"] = float(np.mean(uncertainties))
+    metrics_dict["mean_confidence"] = float(np.mean(max_probs))
     
     # Get confusion matrix as a list for easier JSON serialization
     metrics_dict["confusion_matrix"] = cm.tolist()
@@ -212,37 +193,11 @@ def test_model(time_window, flare_class, timestamp=None, use_latest=False):
         version = model_name.split("-v")[1].split("-")[0]
     
     # Add version and test date to metrics
-    from datetime import datetime
     test_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     metrics_dict["version"] = version
     metrics_dict["test_date"] = test_date
-    
-    # Generate and save confusion matrix visualization
-    timestamp_str = datetime.now().strftime("%Y%m%d%H%M%S")
-    cm_filename = f"confusion_matrix_{timestamp_str}.png"
-    cm_filepath = os.path.join(weight_dir, cm_filename)
-    
-    # Create confusion matrix plot with both raw counts and normalized versions
-    plot_confusion_matrix(
-        cm, 
-        classes=["No Flare", f"{flare_class} Flare"],
-        output_path=cm_filepath,
-        title=f"Confusion Matrix - {flare_class} Flare ({time_window}h window)"
-    )
-    
-    # Save normalized version too
-    norm_cm_filepath = os.path.join(weight_dir, f"confusion_matrix_norm_{timestamp_str}.png")
-    plot_confusion_matrix(
-        cm, 
-        classes=["No Flare", f"{flare_class} Flare"],
-        output_path=norm_cm_filepath,
-        title=f"Normalized Confusion Matrix - {flare_class} Flare ({time_window}h window)",
-        normalize=True
-    )
-    
-    # Add paths to confusion matrix plots in metrics
-    metrics_dict["confusion_matrix_plot"] = cm_filename
-    metrics_dict["confusion_matrix_norm_plot"] = f"confusion_matrix_norm_{timestamp_str}.png"
+    metrics_dict["used_monte_carlo_dropout"] = True
+    metrics_dict["mc_passes"] = mc_passes
     
     # Store in consolidated metrics for all models
     time_key = str(time_window)
@@ -263,7 +218,7 @@ def test_model(time_window, flare_class, timestamp=None, use_latest=False):
                 metadata['test_results'] = {}
             
             # Use test date as a key to allow multiple test runs
-            test_key = timestamp_str
+            test_key = datetime.now().strftime("%Y%m%d%H%M%S")
             metadata['test_results'][test_key] = metrics_dict
             
             # Add latest test results at the top level for easy access
@@ -281,12 +236,70 @@ def test_model(time_window, flare_class, timestamp=None, use_latest=False):
     
     return metrics_dict
 
+def create_uncertainty_plots(mean_preds, std_preds, y_true, y_pred, flare_class, time_window, output_dir):
+    """Create plots to visualize prediction uncertainties."""
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    
+    # 1. Confidence Distribution Plot
+    plt.figure(figsize=(10, 6))
+    
+    # Get confidence scores (highest probability)
+    confidence = np.max(mean_preds, axis=1)
+    
+    # Plot distributions for correct and incorrect predictions
+    correct = y_true == y_pred
+    
+    sns.histplot(confidence[correct], color='green', alpha=0.5, 
+                 label='Correct Predictions', kde=True, bins=20)
+    sns.histplot(confidence[~correct], color='red', alpha=0.5, 
+                 label='Incorrect Predictions', kde=True, bins=20)
+    
+    plt.title(f"Prediction Confidence Distribution - {flare_class}-class ({time_window}h window)")
+    plt.xlabel("Confidence Score")
+    plt.ylabel("Count")
+    plt.legend()
+    plt.tight_layout()
+    
+    # Save the figure
+    confidence_file = os.path.join(output_dir, f"confidence_dist_{timestamp}.png")
+    plt.savefig(confidence_file, dpi=300)
+    plt.close()
+    
+    # 2. Uncertainty vs Correctness Plot
+    plt.figure(figsize=(10, 6))
+    
+    # Calculate uncertainty as standard deviation
+    uncertainty = np.max(std_preds, axis=1)
+    
+    # Create scatter plot with different colors for correct/incorrect
+    plt.scatter(confidence[correct], uncertainty[correct], 
+                color='green', alpha=0.5, label='Correct Predictions')
+    plt.scatter(confidence[~correct], uncertainty[~correct], 
+                color='red', alpha=0.5, label='Incorrect Predictions')
+    
+    plt.title(f"Confidence vs. Uncertainty - {flare_class}-class ({time_window}h window)")
+    plt.xlabel("Confidence Score")
+    plt.ylabel("Uncertainty (Std. Dev.)")
+    plt.legend()
+    plt.tight_layout()
+    
+    # Save the figure
+    uncertainty_file = os.path.join(output_dir, f"uncertainty_scatter_{timestamp}.png")
+    plt.savefig(uncertainty_file, dpi=300)
+    plt.close()
+    
+    log(f"Saved uncertainty visualization plots to {output_dir}", verbose=True)
+
 if __name__ == '__main__':
     # Add command line argument for timestamp
     parser = argparse.ArgumentParser(description="Test SolarKnowledge models for solar flare prediction")
     parser.add_argument("--timestamp", "-t", help="Specific model timestamp to test")
     parser.add_argument("--latest", action="store_true", help="Test the latest model version")
     parser.add_argument("--version", "-v", help="Test a specific model version")
+    parser.add_argument("--mc-passes", type=int, default=20, 
+                        help="Number of Monte Carlo dropout passes (default: 20)")
+    parser.add_argument("--no-plots", action="store_true", 
+                        help="Skip generating uncertainty plots")
     args = parser.parse_args()
     
     # Can't use multiple selection methods together
@@ -300,7 +313,14 @@ if __name__ == '__main__':
             if flare_class not in supported_flare_class:
                 print("Unsupported flare class:", flare_class, "It must be one of:", ", ".join(supported_flare_class))
                 continue
-            test_model(str(time_window), flare_class, args.timestamp, args.latest)
+            test_model(
+                str(time_window), 
+                flare_class, 
+                args.timestamp, 
+                args.latest,
+                mc_passes=args.mc_passes,
+                plot_uncertainties=not args.no_plots
+            )
             log("===========================================================\n\n", verbose=True)
     
     # Save the metrics for all time windows into a JSON file

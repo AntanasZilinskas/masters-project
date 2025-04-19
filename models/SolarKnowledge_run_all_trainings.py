@@ -1,9 +1,15 @@
 '''
  author: Antanas Zilinskas
+ Based on work by Yasser Abduallah
  
  This script runs all training processes for flare class: C, M, M5 and time window: 24, 48, 72
  using the transformer-based SolarKnowledge model.
  Extended callbacks are added (EarlyStopping, ReduceLROnPlateau) to help the model converge further.
+ 
+ Improvements:
+ - Uses focal loss to handle class imbalance
+ - Applies class weights based on flare class rarity
+ - Enables Monte Carlo dropout for better uncertainty estimation
 '''
 
 import warnings 
@@ -11,6 +17,7 @@ warnings.filterwarnings('ignore')
 import os
 import argparse
 import tensorflow as tf
+import numpy as np
 from utils import get_training_data, data_transform, log, supported_flare_class
 from SolarKnowledge_model import SolarKnowledge
 from model_tracking import (
@@ -44,10 +51,35 @@ def train(time_window, flare_class, version=None, description=None, auto_increme
     epochs = 100  # extend the number of epochs to let the model converge further
     input_shape = (X_train.shape[1], X_train.shape[2])
     
+    # Calculate class weights based on class distribution
+    # This helps with the imbalanced nature of flare prediction
+    class_counts = np.sum(y_train_tr, axis=0)
+    n_samples = len(y_train)
+    n_classes = len(class_counts)
+    
+    # Calculate weights inversely proportional to class frequencies
+    class_weight = {}
+    for i in range(n_classes):
+        # More aggressive weighting for very rare classes like M5
+        if flare_class == 'M5':
+            # Higher weight for the positive class in M5 flares (very rare)
+            class_weight[i] = n_samples / (n_classes * class_counts[i]) if i == 1 else 1.0
+        elif flare_class == 'M':
+            # Moderate weight for M-class flares (rare)
+            class_weight[i] = n_samples / (n_classes * class_counts[i]) * 0.8 if i == 1 else 1.0
+        else:
+            # Lower weight for C-class flares (more common)
+            class_weight[i] = n_samples / (n_classes * class_counts[i]) * 0.6 if i == 1 else 1.0
+    
+    log(f"Class distribution: {class_counts}", verbose=True)
+    log(f"Using class weights: {class_weight}", verbose=True)
+    
     # Create an instance of the SolarKnowledge transformer-based model.
     model = SolarKnowledge(early_stopping_patience=5)  # increased patience to allow more epochs before stopping
     model.build_base_model(input_shape)  # Build the model
-    model.compile()
+    
+    # Compile model with focal loss for better handling of imbalanced data
+    model.compile(use_focal_loss=True)
 
     # Add an additional ReduceLROnPlateau callback to lower the learning rate when training plateaus.
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
@@ -68,7 +100,8 @@ def train(time_window, flare_class, version=None, description=None, auto_increme
                     epochs=epochs,
                     verbose=2,
                     batch_size=512,
-                    callbacks=callbacks)
+                    callbacks=callbacks,
+                    class_weight=class_weight)
     
     # Get performance metrics from training history
     metrics = {}
@@ -76,6 +109,10 @@ def train(time_window, flare_class, version=None, description=None, auto_increme
         metrics['final_training_accuracy'] = history.history['accuracy'][-1]
         metrics['final_training_loss'] = history.history['loss'][-1]
         metrics['epochs_trained'] = len(history.history['accuracy'])
+        
+        # Add TSS if available
+        if 'tss' in history.history:
+            metrics['final_training_tss'] = history.history['tss'][-1]
     
     # Create hyperparameters dictionary
     hyperparams = {
@@ -87,7 +124,11 @@ def train(time_window, flare_class, version=None, description=None, auto_increme
         'embed_dim': 128,
         'num_heads': 4,
         'ff_dim': 256,
-        'dropout_rate': 0.2
+        'dropout_rate': 0.2,
+        'focal_loss': True,
+        'focal_loss_alpha': 0.25,
+        'focal_loss_gamma': 2.0,
+        'class_weights': class_weight
     }
     
     # Include information about previous version in metadata if it exists
