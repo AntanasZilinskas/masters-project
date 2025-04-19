@@ -1,5 +1,21 @@
 '''
- author: Antanas Zilinskas
+ (c) Copyright 2023
+ All rights reserved
+ Programs written by Yasser Abduallah
+ Department of Computer Science
+ New Jersey Institute of Technology
+ University Heights, Newark, NJ 07102, USA
+
+ Permission to use, copy, modify, and distribute this
+ software and its documentation for any purpose and without
+ fee is hereby granted, provided that this copyright
+ notice appears in all copies. Programmer(s) makes no
+ representations about the suitability of this
+ software for any purpose.  It is provided "as is" without
+ express or implied warranty.
+
+ Alternative transformer-based model with improved capacity for time-series classification.
+ @author: Yasser Abduallah (modified)
 '''
 
 import warnings
@@ -8,30 +24,25 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import tensorflow as tf
-# Use float32 precision for better compatibility
-tf.keras.mixed_precision.set_global_policy('float32')
-print("Using float32 precision for maximum compatibility")
-print("Current precision policy:", tf.keras.mixed_precision.global_policy())
-
-# Configure TensorFlow to better utilize available memory
-gpus = tf.config.list_physical_devices('GPU')
-if gpus:
-    try:
-        # Allow TensorFlow to allocate more memory as needed
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-        
-        # Allow TensorFlow to allocate more GPU memory than strictly necessary
-        # This helps prevent fragmentation and allows better utilization
-        tf.config.set_soft_device_placement(True)
-        print("Optimized GPU memory allocation settings for better utilization")
-    except RuntimeError as e:
-        print(f"GPU memory optimization failed: {e}")
+# Set up mixed precision (for improved performance on MPS/M2)
+tf.keras.mixed_precision.set_global_policy('mixed_float16')
+print("Mixed precision enabled. Current policy:", tf.keras.mixed_precision.global_policy())
 
 from tensorflow.keras import layers, models, regularizers
 from tensorflow.keras.callbacks import EarlyStopping
 import numpy as np
 import shutil
+import json
+from datetime import datetime
+
+# Set GPU memory growth (this works for both GPU/MPS on Apple Silicon)
+physical_devices = tf.config.list_physical_devices('GPU')
+if physical_devices:
+    for device in physical_devices:
+        tf.config.experimental.set_memory_growth(device, enable=True)
+    print(f"SUCCESS: Found and set memory growth for {len(physical_devices)} GPU device(s).")
+else:
+    print("WARNING: GPU device not found.")
 
 # -----------------------------
 # Positional Encoding Layer
@@ -97,7 +108,7 @@ class SolarKnowledge:
     model_name = "SolarKnowledge"
     callbacks = None
     input_tensor = None
-
+    
     def __init__(self, early_stopping_patience=3):
         self.model_name = "SolarKnowledge"
         self.callbacks = [EarlyStopping(monitor='loss', patience=early_stopping_patience, restore_best_weights=True)]
@@ -183,8 +194,20 @@ class SolarKnowledge:
             print('Saving model weights to directory:', weight_dir)
         weight_file = os.path.join(weight_dir, 'model_weights.weights.h5')
         self.model.save_weights(weight_file)
+        
+        # Generate a timestamp for this model version
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        metadata = {
+            "timestamp": timestamp,
+            "model_name": self.model_name,
+            "flare_class": flare_class
+        }
+        
+        # Save metadata
+        with open(os.path.join(weight_dir, 'metadata.json'), 'w') as f:
+            json.dump(metadata, f)
 
-    def load_weights(self, flare_class=None, w_dir=None, verbose=True):
+    def load_weights(self, flare_class=None, w_dir=None, timestamp=None, verbose=True):
         if w_dir is None and flare_class is None:
             print("You must specify flare_class or w_dir to load the model weights.")
             exit()
@@ -200,6 +223,13 @@ class SolarKnowledge:
         if self.model is None:
             print("You must build the model first before loading weights.")
             exit()
+            
+        # If a specific timestamp is requested, try to find that version
+        if timestamp:
+            # Logic for loading a specific timestamped version would go here
+            # For now, we'll just use the standard file path
+            pass
+            
         filepath = os.path.join(weight_dir, 'model_weights.weights.h5')
         status = self.model.load_weights(filepath)
         if status is not None:
@@ -212,6 +242,12 @@ class SolarKnowledge:
 
     def get_model(self):
         return self.model
+    
+    def update_results(self, metrics_dict):
+        """Update model metadata with test results"""
+        # This function can be expanded to save metrics to the model's metadata
+        pass
+
 
 if __name__ == '__main__':
     # Example usage for debugging: build, compile, and show summary.
