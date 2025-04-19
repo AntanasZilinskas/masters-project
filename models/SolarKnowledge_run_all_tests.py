@@ -1,5 +1,13 @@
 '''
  author: Antanas Zilinskas
+ 
+ This script tests SolarKnowledge models for flare class: C, M, M5 and time window: 24, 48, 72.
+ 
+ Usage:
+   python SolarKnowledge_run_all_tests.py --latest  # Test the latest version of each model
+   python SolarKnowledge_run_all_tests.py --version 1.3  # Test a specific version
+ 
+ The script will save results to this_work_results.json and a version-specific file.
 '''
 
 import warnings
@@ -8,6 +16,7 @@ import os
 import numpy as np
 import json
 import argparse
+import glob
 from sklearn.metrics import accuracy_score, classification_report, precision_score, recall_score, balanced_accuracy_score, confusion_matrix
 
 # Import utility functions and configuration from your project
@@ -20,10 +29,47 @@ from SolarKnowledge_model import SolarKnowledge
 #              "72": { ... } }
 all_metrics = {}
 
-def test_model(time_window, flare_class, timestamp=None):
+def find_latest_model_version(flare_class, time_window):
+    """Find the latest model version for a specific flare class and time window"""
+    # Check if we're in the models directory already or at project root
+    if os.path.exists("models/models"):
+        models_dir = "models/models"
+    elif os.path.exists("models"):
+        models_dir = "models"
+    else:
+        log(f"Cannot find models directory", verbose=True)
+        return None
+        
+    # Pattern for model directories: SolarKnowledge-v{version}-{flare_class}-{time_window}h
+    pattern = f"SolarKnowledge-v*-{flare_class}-{time_window}h"
+    full_pattern = os.path.join(models_dir, pattern)
+    matching_dirs = glob.glob(full_pattern)
+    
+    if not matching_dirs:
+        return None
+    
+    # Extract version numbers and find the highest one
+    versions = []
+    for dir_path in matching_dirs:
+        dir_name = os.path.basename(dir_path)
+        parts = dir_name.split('-')
+        if len(parts) >= 2 and parts[1].startswith('v'):
+            try:
+                version_str = parts[1][1:]  # Remove the 'v' prefix
+                version_num = float(version_str)
+                versions.append((version_num, dir_path))
+            except ValueError:
+                continue
+    
+    if not versions:
+        return None
+    
+    # Sort by version number and get the highest one
+    versions.sort(reverse=True)
+    return versions[0][1]  # Return the directory path
+
+def test_model(time_window, flare_class, timestamp=None, use_latest=False):
     log("Testing initiated for time window: " + str(time_window) + " and flare class: " + flare_class, verbose=True)
-    if timestamp:
-        log(f"Using model with timestamp: {timestamp}", verbose=True)
     
     # Load the testing data using your project's utility function
     X_test, y_test = get_testing_data(time_window, flare_class)
@@ -42,11 +88,14 @@ def test_model(time_window, flare_class, timestamp=None):
     model.build_base_model(input_shape)
     model.compile()
     
-    # Use the weights directory structure
-    weight_dir = os.path.join("weights", str(time_window), flare_class)
-        
-    if not os.path.exists(weight_dir):
-        print(f"Warning: Model weights directory: {weight_dir} does not exist! Skipping test for time window {time_window} and flare class {flare_class}.")
+    # Find the latest model version in the correct directory structure
+    latest_model_dir = find_latest_model_version(flare_class, time_window)
+    
+    if latest_model_dir and os.path.exists(latest_model_dir):
+        weight_dir = latest_model_dir
+        log(f"Using model at: {weight_dir}", verbose=True)
+    else:
+        log(f"No model found for flare class {flare_class} with time window {time_window}", verbose=True)
         # Ensure we record placeholders for missing models.
         time_key = str(time_window)
         if time_key not in all_metrics:
@@ -61,8 +110,19 @@ def test_model(time_window, flare_class, timestamp=None):
         return
 
     print("Loading weights from model dir:", weight_dir)
-    # Pass the timestamp to load specific model version if requested
-    model.load_weights(flare_class=flare_class, w_dir=weight_dir, timestamp=timestamp, verbose=True)
+    # Try to load weights from the model directory
+    weight_file = os.path.join(weight_dir, 'model_weights.weights.h5')
+    if not os.path.exists(weight_file):
+        log(f"Error: Weight file not found at {weight_file}", verbose=True)
+        return
+
+    try:
+        status = model.model.load_weights(weight_file)
+        if status is not None:
+            status.expect_partial()
+    except Exception as e:
+        log(f"Error loading weights: {str(e)}", verbose=True)
+        return
     
     # Run predictions on test data
     predictions = model.predict(X_test)
@@ -101,8 +161,14 @@ def test_model(time_window, flare_class, timestamp=None):
         all_metrics[time_key] = {}
     all_metrics[time_key][flare_class] = metrics_dict
     
-    # Update the model's metadata with the results
-    model.update_results(metrics_dict)
+    # Get model version from directory name
+    model_name = os.path.basename(weight_dir)
+    version = "unknown"
+    if "-v" in model_name:
+        version = model_name.split("-v")[1].split("-")[0]
+    
+    # Add version to metrics
+    all_metrics[time_key][flare_class]["version"] = version
     
     return metrics_dict
 
@@ -110,7 +176,14 @@ if __name__ == '__main__':
     # Add command line argument for timestamp
     parser = argparse.ArgumentParser(description="Test SolarKnowledge models for solar flare prediction")
     parser.add_argument("--timestamp", "-t", help="Specific model timestamp to test")
+    parser.add_argument("--latest", action="store_true", help="Test the latest model version")
+    parser.add_argument("--version", "-v", help="Test a specific model version")
     args = parser.parse_args()
+    
+    # Can't use multiple selection methods together
+    if sum([bool(args.timestamp), args.latest, bool(args.version)]) > 1:
+        print("Error: Cannot use multiple model selection options together. Use only one of: --timestamp, --latest, --version")
+        exit(1)
     
     # Loop over the desired time windows and flare classes
     for time_window in [24, 48, 72]:
@@ -118,7 +191,7 @@ if __name__ == '__main__':
             if flare_class not in supported_flare_class:
                 print("Unsupported flare class:", flare_class, "It must be one of:", ", ".join(supported_flare_class))
                 continue
-            test_model(str(time_window), flare_class, args.timestamp)
+            test_model(str(time_window), flare_class, args.timestamp, args.latest)
             log("===========================================================\n\n", verbose=True)
     
     # Save the metrics for all time windows into a JSON file
@@ -132,4 +205,14 @@ if __name__ == '__main__':
         timestamped_output = f"results_{args.timestamp}.json"
         with open(timestamped_output, "w") as f:
             json.dump(all_metrics, f, indent=4)
-        print(f"Saved test metrics for timestamp {args.timestamp} into {timestamped_output}") 
+        print(f"Saved test metrics for timestamp {args.timestamp} into {timestamped_output}")
+    elif args.latest:
+        latest_output = "results_latest.json"
+        with open(latest_output, "w") as f:
+            json.dump(all_metrics, f, indent=4)
+        print(f"Saved test metrics for latest version into {latest_output}")
+    elif args.version:
+        version_output = f"results_v{args.version}.json"
+        with open(version_output, "w") as f:
+            json.dump(all_metrics, f, indent=4)
+        print(f"Saved test metrics for version v{args.version} into {version_output}") 

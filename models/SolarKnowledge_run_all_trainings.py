@@ -42,9 +42,7 @@ def train(time_window, flare_class, version=None, description=None, auto_increme
     X_train, y_train = get_training_data(time_window, flare_class)
     y_train_tr = data_transform(y_train)
     
-    log(f"Input data shapes - X_train: {X_train.shape}, y_train_tr: {y_train_tr.shape}", verbose=True)
-    
-    epochs = 200  # extend the number of epochs to allow more complete convergence
+    epochs = 100  # extend the number of epochs to let the model converge further
     input_shape = (X_train.shape[1], X_train.shape[2])
     
     # Create an instance of the SolarKnowledge transformer-based model.
@@ -67,14 +65,10 @@ def train(time_window, flare_class, version=None, description=None, auto_increme
     # Train the model and store the history
     log(f"Starting training for {flare_class}-class flares with {time_window}h window", verbose=True)
     
-    # Use larger batch size to utilize available RAM more effectively
-    batch_size = 2048  # Increased from 512 to use more RAM
-    log(f"Using larger batch size ({batch_size}) to utilize available RAM", verbose=True)
-    
     history = model.model.fit(X_train, y_train_tr,
                     epochs=epochs,
                     verbose=2,
-                    batch_size=batch_size,
+                    batch_size=512,
                     callbacks=callbacks)
     
     # Get performance metrics from training history
@@ -87,7 +81,7 @@ def train(time_window, flare_class, version=None, description=None, auto_increme
     # Create hyperparameters dictionary
     hyperparams = {
         'learning_rate': 1e-4,
-        'batch_size': batch_size,
+        'batch_size': 512,
         'early_stopping_patience': 5,
         'epochs': epochs,
         'num_transformer_blocks': 6,
