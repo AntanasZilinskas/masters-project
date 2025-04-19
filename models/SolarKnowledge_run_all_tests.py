@@ -155,11 +155,13 @@ def test_model(time_window, flare_class, timestamp=None, use_latest=False):
         "TSS": round(TSS, 4)
     }
     
-    # Store in consolidated metrics for all models
-    time_key = str(time_window)
-    if time_key not in all_metrics:
-        all_metrics[time_key] = {}
-    all_metrics[time_key][flare_class] = metrics_dict
+    # Get confusion matrix as a list for easier JSON serialization
+    metrics_dict["confusion_matrix"] = cm.tolist()
+    
+    # Add test data size information
+    metrics_dict["test_samples"] = len(y_true)
+    metrics_dict["positive_samples"] = int(np.sum(y_true))
+    metrics_dict["negative_samples"] = len(y_true) - int(np.sum(y_true))
     
     # Get model version from directory name
     model_name = os.path.basename(weight_dir)
@@ -167,8 +169,45 @@ def test_model(time_window, flare_class, timestamp=None, use_latest=False):
     if "-v" in model_name:
         version = model_name.split("-v")[1].split("-")[0]
     
-    # Add version to metrics
-    all_metrics[time_key][flare_class]["version"] = version
+    # Add version and test date to metrics
+    from datetime import datetime
+    metrics_dict["version"] = version
+    metrics_dict["test_date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Store in consolidated metrics for all models
+    time_key = str(time_window)
+    if time_key not in all_metrics:
+        all_metrics[time_key] = {}
+    all_metrics[time_key][flare_class] = metrics_dict
+    
+    # Update model's metadata file with test results
+    metadata_file = os.path.join(weight_dir, 'metadata.json')
+    if os.path.exists(metadata_file):
+        try:
+            # Load existing metadata
+            with open(metadata_file, 'r') as f:
+                metadata = json.load(f)
+                
+            # Add or update test results
+            if 'test_results' not in metadata:
+                metadata['test_results'] = {}
+            
+            # Use test date as a key to allow multiple test runs
+            test_key = datetime.now().strftime("%Y%m%d%H%M%S")
+            metadata['test_results'][test_key] = metrics_dict
+            
+            # Add latest test results at the top level for easy access
+            metadata['latest_test'] = metrics_dict
+            
+            # Write updated metadata back to the file
+            with open(metadata_file, 'w') as f:
+                json.dump(metadata, f, indent=4)
+                
+            log(f"Updated metadata file at {metadata_file} with test results", verbose=True)
+        except Exception as e:
+            log(f"Error updating metadata file: {str(e)}", verbose=True)
+    else:
+        log(f"No metadata file found at {metadata_file}", verbose=True)
     
     return metrics_dict
 
