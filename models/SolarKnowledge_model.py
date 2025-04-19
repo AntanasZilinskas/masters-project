@@ -1,6 +1,21 @@
 '''
+ (c) Copyright 2023
+ All rights reserved
+ Programs written by Yasser Abduallah
+ Department of Computer Science
+ New Jersey Institute of Technology
+ University Heights, Newark, NJ 07102, USA
+
+ Permission to use, copy, modify, and distribute this
+ software and its documentation for any purpose and without
+ fee is hereby granted, provided that this copyright
+ notice appears in all copies. Programmer(s) makes no
+ representations about the suitability of this
+ software for any purpose.  It is provided "as is" without
+ express or implied warranty.
+
  Alternative transformer-based model with improved capacity for time-series classification.
- @author: Antanas Zilinskas
+ @author: Yasser Abduallah (modified)
 '''
 
 import warnings
@@ -9,6 +24,15 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import tensorflow as tf
+# Import tensorflow_addons for focal loss
+try:
+    import tensorflow_addons as tfa
+except ImportError:
+    print("tensorflow_addons not found. Installing...")
+    import subprocess
+    subprocess.check_call(["pip", "install", "tensorflow-addons"])
+    import tensorflow_addons as tfa
+    
 # Set up mixed precision (for improved performance on MPS/M2)
 tf.keras.mixed_precision.set_global_policy('mixed_float16')
 print("Mixed precision enabled. Current policy:", tf.keras.mixed_precision.global_policy())
@@ -28,6 +52,40 @@ if physical_devices:
     print(f"SUCCESS: Found and set memory growth for {len(physical_devices)} GPU device(s).")
 else:
     print("WARNING: GPU device not found.")
+
+# Custom TSS metric for optimization
+class TrueSkillStatisticMetric(tf.keras.metrics.Metric):
+    def __init__(self, name='tss', **kwargs):
+        super(TrueSkillStatisticMetric, self).__init__(name=name, **kwargs)
+        self.true_positives = self.add_weight(name='tp', initializer='zeros')
+        self.true_negatives = self.add_weight(name='tn', initializer='zeros')
+        self.false_positives = self.add_weight(name='fp', initializer='zeros')
+        self.false_negatives = self.add_weight(name='fn', initializer='zeros')
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        y_true = tf.cast(tf.argmax(y_true, axis=1), tf.bool)
+        y_pred = tf.cast(tf.argmax(y_pred, axis=1), tf.bool)
+        
+        true_positives = tf.cast(tf.logical_and(tf.equal(y_true, True), tf.equal(y_pred, True)), tf.float32)
+        true_negatives = tf.cast(tf.logical_and(tf.equal(y_true, False), tf.equal(y_pred, False)), tf.float32)
+        false_positives = tf.cast(tf.logical_and(tf.equal(y_true, False), tf.equal(y_pred, True)), tf.float32)
+        false_negatives = tf.cast(tf.logical_and(tf.equal(y_true, True), tf.equal(y_pred, False)), tf.float32)
+        
+        self.true_positives.assign_add(tf.reduce_sum(true_positives))
+        self.true_negatives.assign_add(tf.reduce_sum(true_negatives))
+        self.false_positives.assign_add(tf.reduce_sum(false_positives))
+        self.false_negatives.assign_add(tf.reduce_sum(false_negatives))
+
+    def result(self):
+        sensitivity = self.true_positives / (self.true_positives + self.false_negatives + tf.keras.backend.epsilon())
+        specificity = self.true_negatives / (self.true_negatives + self.false_positives + tf.keras.backend.epsilon())
+        return sensitivity + specificity - 1.0
+
+    def reset_state(self):
+        self.true_positives.assign(0)
+        self.true_negatives.assign(0)
+        self.false_positives.assign(0)
+        self.false_negatives.assign(0)
 
 # -----------------------------
 # Positional Encoding Layer
@@ -142,27 +200,129 @@ class SolarKnowledge:
         else:
             print("Model is not built yet!")
 
-    def compile(self, loss='categorical_crossentropy', metrics=['accuracy'], learning_rate=1e-4):
+    def compile(self, loss='categorical_crossentropy', metrics=['accuracy'], learning_rate=1e-4, use_focal_loss=True):
+        """
+        Compile the model with specified loss and metrics.
+        
+        Args:
+            loss: Loss function to use. If use_focal_loss is True, this will be overridden.
+            metrics: List of metrics to track
+            learning_rate: Learning rate for the optimizer
+            use_focal_loss: Whether to use focal loss (better for imbalanced data)
+        """
+        # Create TSS metric
+        tss_metric = TrueSkillStatisticMetric()
+        
+        # Use focal loss for rare event prediction if specified
+        if use_focal_loss:
+            # Focal loss helps focus more on hard examples (rare flares)
+            focal_loss = tfa.losses.SigmoidFocalCrossEntropy(
+                alpha=0.25,    # Up-weight the minority class
+                gamma=2.0,     # Focus on hard examples
+                from_logits=False
+            )
+            loss = focal_loss
+            print("Using Focal Loss for rare event awareness")
+        
+        # Add TSS to metrics
+        if 'tss' not in metrics and tss_metric not in metrics:
+            metrics = metrics + [tss_metric]
+        
         self.model.compile(optimizer=tf.optimizers.Adam(learning_rate=learning_rate),
                            loss=loss,
                            metrics=metrics)
 
-    def fit(self, X_train, y_train, X_valid=None, y_valid=None, epochs=100, verbose=2, batch_size=512):
+    def fit(self, X_train, y_train, X_valid=None, y_valid=None, epochs=100, verbose=2, batch_size=512, class_weight=None):
+        """
+        Train the model with optional class weights for imbalanced data.
+        
+        Args:
+            X_train, y_train: Training data
+            X_valid, y_valid: Validation data (optional)
+            epochs: Number of training epochs
+            verbose: Verbosity level
+            batch_size: Batch size for training
+            class_weight: Optional dictionary mapping class indices to weights
+        """
         validation_data = None
         if (X_valid is not None) and (y_valid is not None):
             validation_data = (X_valid, y_valid)
-        self.model.fit(X_train, y_train,
+        
+        # If class_weight is not provided but we want to handle rare events,
+        # create a default class weight that emphasizes the positive class (flares)
+        if class_weight is None:
+            # Default weight for imbalanced binary classification
+            # (adjust based on your specific class ratios)
+            class_weight = {0: 1.0, 1: 10.0}
+            print(f"Using default class weights: {class_weight}")
+        
+        return self.model.fit(X_train, y_train,
                        epochs=epochs,
                        verbose=verbose,
                        batch_size=batch_size,
                        callbacks=self.callbacks,
-                       validation_data=validation_data)
+                       validation_data=validation_data,
+                       class_weight=class_weight)
 
     def predict(self, X_test, batch_size=1024, verbose=0):
+        """Standard prediction - no MC dropout"""
         predictions = self.model.predict(X_test,
                                            verbose=verbose,
                                            batch_size=batch_size)
         return predictions
+    
+    def mc_predict(self, X_test, n_passes=20, batch_size=1024, verbose=0):
+        """
+        Monte Carlo dropout prediction - keeps dropout active during inference
+        to get uncertainty estimates.
+        
+        Args:
+            X_test: Input data
+            n_passes: Number of forward passes with dropout
+            batch_size: Batch size for prediction
+            verbose: Verbosity level
+            
+        Returns:
+            mean_preds: Mean of the predictions across all passes
+            std_preds: Standard deviation of predictions (uncertainty)
+        """
+        if verbose > 0:
+            print(f"Performing {n_passes} MC dropout passes...")
+        
+        # Initialize list to store predictions
+        all_preds = []
+        
+        # Perform multiple forward passes with dropout enabled
+        for i in range(n_passes):
+            if verbose > 0 and i % 5 == 0:
+                print(f"MC pass {i+1}/{n_passes}")
+            
+            # Use tf.function for better performance
+            @tf.function
+            def predict_with_dropout(x, training=True):
+                return self.model(x, training=training)
+            
+            # Process in batches to avoid OOM errors
+            preds_batches = []
+            for j in range(0, len(X_test), batch_size):
+                batch_end = min(j + batch_size, len(X_test))
+                X_batch = X_test[j:batch_end]
+                # training=True keeps dropout active
+                pred_batch = predict_with_dropout(X_batch, training=True).numpy()
+                preds_batches.append(pred_batch)
+            
+            # Combine batches
+            preds = np.concatenate(preds_batches, axis=0)
+            all_preds.append(preds)
+        
+        # Convert to numpy array for easier calculations
+        all_preds = np.array(all_preds)
+        
+        # Calculate mean and std
+        mean_preds = np.mean(all_preds, axis=0)
+        std_preds = np.std(all_preds, axis=0)
+        
+        return mean_preds, std_preds
 
     def save_weights(self, flare_class=None, w_dir=None, verbose=True):
         if w_dir is None and flare_class is None:
@@ -185,7 +345,9 @@ class SolarKnowledge:
         metadata = {
             "timestamp": timestamp,
             "model_name": self.model_name,
-            "flare_class": flare_class
+            "flare_class": flare_class,
+            "uses_focal_loss": True,
+            "mc_dropout_enabled": True
         }
         
         # Save metadata
@@ -240,5 +402,11 @@ if __name__ == '__main__':
     example_input_shape = (100, 14)
     model_instance = SolarKnowledge(early_stopping_patience=3)
     model_instance.build_base_model(example_input_shape)
-    model_instance.compile()
+    model_instance.compile(use_focal_loss=True)
     model_instance.summary() 
+    
+    # Test MC dropout prediction
+    X_test = np.random.random((10, 100, 14))
+    mean_preds, std_preds = model_instance.mc_predict(X_test, n_passes=5, verbose=1)
+    print(f"Mean predictions shape: {mean_preds.shape}")
+    print(f"Std predictions shape: {std_preds.shape}") 
