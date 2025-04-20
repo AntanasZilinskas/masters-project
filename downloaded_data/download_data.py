@@ -11,9 +11,11 @@ import pandas as pd
 from sunpy.net import Fido, attrs as a
 import astropy.units as u
 
+
 def ensure_data_directory(data_path="./data"):
     """Ensure /data directory exists."""
     os.makedirs(data_path, exist_ok=True)
+
 
 def download_sdo_magnetograms(start_date, end_date, data_path="./data"):
     """
@@ -33,16 +35,18 @@ def download_sdo_magnetograms(start_date, end_date, data_path="./data"):
     # Times can be specified in T AI range format
     qstr = f"{series}[{start_date}-{end_date}]"
     print(f"Querying JSOC for: {qstr}")
-    
+
     try:
         result = client.query(qstr, key=["T_REC", "DATE"], seg="magnetogram")
         print(f"Found {len(result)} records. Downloading data...")
 
         # Download each magnetogram
-        download_info = client.fetch(result, path=f"{data_path}/{{file}}", progress=True)
+        download_info = client.fetch(
+            result, path=f"{data_path}/{{file}}", progress=True)
         print("SDO HMI magnetograms download complete.")
     except Exception as e:
         print(f"Error downloading SDO data: {e}")
+
 
 def download_goes_xray_flux(start_date, end_date, data_path="./data"):
     """
@@ -52,7 +56,7 @@ def download_goes_xray_flux(start_date, end_date, data_path="./data"):
     ensure_data_directory(data_path)
 
     # Example URL for GOES X-Ray flux from NOAA SWPC:
-    #   https://services.swpc.noaa.gov/text/goes-xray-flux-primary/ 
+    #   https://services.swpc.noaa.gov/text/goes-xray-flux-primary/
     # This is an ongoing stream. Historical data can be found in separate archives.
     # For demonstration, we'll do a simple requests call:
     url = "https://services.swpc.noaa.gov/text/goes-xray-flux-primary.txt"
@@ -68,10 +72,11 @@ def download_goes_xray_flux(start_date, end_date, data_path="./data"):
     except Exception as e:
         print(f"Error downloading GOES X-ray flux data: {e}")
 
+
 def download_sharp_parameters(start_date, end_date, data_path="./data"):
     """
     Download SHARP (Spaceweather HMI Active Region Patches) tabular data from the JSOC.
-    SHARP parameters can be found in series like 'hmi.sharp_720s', 
+    SHARP parameters can be found in series like 'hmi.sharp_720s',
     including summary parameters like TOTUSJH, TOTBSQ, etc.
 
     This is an example that queries the JSOC for NOAA AR data ranges.
@@ -81,13 +86,20 @@ def download_sharp_parameters(start_date, end_date, data_path="./data"):
     client = drms.Client(email='your_email@domain.com')
     series = "hmi.sharp_720s"  # the main SHARP series
 
-    # Example of time-based query. In practice, you’d refine using HARPNUM or NOAA AR numbers.
+    # Example of time-based query. In practice, you’d refine using HARPNUM or
+    # NOAA AR numbers.
     qstr = f"{series}[{start_date}-{end_date}]"
     print(f"Querying JSOC for SHARP parameters: {qstr}")
     try:
         result = client.query(
             qstr,
-            key=["T_REC", "HARPNUM", "NOAA_ARS", "USFLUX", "TOTUSJH", "TOTPOT"],
+            key=[
+                "T_REC",
+                "HARPNUM",
+                "NOAA_ARS",
+                "USFLUX",
+                "TOTUSJH",
+                "TOTPOT"],
         )
         print(f"Found {len(result)} SHARP records. Saving to CSV...")
 
@@ -97,15 +109,17 @@ def download_sharp_parameters(start_date, end_date, data_path="./data"):
     except Exception as e:
         print(f"Error downloading SHARP parameters: {e}")
 
+
 if __name__ == "__main__":
     # Example usage:
-    # Note: The date format can vary. DRMS often uses 'YYYY.MM.DD_HH:MM:SS_TAI'.
+    # Note: The date format can vary. DRMS often uses
+    # 'YYYY.MM.DD_HH:MM:SS_TAI'.
     sdate = "2023.01.01_TAI"
     edate = "2023.01.02_TAI"
 
     download_sdo_magnetograms(sdate, edate)
     download_goes_xray_flux(sdate, edate)
-    download_sharp_parameters(sdate, edate) 
+    download_sharp_parameters(sdate, edate)
 
     # Ensure you have a local data directory
     os.makedirs("data", exist_ok=True)
@@ -115,7 +129,7 @@ if __name__ == "__main__":
         a.Time("2023-01-01 00:00", "2023-01-01 02:00"),  # time range
         a.Instrument("HMI"),                            # instrument
         a.Physobs("LOS_magnetic_field"),                # LOS magnetogram
-        a.Sample(3600 * u.second)                       # 1-hour sampling 
+        a.Sample(3600 * u.second)                       # 1-hour sampling
     )
 
     # Print found records
@@ -123,4 +137,4 @@ if __name__ == "__main__":
 
     # Download the data and save to local ./data folder
     downloaded_files = Fido.fetch(result, path="data/{file}")
-    print(downloaded_files) 
+    print(downloaded_files)

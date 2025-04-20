@@ -1,7 +1,7 @@
 """
 show_fits_sequence.py
 
-Plays all .fits files from the folder "data/hmi.m_45s" in sequence as a 
+Plays all .fits files from the folder "data/hmi.m_45s" in sequence as a
 matplotlib animation. Each frame shows an HMI magnetogram so you can watch
 sunspots evolve over time.
 
@@ -24,6 +24,7 @@ from astropy.io import fits
 import glob
 import numpy as np
 import os
+
 
 def animate_fits_sequence(fits_files, interval_ms=200):
     """
@@ -69,7 +70,8 @@ def animate_fits_sequence(fits_files, interval_ms=200):
 
     def init_animation():
         im.set_data(first_frame_data)
-        ax.set_title(f"Frame 0: {os.path.basename(valid_files[first_valid_idx])}")
+        ax.set_title(
+            f"Frame 0: {os.path.basename(valid_files[first_valid_idx])}")
         return (im,)
 
     def update(frame_idx):
@@ -80,7 +82,8 @@ def animate_fits_sequence(fits_files, interval_ms=200):
             ax.set_title(f"Frame {frame_idx}: Invalid Data")
         else:
             im.set_data(frame_data)
-            ax.set_title(f"Frame {frame_idx}: {os.path.basename(valid_files[frame_idx])}")
+            ax.set_title(
+                f"Frame {frame_idx}: {os.path.basename(valid_files[frame_idx])}")
         return (im,)
 
     ani = animation.FuncAnimation(
@@ -94,9 +97,11 @@ def animate_fits_sequence(fits_files, interval_ms=200):
 
     plt.show()
 
+
 if __name__ == "__main__":
     # Change this path if your directory layout is different.
-    # For example, if you're in the SDO folder, and there's a "data" subfolder next to this script:
+    # For example, if you're in the SDO folder, and there's a "data" subfolder
+    # next to this script:
     folder_path = "data/hmi.m_45s"
 
     print("Loading from:", os.path.abspath(folder_path))
@@ -106,4 +111,4 @@ if __name__ == "__main__":
     if len(fits_files) == 0:
         print(f"No FITS files found in {folder_path}")
     else:
-        animate_fits_sequence(fits_files, interval_ms=200) 
+        animate_fits_sequence(fits_files, interval_ms=200)
