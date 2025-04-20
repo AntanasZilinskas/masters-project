@@ -2,11 +2,12 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+
 def generate_flux_data(num_points=100000):
     """
     Generate sinusoidal flux data with some random noise.
     Each entry is spaced by 1 minute (60000 ms) in time.
-    
+
     Returns:
         pd.DataFrame with columns ['time', 'flux', 'satellite'].
     """
@@ -36,7 +37,7 @@ def generate_flux_data(num_points=100000):
     for i in range(num_points):
         # Compute the timestamp
         current_time = start_time + i * time_step_ms
-        
+
         # Convert i to seconds for our sine function
         t_s = i * 60.0  # 60 seconds per step
 
@@ -60,6 +61,7 @@ def generate_flux_data(num_points=100000):
     })
     return df
 
+
 def plot_random_24_hour_window(parquet_file="synthetic_flux_data.parquet"):
     """
     Reads flux data from a Parquet file, picks a random 24-hour window,
@@ -80,7 +82,7 @@ def plot_random_24_hour_window(parquet_file="synthetic_flux_data.parquet"):
 
     # Pick a random start index
     random_start = np.random.randint(0, len(df) - samples_per_24h)
-    subset_df = df.iloc[random_start : random_start + samples_per_24h]
+    subset_df = df.iloc[random_start: random_start + samples_per_24h]
 
     # Plot
     plt.figure(figsize=(10, 6))
@@ -92,6 +94,7 @@ def plot_random_24_hour_window(parquet_file="synthetic_flux_data.parquet"):
     plt.tight_layout()
     plt.show()
 
+
 if __name__ == "__main__":
     # Generate the data and write to Parquet
     df = generate_flux_data(num_points=100000)
@@ -99,4 +102,4 @@ if __name__ == "__main__":
     print("Parquet file 'synthetic_flux_data.parquet' has been generated.")
 
     # Plot a random 24-hour window from the generated data
-    plot_random_24_hour_window("synthetic_flux_data.parquet") 
+    plot_random_24_hour_window("synthetic_flux_data.parquet")

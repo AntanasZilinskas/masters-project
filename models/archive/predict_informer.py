@@ -20,6 +20,7 @@ logging.basicConfig(
     datefmt="%H:%M:%S"
 )
 
+
 class GOESDataset(Dataset):
     """
     Loads GOES netCDF files containing "avg1m_g13" in the filename (e.g. sci_xrsf-l2-avg1m_g16_d20180908_v2-2-0.nc),
@@ -53,7 +54,8 @@ class GOESDataset(Dataset):
             print(f"[DEBUG] After max_files={max_files}, truncated list:")
             pprint.pprint(all_files)
 
-        logging.info(f"Found {len(all_files)} netCDF files in '{data_dir}' with 'avg1m_g13'")
+        logging.info(
+            f"Found {len(all_files)} netCDF files in '{data_dir}' with 'avg1m_g13'")
         if len(all_files) == 0:
             raise FileNotFoundError(
                 f"No .nc files matching '*avg1m_g13*.nc' in {data_dir}"
@@ -75,19 +77,22 @@ class GOESDataset(Dataset):
                     flux_var = 'a_flux'
                 else:
                     ds.close()
-                    logging.warning(f"No recognized flux variable in {fpath}, skipping.")
+                    logging.warning(
+                        f"No recognized flux variable in {fpath}, skipping.")
                     continue
 
                 flux_vals = ds[flux_var].values
                 ds.close()
                 flux_list.append(flux_vals)
-                print(f"[DEBUG] Loaded {len(flux_vals)} timesteps from {fpath} (var='{flux_var}')")
+                print(
+                    f"[DEBUG] Loaded {len(flux_vals)} timesteps from {fpath} (var='{flux_var}')")
             except Exception as e:
                 logging.warning(f"Could not load {fpath}. Error: {e}")
                 continue
 
         if len(flux_list) == 0:
-            raise ValueError("No valid flux data found among the selected netCDF files.")
+            raise ValueError(
+                "No valid flux data found among the selected netCDF files.")
 
         # Concatenate all flux arrays into a single time-series
         all_flux = np.concatenate(flux_list, axis=0)
@@ -105,7 +110,8 @@ class GOESDataset(Dataset):
             logging.info(f"Training portion: {len(self.data)} samples")
         else:
             self.data = self.data[split_index:]
-            logging.info(f"Validation/Testing portion: {len(self.data)} samples")
+            logging.info(
+                f"Validation/Testing portion: {len(self.data)} samples")
 
         # 5) Build sliding window indices
         self.indices = []
@@ -130,6 +136,7 @@ class GOESDataset(Dataset):
         x_tensor = torch.tensor(x_seq, dtype=torch.float32)
         y_tensor = torch.tensor(y_seq, dtype=torch.float32)
         return x_tensor, y_tensor
+
 
 def load_trained_informer(model_path, device='cpu',
                           lookback_len=24,
@@ -160,6 +167,7 @@ def load_trained_informer(model_path, device='cpu',
     logging.info(f"Loaded Informer model weights from {model_path}")
     return model
 
+
 def predict_and_compare(model, test_dataset, device='cpu'):
     """
     Runs inference on the test dataset to get 24-hour predictions from each
@@ -180,7 +188,8 @@ def predict_and_compare(model, test_dataset, device='cpu'):
             x = x.to(device)  # shape: [1, lookback_len]
             y = y.to(device)  # shape: [1, forecast_len]
 
-            # Pass zero placeholder if your model expects (src, tgt) in forward()
+            # Pass zero placeholder if your model expects (src, tgt) in
+            # forward()
             future_dummy = torch.zeros_like(y).to(device)
 
             # The model forward pass
@@ -199,12 +208,14 @@ def predict_and_compare(model, test_dataset, device='cpu'):
             count += 1
 
             if (batch_idx + 1) % 50 == 0:
-                logging.debug(f"[{batch_idx+1}/{len(test_loader)}] Sample MSE: {mse:.6f}")
+                logging.debug(
+                    f"[{batch_idx+1}/{len(test_loader)}] Sample MSE: {mse:.6f}")
 
     overall_mse = mse_sum / max(count, 1)
     logging.info(f"Prediction MSE on test dataset: {overall_mse:.6f}")
 
     return all_predictions, all_targets, overall_mse
+
 
 def plot_predictions(all_predictions, all_targets, num_windows=3):
     """
@@ -215,7 +226,9 @@ def plot_predictions(all_predictions, all_targets, num_windows=3):
         logging.warning("No windows to plot (all_predictions is empty).")
         return
 
-    fig, axes = plt.subplots(num_windows, 1, figsize=(8, 4 * num_windows), sharex=False)
+    fig, axes = plt.subplots(
+        num_windows, 1, figsize=(
+            8, 4 * num_windows), sharex=False)
 
     if num_windows == 1:
         # If there's only one window, axes is not a list
@@ -234,6 +247,7 @@ def plot_predictions(all_predictions, all_targets, num_windows=3):
 
     plt.tight_layout()
     plt.show()
+
 
 def main():
     MODEL_PATH = "informer-24h-new_test_split.pth"
@@ -265,22 +279,25 @@ def main():
         data_dir=DATA_DIR,
         lookback_len=24,  # hours
         forecast_len=24,  # hours
-        step_per_hour=60, # 1-min data => 60 steps/hour => 1440 steps/day
+        step_per_hour=60,  # 1-min data => 60 steps/hour => 1440 steps/day
         train=False,
         train_split=0.0,  # all data loaded goes to the "test" split
         max_files=2       # load exactly 2 daily files => 2880 steps total
     )
 
     # 3) Predict & Compare
-    all_preds, all_tgts, test_mse = predict_and_compare(model, test_dataset, device=device)
+    all_preds, all_tgts, test_mse = predict_and_compare(
+        model, test_dataset, device=device)
 
     # 4) Log a snippet of results
     logging.info("Example predictions vs. targets (first 3 windows):")
     for i in range(min(3, len(all_preds))):
-        logging.info(f"Window {i+1} - Pred: {all_preds[i][:5]}..., Tgt: {all_tgts[i][:5]}...")
+        logging.info(
+            f"Window {i+1} - Pred: {all_preds[i][:5]}..., Tgt: {all_tgts[i][:5]}...")
 
     # 5) Plot a few windows
     plot_predictions(all_preds, all_tgts, num_windows=3)
+
 
 if __name__ == "__main__":
     main()

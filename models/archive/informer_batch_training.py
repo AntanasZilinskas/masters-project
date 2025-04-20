@@ -9,6 +9,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from math import ceil
 
+
 def select_device():
     if torch.backends.mps.is_available():
         return torch.device("mps")
@@ -20,6 +21,8 @@ def select_device():
 ########################################################################
 # 1) GOESDataset with Optional file_list Argument
 ########################################################################
+
+
 class GOESDataset(Dataset):
     def __init__(self,
                  data_dir=None,
@@ -59,7 +62,8 @@ class GOESDataset(Dataset):
                     flux_var = 'a_flux'
                 else:
                     ds.close()
-                    logging.warning(f"No recognized flux variable in {fpath}, skipping.")
+                    logging.warning(
+                        f"No recognized flux variable in {fpath}, skipping.")
                     continue
 
                 flux_vals = ds[flux_var].values
@@ -109,6 +113,8 @@ class GOESDataset(Dataset):
 ########################################################################
 # 2) Informer model definition (unchanged from before)
 ########################################################################
+
+
 class Informer(nn.Module):
     def __init__(self, d_model, n_heads, d_ff, enc_layers, dec_layers,
                  dropout, lookback_len, forecast_len):
@@ -123,6 +129,8 @@ class Informer(nn.Module):
 ########################################################################
 # 3) Evaluate & Save Functions
 ########################################################################
+
+
 def evaluate_informer(model, data_loader, device='mps', criterion=None):
     model.eval()
     mse_sum = 0.0
@@ -140,6 +148,8 @@ def evaluate_informer(model, data_loader, device='mps', criterion=None):
 ########################################################################
 # 4) CHUNKED TRAINING: chunked_train_informer
 ########################################################################
+
+
 def chunked_train_informer(data_dir,
                            lookback_len=72,
                            forecast_len=24,
@@ -193,9 +203,11 @@ def chunked_train_informer(data_dir,
         chunk_files = all_files[start_idx:end_idx]
         chunk_count += 1
 
-        logging.info(f"--- Chunk {chunk_i+1} / {total_chunks} => {len(chunk_files)} files ---")
+        logging.info(
+            f"--- Chunk {chunk_i+1} / {total_chunks} => {len(chunk_files)} files ---")
 
-        # Build a chunked train dataset (train_split=1.0 so it's purely training)
+        # Build a chunked train dataset (train_split=1.0 so it's purely
+        # training)
         train_dataset = GOESDataset(
             data_dir=None,        # we won't use a directory-based glob
             file_list=chunk_files,
@@ -205,7 +217,10 @@ def chunked_train_informer(data_dir,
             train=True,
             train_split=1.0
         )
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True)
 
         # 4) Train for epochs_per_chunk
         for epoch in range(epochs_per_chunk):
@@ -223,7 +238,8 @@ def chunked_train_informer(data_dir,
                 total_loss += loss.item()
 
             avg_loss = total_loss / max(len(train_loader), 1)
-            logging.info(f"Chunk {chunk_i+1} - Epoch {epoch+1}/{epochs_per_chunk} - Loss: {avg_loss:.6f}")
+            logging.info(
+                f"Chunk {chunk_i+1} - Epoch {epoch+1}/{epochs_per_chunk} - Loss: {avg_loss:.6f}")
 
     # 5) OPTIONAL: Evaluate on a hold-out test set
     # You can define a separate test dataset that uses train=False and e.g. train_split=0.0 or 0.8
@@ -238,7 +254,11 @@ def chunked_train_informer(data_dir,
         train_split=0.8          # leaving 20% for test
     )
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
-    test_mse = evaluate_informer(model, test_loader, device=device, criterion=criterion)
+    test_mse = evaluate_informer(
+        model,
+        test_loader,
+        device=device,
+        criterion=criterion)
     logging.info(f"Final Test MSE after chunked training: {test_mse:.6f}")
 
     # 6) Save the model
@@ -246,6 +266,7 @@ def chunked_train_informer(data_dir,
     logging.info(f"Model saved to {model_save_path}")
 
     return model
+
 
 ########################################################################
 # (Optional) MAIN

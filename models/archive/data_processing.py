@@ -14,6 +14,8 @@ logging.basicConfig(
 )
 
 # Helper to detect which GOES satellite the file belongs to
+
+
 def _detect_satellite(filename: str) -> str:
     """
     Returns a short label for the satellite based on the filename
@@ -23,6 +25,7 @@ def _detect_satellite(filename: str) -> str:
         if sat in filename.lower():
             return sat
     return "other"
+
 
 def _process_file(nc_file):
     """
@@ -47,7 +50,8 @@ def _process_file(nc_file):
         elif "a_flux" in ds.variables:
             flux_var = "a_flux"
         else:
-            logging.warning(f"  No recognized flux variable in {nc_file}, skipping.")
+            logging.warning(
+                f"  No recognized flux variable in {nc_file}, skipping.")
             ds.close()
             return None
 
@@ -64,15 +68,19 @@ def _process_file(nc_file):
         logging.error(f"  Error processing {nc_file}: {e}")
         return None
 
-def netcdf_to_parquet_parallel(data_dir, out_parquet="goes_avg1m_combined.parquet", max_workers=None):
+
+def netcdf_to_parquet_parallel(
+        data_dir,
+        out_parquet="goes_avg1m_combined.parquet",
+        max_workers=None):
     """
     Searches for all NetCDF files in data_dir matching '*avg1m*.nc', filters to those
     with a date in the filename between 2010 and 2024, extracts minute-level data in parallel,
     and combines them into a single DataFrame.
-    
+
     For each minute, it prefers data from satellite 'g13'. If g13 is not available for a given minute,
     it falls back on g14, g15, etc. No minute will be missing if at least one satellite has data.
-    
+
     The final DataFrame contains minute-by-minute flux data (log1p can be applied later
     if desired) extracted from whichever satellite is available.
     """
@@ -81,7 +89,8 @@ def netcdf_to_parquet_parallel(data_dir, out_parquet="goes_avg1m_combined.parque
     if not all_files:
         raise FileNotFoundError(f"No files found matching {pattern}")
 
-    # Filter files by date in name: look for a pattern of dYYYYMMDD and keep if 2010<=YYYY<=2024
+    # Filter files by date in name: look for a pattern of dYYYYMMDD and keep
+    # if 2010<=YYYY<=2024
     date_re = re.compile(r"d(\d{8})")
     filtered_files = []
     for f in all_files:
@@ -94,13 +103,18 @@ def netcdf_to_parquet_parallel(data_dir, out_parquet="goes_avg1m_combined.parque
     if not filtered_files:
         raise ValueError("No files found within the date range 2010-2024.")
 
-    logging.info(f"Found {len(filtered_files)} matching files in the date range 2010 to 2024.")
-    logging.info(f"Using up to {max_workers or 'CPU_count'} processes for parallel I/O.\n")
+    logging.info(
+        f"Found {len(filtered_files)} matching files in the date range 2010 to 2024.")
+    logging.info(
+        f"Using up to {max_workers or 'CPU_count'} processes for parallel I/O.\n")
 
     df_list = []
     # Process files in parallel
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        future_to_file = {executor.submit(_process_file, f): f for f in filtered_files}
+        future_to_file = {
+            executor.submit(
+                _process_file,
+                f): f for f in filtered_files}
         logging.info(f"Processing {len(future_to_file)} files in parallel...")
         for future in as_completed(future_to_file):
             fpath = future_to_file[future]
@@ -115,7 +129,8 @@ def netcdf_to_parquet_parallel(data_dir, out_parquet="goes_avg1m_combined.parque
                 logging.error(f"{fpath} generated an exception: {exc}")
 
     if not df_list:
-        raise ValueError("No valid data frames to save. All files might have been skipped or errored.")
+        raise ValueError(
+            "No valid data frames to save. All files might have been skipped or errored.")
 
     # Combine all processed DataFrames
     combined_df = pd.concat(df_list, ignore_index=True)
@@ -131,19 +146,26 @@ def netcdf_to_parquet_parallel(data_dir, out_parquet="goes_avg1m_combined.parque
         "g17": 5,
         "other": 6
     }
-    combined_df["priority"] = combined_df["satellite"].map(satellite_priority).fillna(999)
+    combined_df["priority"] = combined_df["satellite"].map(
+        satellite_priority).fillna(999)
 
     # For each minute, keep the row with the best priority.
-    # This guarantees that for a given minute, if the primary satellite (g13) data exists, that will be chosen.
+    # This guarantees that for a given minute, if the primary satellite (g13)
+    # data exists, that will be chosen.
     grouped_df = combined_df.groupby("time", as_index=False).first()
     grouped_df.drop(columns=["priority"], inplace=True)
     grouped_df.sort_values(by="time", inplace=True)
 
-    logging.info(f"Writing {len(grouped_df)} minute-level rows to {out_parquet} ...")
+    logging.info(
+        f"Writing {len(grouped_df)} minute-level rows to {out_parquet} ...")
     grouped_df.to_parquet(out_parquet, index=False)
     logging.info("Done. Parquet file created.")
+
 
 if __name__ == "__main__":
     DATA_DIR = "/Users/antanaszilinskas/Desktop/Imperial College London/D2P/Coursework/masters-project/data/GOES/data/avg1m_2010_to_2024"
     OUTPUT_NAME = "goes_avg1m_combined.parquet"
-    netcdf_to_parquet_parallel(DATA_DIR, out_parquet=OUTPUT_NAME, max_workers=None)
+    netcdf_to_parquet_parallel(
+        DATA_DIR,
+        out_parquet=OUTPUT_NAME,
+        max_workers=None)
