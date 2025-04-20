@@ -22,7 +22,7 @@ This script runs all the test for flare class: C, M, M5, and time window: 24, 48
 '''
 
 from SolarFlareNet_test import *
-for time_window in [24,48,72]:
+for time_window in [24, 48, 72]:
     for flare_class in ['C', 'M', 'M5']:
         test(str(time_window), flare_class)
-        log('===========================================================\n\n',verbose=True)
+        log('===========================================================\n\n', verbose=True)

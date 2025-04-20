@@ -11,26 +11,31 @@ n_head = 12
 n_layer = 12
 dropout = 0.2
 
+
 class Head(nn.Module):
     def __init__(self, head_size):
         super().__init__()
         self.key = nn.Linear(n_embd, head_size, bias=False)
         self.query = nn.Linear(n_embd, head_size, bias=False)
         self.value = nn.Linear(n_embd, head_size, bias=False)
-        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+        self.register_buffer(
+            'tril', torch.tril(
+                torch.ones(
+                    block_size, block_size)))
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
-        B,T,C = x.shape
-        k = self.key(x)   
-        q = self.query(x) 
-        wei = q @ k.transpose(-2,-1) * k.shape[-1]**-0.5
+        B, T, C = x.shape
+        k = self.key(x)
+        q = self.query(x)
+        wei = q @ k.transpose(-2, -1) * k.shape[-1]**-0.5
         wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf'))
         wei = F.softmax(wei, dim=-1)
         wei = self.dropout(wei)
         v = self.value(x)
         out = wei @ v
         return out
+
 
 class MultiHeadAttention(nn.Module):
     def __init__(self, num_heads, head_size):
@@ -44,6 +49,7 @@ class MultiHeadAttention(nn.Module):
         out = self.dropout(self.proj(out))
         return out
 
+
 class FeedFoward(nn.Module):
     def __init__(self, n_embd):
         super().__init__()
@@ -56,6 +62,7 @@ class FeedFoward(nn.Module):
 
     def forward(self, x):
         return self.net(x)
+
 
 class Block(nn.Module):
     def __init__(self, n_embd, n_head):
@@ -71,12 +78,14 @@ class Block(nn.Module):
         x = x + self.ffwd(self.ln2(x))
         return x
 
+
 class GPTLanguageModel(nn.Module):
     def __init__(self):
         super().__init__()
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
-        self.blocks = nn.Sequential(*[Block(n_embd, n_head=n_head) for _ in range(n_layer)])
+        self.blocks = nn.Sequential(
+            *[Block(n_embd, n_head=n_head) for _ in range(n_layer)])
         self.ln_f = nn.LayerNorm(n_embd)
         self.lm_head = nn.Linear(n_embd, vocab_size)
 
@@ -93,8 +102,8 @@ class GPTLanguageModel(nn.Module):
             loss = None
         else:
             B, T, C = logits.shape
-            logits = logits.view(B*T, C)
-            targets = targets.view(B*T)
+            logits = logits.view(B * T, C)
+            targets = targets.view(B * T)
             loss = F.cross_entropy(logits, targets)
 
         return logits, loss
@@ -109,22 +118,26 @@ class GPTLanguageModel(nn.Module):
             idx = torch.cat((idx, idx_next), dim=1)
         return idx
 
+
 def load_model(filename):
     checkpoint = torch.load(filename)
     global vocab_size, stoi, itos  # Need these for generation
     stoi = checkpoint['stoi']
     itos = checkpoint['itos']
     vocab_size = len(stoi)
-    
+
     model = GPTLanguageModel()
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(device)
     return model, checkpoint
 
+
 def decode(l):
     return ''.join([itos[i] for i in l])
 
+
 # Load and run the model
-loaded_model, checkpoint = load_model('checkpoints/gpt_model_20241121_063755_iter1500.pt')
+loaded_model, checkpoint = load_model(
+    'checkpoints/gpt_model_20241121_063755_iter1500.pt')
 context = torch.zeros((1, 1), dtype=torch.long, device=device)
 print(decode(loaded_model.generate(context, max_new_tokens=500)[0].tolist()))
