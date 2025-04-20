@@ -12,10 +12,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from models.archive.informer import GOESParquetDataset, Informer, select_device
-
+# Add the project root to the Python path
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+)
+
+# Now import the model after the path is set up
+from models.archive.informer import (  # noqa: E402
+    GOESParquetDataset,
+    Informer,
+    select_device,
 )
 
 
