@@ -102,12 +102,13 @@ class Performer(layers.Layer):
     
     def build(self, input_shape):
         """Create the projection matrix for random features on build."""
-        # Initialize in float32, will be cast to the right dtype during call
+        # Initialize in float32 explicitly to avoid mixed precision issues
         self.projection_matrix = self.add_weight(
             name="projection_matrix", 
             shape=[self.key_dim, self.num_random_features],
             initializer=tf.keras.initializers.GlorotNormal(),
-            trainable=False
+            trainable=False,
+            dtype='float32'  # Explicitly set to float32 to avoid mixed precision issues
         )
         super(Performer, self).build(input_shape)
     
@@ -161,18 +162,19 @@ class Performer(layers.Layer):
             k_reshaped, False, self.projection_matrix)
         
         # Compute attention using the efficient kernelized method
-        # Compute KV using einsum to handle the dimension mismatch properly
         
         # First compute KV - weighted sum of values
-        # This is equivalent to (k_prime.T @ v_reshaped) in the full attention formulation
         kv = tf.einsum('bnf,bnd->bfd', k_prime, v_reshaped)  # [batch*heads, num_features, key_dim]
         
         # Compute the weighted sum by multiplying with q_prime
         qkv = tf.einsum('bnf,bfd->bnd', q_prime, kv)  # [batch*heads, seq_len, key_dim]
         
         # Normalize by sum of weights with epsilon for numerical stability
+        # Fix: Using tf.reduce_sum(k_prime, axis=1) to sum over the sequence dimension as per eq. 7 in Performer paper
         epsilon = tf.cast(1e-6, x_dtype)
-        qkv = qkv / (tf.einsum('bnf,bf->bn', q_prime, tf.reduce_sum(k_prime, axis=1)) + epsilon)[:, :, tf.newaxis]
+        k_sum = tf.reduce_sum(k_prime, axis=1)  # Sum over sequence dimension
+        normalization = tf.einsum('bnf,bf->bn', q_prime, k_sum) + epsilon
+        qkv = qkv / normalization[:, :, tf.newaxis]
         
         # Reshape output back to original format
         output = tf.reshape(qkv, [batch_size, self.num_heads, -1, self.key_dim])
