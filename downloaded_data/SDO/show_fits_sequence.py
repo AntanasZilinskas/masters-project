@@ -18,12 +18,13 @@ Usage:
 A matplotlib window will open, cycling through each .fits file in that folder.
 """
 
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from astropy.io import fits
 import glob
-import numpy as np
 import os
+
+import matplotlib.animation as animation
+import matplotlib.pyplot as plt
+import numpy as np
+from astropy.io import fits
 
 
 def animate_fits_sequence(fits_files, interval_ms=200):
@@ -63,15 +64,16 @@ def animate_fits_sequence(fits_files, interval_ms=200):
     first_frame_data = data_list[first_valid_idx]
 
     # Initialize the first frame
-    im = ax.imshow(first_frame_data, cmap='gray', origin='lower')
+    im = ax.imshow(first_frame_data, cmap="gray", origin="lower")
     ax.set_title(f"Frame 0: {os.path.basename(valid_files[first_valid_idx])}")
-    cbar = plt.colorbar(im, ax=ax, orientation='vertical')
-    cbar.set_label('Magnetogram Values')
+    cbar = plt.colorbar(im, ax=ax, orientation="vertical")
+    cbar.set_label("Magnetogram Values")
 
     def init_animation():
         im.set_data(first_frame_data)
         ax.set_title(
-            f"Frame 0: {os.path.basename(valid_files[first_valid_idx])}")
+            f"Frame 0: {os.path.basename(valid_files[first_valid_idx])}"
+        )
         return (im,)
 
     def update(frame_idx):
@@ -83,7 +85,8 @@ def animate_fits_sequence(fits_files, interval_ms=200):
         else:
             im.set_data(frame_data)
             ax.set_title(
-                f"Frame {frame_idx}: {os.path.basename(valid_files[frame_idx])}")
+                f"Frame {frame_idx}: {os.path.basename(valid_files[frame_idx])}"
+            )
         return (im,)
 
     ani = animation.FuncAnimation(
@@ -92,7 +95,7 @@ def animate_fits_sequence(fits_files, interval_ms=200):
         frames=range(len(data_list)),
         init_func=init_animation,
         interval=interval_ms,
-        blit=True
+        blit=True,
     )
 
     plt.show()

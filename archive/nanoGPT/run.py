@@ -5,7 +5,7 @@ from torch.nn import functional as F
 # hyperparameters (need to match your training configuration)
 batch_size = 32
 block_size = 512
-device = 'mps' if torch.backends.mps.is_available() else 'cpu'
+device = "mps" if torch.backends.mps.is_available() else "cpu"
 n_embd = 768
 n_head = 12
 n_layer = 12
@@ -19,17 +19,16 @@ class Head(nn.Module):
         self.query = nn.Linear(n_embd, head_size, bias=False)
         self.value = nn.Linear(n_embd, head_size, bias=False)
         self.register_buffer(
-            'tril', torch.tril(
-                torch.ones(
-                    block_size, block_size)))
+            "tril", torch.tril(torch.ones(block_size, block_size))
+        )
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
         B, T, C = x.shape
         k = self.key(x)
         q = self.query(x)
-        wei = q @ k.transpose(-2, -1) * k.shape[-1]**-0.5
-        wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf'))
+        wei = q @ k.transpose(-2, -1) * k.shape[-1] ** -0.5
+        wei = wei.masked_fill(self.tril[:T, :T] == 0, float("-inf"))
         wei = F.softmax(wei, dim=-1)
         wei = self.dropout(wei)
         v = self.value(x)
@@ -85,7 +84,8 @@ class GPTLanguageModel(nn.Module):
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
         self.blocks = nn.Sequential(
-            *[Block(n_embd, n_head=n_head) for _ in range(n_layer)])
+            *[Block(n_embd, n_head=n_head) for _ in range(n_layer)]
+        )
         self.ln_f = nn.LayerNorm(n_embd)
         self.lm_head = nn.Linear(n_embd, vocab_size)
 
@@ -122,22 +122,23 @@ class GPTLanguageModel(nn.Module):
 def load_model(filename):
     checkpoint = torch.load(filename)
     global vocab_size, stoi, itos  # Need these for generation
-    stoi = checkpoint['stoi']
-    itos = checkpoint['itos']
+    stoi = checkpoint["stoi"]
+    itos = checkpoint["itos"]
     vocab_size = len(stoi)
 
     model = GPTLanguageModel()
-    model.load_state_dict(checkpoint['model_state_dict'])
+    model.load_state_dict(checkpoint["model_state_dict"])
     model = model.to(device)
     return model, checkpoint
 
 
 def decode(l):
-    return ''.join([itos[i] for i in l])
+    return "".join([itos[i] for i in l])
 
 
 # Load and run the model
 loaded_model, checkpoint = load_model(
-    'checkpoints/gpt_model_20241121_063755_iter1500.pt')
+    "checkpoints/gpt_model_20241121_063755_iter1500.pt"
+)
 context = torch.zeros((1, 1), dtype=torch.long, device=device)
 print(decode(loaded_model.generate(context, max_new_tokens=500)[0].tolist()))

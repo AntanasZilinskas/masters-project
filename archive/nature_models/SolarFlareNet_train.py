@@ -1,4 +1,4 @@
-'''
+"""
  (c) Copyright 2023
  All rights reserved
  Programs written by Yasser Abduallah
@@ -15,20 +15,28 @@
  express or implied warranty.
 
  @author: Yasser Abduallah
-'''
+"""
 
+
+import sys
+import warnings
+
+from sklearn.utils import class_weight
+from SolarFlareNet_model import SolarFlareNet
 
 from utils import *
-import sys
-from SolarFlareNet_model import SolarFlareNet
-from sklearn.utils import class_weight
-import warnings
-warnings.filterwarnings('ignore')
+
+warnings.filterwarnings("ignore")
 
 
 def train(time_window, flare_class):
-    log('Training is initiated for time window:', time_window,
-        'and flare class:', flare_class, verbose=True)
+    log(
+        "Training is initiated for time window:",
+        time_window,
+        "and flare class:",
+        flare_class,
+        verbose=True,
+    )
     X_train, y_train = get_training_data(time_window, flare_class)
     y_train_tr = data_transform(y_train)
     epochs = 20
@@ -39,19 +47,21 @@ def train(time_window, flare_class):
     model.models()
     model.compile()
     y_train_tr = y_train_tr.reshape(
-        y_train_tr.shape[0], 1, y_train_tr.shape[1])
-    w_dir = 'models' + os.sep + str(time_window) + os.sep + str(flare_class)
+        y_train_tr.shape[0], 1, y_train_tr.shape[1]
+    )
+    w_dir = "models" + os.sep + str(time_window) + os.sep + str(flare_class)
     model.fit(X_train, y_train_tr, epochs=epochs, verbose=2)
     model.save_weights(flare_class=None, w_dir=w_dir)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     time_window = str(sys.argv[1]).strip().upper()
     flare_class = str(sys.argv[2]).strip().upper()
     if flare_class not in supported_flare_class:
         print(
-            'Unsupported flass class:',
+            "Unsupported flass class:",
             sys.argv[1],
-            ', it must be one of:',
-            ', '.join(supported_flare_class))
+            ", it must be one of:",
+            ", ".join(supported_flare_class),
+        )
     train(time_window, flare_class)

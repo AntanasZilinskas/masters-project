@@ -8,40 +8,41 @@ This script:
 5. Saves processed images in a format ready for the model
 """
 
+import glob
 import os
-import numpy as np
-import matplotlib.pyplot as plt
-from astropy.io import fits
-from astropy.visualization import ImageNormalize, SqrtStretch, AsinhStretch
-from astropy.time import Time
-import pandas as pd
 from datetime import datetime
+
+import h5py
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from astropy.io import fits
+from astropy.time import Time
+from astropy.visualization import AsinhStretch, ImageNormalize, SqrtStretch
 from skimage.transform import resize
 from sunpy.map import Map
-import glob
-import tensorflow as tf
 from tqdm import tqdm
-import h5py
 
 
 def parse_time(time_str):
     """Parse time string from CSV to datetime object."""
     time_str = str(time_str).strip()
-    time_str = time_str.replace('T', ' ').replace('Z', '')
-    return datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S.%f')
+    time_str = time_str.replace("T", " ").replace("Z", "")
+    return datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S.%f")
 
 
 def find_closest_image(timestamp, image_files, max_minutes=15):
     """Find the closest image file to the given timestamp."""
     target_time = parse_time(timestamp)
     closest_file = None
-    min_diff = float('inf')
+    min_diff = float("inf")
 
     for img_file in image_files:
         # Extract time from filename (adjust pattern based on your filenames)
-        file_time_str = os.path.basename(img_file).split('.')[2]
+        file_time_str = os.path.basename(img_file).split(".")[2]
         try:
-            file_time = datetime.strptime(file_time_str, '%Y%m%d_%H%M%S')
+            file_time = datetime.strptime(file_time_str, "%Y%m%d_%H%M%S")
             time_diff = abs((file_time - target_time).total_seconds())
             if time_diff < min_diff and time_diff < max_minutes * 60:
                 min_diff = time_diff
@@ -82,15 +83,20 @@ def preprocess_magnetogram(fits_file, harp_number=None, crop_size=256):
             center_h, center_w = h // 2, w // 2
             start_h = max(0, center_h - crop_size // 2)
             start_w = max(0, center_w - crop_size // 2)
-            data_norm = data_norm[start_h:start_h +
-                                  crop_size, start_w:start_w + crop_size]
+            data_norm = data_norm[
+                start_h : start_h + crop_size, start_w : start_w + crop_size
+            ]
 
         # Resize to standard dimensions
         data_resized = resize(data_norm, (128, 128), anti_aliasing=True)
 
         # Normalize to [-1, 1] range for neural network
-        data_final = 2 * (data_resized - np.min(data_resized)) / \
-            (np.max(data_resized) - np.min(data_resized)) - 1
+        data_final = (
+            2
+            * (data_resized - np.min(data_resized))
+            / (np.max(data_resized) - np.min(data_resized))
+            - 1
+        )
 
         return data_final
 
@@ -100,11 +106,8 @@ def preprocess_magnetogram(fits_file, harp_number=None, crop_size=256):
 
 
 def create_aligned_dataset(
-        csv_file,
-        image_dir,
-        output_file,
-        time_window,
-        flare_class):
+    csv_file, image_dir, output_file, time_window, flare_class
+):
     """
     Create a dataset with aligned SHARP parameters and magnetogram images.
 
@@ -154,12 +157,12 @@ def create_aligned_dataset(
     indices = np.array(indices)
 
     # Save the aligned dataset
-    with h5py.File(output_file, 'w') as hf:
-        hf.create_dataset('images', data=images)
-        hf.create_dataset('indices', data=indices)
-        hf.attrs['csv_file'] = csv_file
-        hf.attrs['time_window'] = time_window
-        hf.attrs['flare_class'] = flare_class
+    with h5py.File(output_file, "w") as hf:
+        hf.create_dataset("images", data=images)
+        hf.create_dataset("indices", data=indices)
+        hf.attrs["csv_file"] = csv_file
+        hf.attrs["time_window"] = time_window
+        hf.attrs["flare_class"] = flare_class
 
     print(f"Created aligned dataset with {len(images)} entries")
     print(f"Saved to {output_file}")
@@ -172,16 +175,19 @@ if __name__ == "__main__":
     for time_window in ["24", "48", "72"]:
         for flare_class in ["C", "M", "M5"]:
             # Paths for training data
-            csv_file = f"Nature_data/testing_data_{flare_class}_{time_window}.csv"
-            image_dir = f"SDO/data/hmi.m_45s"  # Adjust based on your download path
-            output_file = f"Nature_data/multimodal_data_{flare_class}_{time_window}.h5"
+            csv_file = (
+                f"Nature_data/testing_data_{flare_class}_{time_window}.csv"
+            )
+            image_dir = (
+                f"SDO/data/hmi.m_45s"  # Adjust based on your download path
+            )
+            output_file = (
+                f"Nature_data/multimodal_data_{flare_class}_{time_window}.h5"
+            )
 
             if os.path.exists(csv_file) and os.path.exists(image_dir):
                 create_aligned_dataset(
-                    csv_file,
-                    image_dir,
-                    output_file,
-                    time_window,
-                    flare_class)
+                    csv_file, image_dir, output_file, time_window, flare_class
+                )
             else:
                 print(f"Missing data for {flare_class}_{time_window}")

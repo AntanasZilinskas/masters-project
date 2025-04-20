@@ -15,4 +15,4 @@ requests==2.31.0
 fastparquet==2024.11.0
 pyarrow==19.0.0
 scipy==1.14.1
-seaborn==0.13.2 
+seaborn==0.13.2

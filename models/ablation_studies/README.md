@@ -69,4 +69,4 @@ To add a new ablation study:
 
 ## Contact
 
-For questions or suggestions regarding these ablation studies, please contact Antanas Zilinskas. 
+For questions or suggestions regarding these ablation studies, please contact Antanas Zilinskas.

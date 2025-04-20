@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% University Assignment Title Page 
+% University Assignment Title Page
 % LaTeX Template
 % Version 1.0 (27/12/12)
 %
@@ -11,17 +11,17 @@
 %
 % License:
 % CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
-% 
-% Instructions for using this template:
-% This title page is capable of being compiled as is. This is not useful for 
-% including it in another document. To do this, you have two options: 
 %
-% 1) Copy/paste everything between \begin{document} and \end{document} 
-% starting at \begin{titlepage} and paste this into another LaTeX file where you 
+% Instructions for using this template:
+% This title page is capable of being compiled as is. This is not useful for
+% including it in another document. To do this, you have two options:
+%
+% 1) Copy/paste everything between \begin{document} and \end{document}
+% starting at \begin{titlepage} and paste this into another LaTeX file where you
 % want your title page.
 % OR
-% 2) Remove everything outside the \begin{titlepage} and \end{titlepage} and 
-% move this file to the same directory as the LaTeX file you wish to add it to. 
+% 2) Remove everything outside the \begin{titlepage} and \end{titlepage} and
+% move this file to the same directory as the LaTeX file you wish to add it to.
 % Then add \input{./title_page_1.tex} to your LaTeX file where you want your
 % title page.
 %
@@ -58,7 +58,7 @@
 \usepackage{color}  % Optional for coloring code
 
 \usepackage[table]{xcolor}
-\usepackage{enumerate} % for numbering with [a)] format 
+\usepackage{enumerate} % for numbering with [a)] format
 
 % Define colors
 \definecolor{codegreen}{rgb}{0,0.6,0}
@@ -68,21 +68,21 @@
 
 % Setup the style for the Python code
 \lstdefinestyle{mystyle}{
-    backgroundcolor=\color{backcolour},   
+    backgroundcolor=\color{backcolour},
     commentstyle=\color{codegreen},
     keywordstyle=\color{magenta},
     numberstyle=\tiny\color{codegray},
     stringstyle=\color{codepurple},
     basicstyle=\ttfamily\footnotesize,
-    breakatwhitespace=false,         
-    breaklines=true,                 
-    captionpos=b,                    
-    keepspaces=true,                 
-    numbers=left,                    
-    numbersep=5pt,                  
-    showspaces=false,                
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
     showstringspaces=false,
-    showtabs=false,                  
+    showtabs=false,
     tabsize=2
 }
 
@@ -96,9 +96,9 @@
 \else
 \usepackage[pdftex,pagebackref,hypertexnames=false,colorlinks]{hyperref} % provide links in pdf
 \hypersetup{pdftitle={},
-  pdfsubject={}, 
+  pdfsubject={},
   pdfauthor={\reportauthor},
-  pdfkeywords={}, 
+  pdfkeywords={},
   pdfstartview=FitH,
   pdfpagemode={UseOutlines},% None, FullScreen, UseOutlines
   bookmarksnumbered=true, bookmarksopen=true, colorlinks,
@@ -122,12 +122,12 @@
 
 % example-environment
 \newenvironment{example}[1][]
-{ 
+{
 \vspace{4mm}
 \noindent\makebox[\linewidth]{\rule{\hsize}{1.5pt}}
 \textbf{Example #1}\\
 }
-{ 
+{
 \noindent\newline\makebox[\linewidth]{\rule{\hsize}{1.0pt}}
 }
 
@@ -167,22 +167,22 @@
         %\par\nobreak
         %\vskip 10\p@
     \interlinepenalty\@M
-    \Huge \bfseries 
+    \Huge \bfseries
     \thechapter \space\space #1\par\nobreak
     \vskip 30\p@
   }}
 
-%---chapter heading for \chapter*  
+%---chapter heading for \chapter*
 \def\@makeschapterhead#1{%
   \vspace*{10\p@}%
   {\parindent \z@ \raggedright
     \sffamily
     \interlinepenalty\@M
-    \Huge \bfseries  
+    \Huge \bfseries
     #1\par\nobreak
     \vskip 30\p@
   }}
-  
+
 
 
 
@@ -203,7 +203,7 @@
 		\egroup
 	   \hrule
 	 \egroup
-   }	
+   }
 
 \newenvironment{boxit}{\Beginboxit}{\Endboxit}
 \newenvironment{boxit*}{\Beginboxit\hbox to\hsize{}}{\Endboxit}
@@ -246,7 +246,7 @@
             #1
         \end{array}
     \right]
-    & 
+    &
     \begin{array}{l}
         #2
     \end{array}
@@ -256,9 +256,9 @@
 \makeatother
 
 %% Fast macro for column vectors
-\makeatletter  
+\makeatletter
 \def\colvec#1{\expandafter\colvec@i#1,,,,,,,,,\@nil}
-\def\colvec@i#1,#2,#3,#4,#5,#6,#7,#8,#9\@nil{% 
+\def\colvec@i#1,#2,#3,#4,#5,#6,#7,#8,#9\@nil{%
   \ifx$#2$ \begin{bmatrix}#1\end{bmatrix} \else
     \ifx$#3$ \begin{bmatrix}#1\\#2\end{bmatrix} \else
       \ifx$#4$ \begin{bmatrix}#1\\#2\\#3\end{bmatrix}\else
@@ -273,13 +273,13 @@
         \fi
       \fi
     \fi
-  \fi 
-}  
+  \fi
+}
 \makeatother
 
 \robustify{\colvec}
 
-%%% Local Variables: 
+%%% Local Variables:
 %%% mode: latex
 %%% TeX-master: "notes"
-%%% End: 
+%%% End:

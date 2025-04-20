@@ -1,16 +1,17 @@
 import glob
+import logging
 import os
 import re
+from concurrent.futures import ProcessPoolExecutor, as_completed
+
 import pandas as pd
 import xarray as xr
-from concurrent.futures import ProcessPoolExecutor, as_completed
-import logging
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%H:%M:%S"
+    datefmt="%H:%M:%S",
 )
 
 # Helper to detect which GOES satellite the file belongs to
@@ -51,7 +52,8 @@ def _process_file(nc_file):
             flux_var = "a_flux"
         else:
             logging.warning(
-                f"  No recognized flux variable in {nc_file}, skipping.")
+                f"  No recognized flux variable in {nc_file}, skipping."
+            )
             ds.close()
             return None
 
@@ -70,9 +72,8 @@ def _process_file(nc_file):
 
 
 def netcdf_to_parquet_parallel(
-        data_dir,
-        out_parquet="goes_avg1m_combined.parquet",
-        max_workers=None):
+    data_dir, out_parquet="goes_avg1m_combined.parquet", max_workers=None
+):
     """
     Searches for all NetCDF files in data_dir matching '*avg1m*.nc', filters to those
     with a date in the filename between 2010 and 2024, extracts minute-level data in parallel,
@@ -104,17 +105,18 @@ def netcdf_to_parquet_parallel(
         raise ValueError("No files found within the date range 2010-2024.")
 
     logging.info(
-        f"Found {len(filtered_files)} matching files in the date range 2010 to 2024.")
+        f"Found {len(filtered_files)} matching files in the date range 2010 to 2024."
+    )
     logging.info(
-        f"Using up to {max_workers or 'CPU_count'} processes for parallel I/O.\n")
+        f"Using up to {max_workers or 'CPU_count'} processes for parallel I/O.\n"
+    )
 
     df_list = []
     # Process files in parallel
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_file = {
-            executor.submit(
-                _process_file,
-                f): f for f in filtered_files}
+            executor.submit(_process_file, f): f for f in filtered_files
+        }
         logging.info(f"Processing {len(future_to_file)} files in parallel...")
         for future in as_completed(future_to_file):
             fpath = future_to_file[future]
@@ -130,7 +132,8 @@ def netcdf_to_parquet_parallel(
 
     if not df_list:
         raise ValueError(
-            "No valid data frames to save. All files might have been skipped or errored.")
+            "No valid data frames to save. All files might have been skipped or errored."
+        )
 
     # Combine all processed DataFrames
     combined_df = pd.concat(df_list, ignore_index=True)
@@ -144,10 +147,11 @@ def netcdf_to_parquet_parallel(
         "g15": 3,
         "g16": 4,
         "g17": 5,
-        "other": 6
+        "other": 6,
     }
-    combined_df["priority"] = combined_df["satellite"].map(
-        satellite_priority).fillna(999)
+    combined_df["priority"] = (
+        combined_df["satellite"].map(satellite_priority).fillna(999)
+    )
 
     # For each minute, keep the row with the best priority.
     # This guarantees that for a given minute, if the primary satellite (g13)
@@ -157,7 +161,8 @@ def netcdf_to_parquet_parallel(
     grouped_df.sort_values(by="time", inplace=True)
 
     logging.info(
-        f"Writing {len(grouped_df)} minute-level rows to {out_parquet} ...")
+        f"Writing {len(grouped_df)} minute-level rows to {out_parquet} ..."
+    )
     grouped_df.to_parquet(out_parquet, index=False)
     logging.info("Done. Parquet file created.")
 
@@ -166,6 +171,5 @@ if __name__ == "__main__":
     DATA_DIR = "/Users/antanaszilinskas/Desktop/Imperial College London/D2P/Coursework/masters-project/data/GOES/data/avg1m_2010_to_2024"
     OUTPUT_NAME = "goes_avg1m_combined.parquet"
     netcdf_to_parquet_parallel(
-        DATA_DIR,
-        out_parquet=OUTPUT_NAME,
-        max_workers=None)
+        DATA_DIR, out_parquet=OUTPUT_NAME, max_workers=None
+    )

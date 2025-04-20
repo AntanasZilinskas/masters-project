@@ -1,6 +1,6 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 
 def generate_flux_data(num_points=100000):
@@ -18,9 +18,9 @@ def generate_flux_data(num_points=100000):
     # Set up some sinusoidal parameters:
     # Frequencies in cycles/sec, but our time steps are in ms. We'll convert accordingly.
     # i-th entry => t_s = i * 60 seconds
-    f1 = 1.0 / (24 * 3600)      # 1-day period
-    f2 = 1.0 / (12 * 3600)      # 12-hour period
-    f3 = 1.0 / (1.5 * 3600)     # 1.5-hour period
+    f1 = 1.0 / (24 * 3600)  # 1-day period
+    f2 = 1.0 / (12 * 3600)  # 12-hour period
+    f3 = 1.0 / (1.5 * 3600)  # 1.5-hour period
 
     # Amplitudes and random phases for each sinusoid
     A1, A2, A3 = 1.0e-7, 5.0e-8, 2.0e-8
@@ -54,11 +54,7 @@ def generate_flux_data(num_points=100000):
         fluxes.append(flux_value)
         satellites.append("self-generated")
 
-    df = pd.DataFrame({
-        'time': times,
-        'flux': fluxes,
-        'satellite': satellites
-    })
+    df = pd.DataFrame({"time": times, "flux": fluxes, "satellite": satellites})
     return df
 
 
@@ -70,10 +66,10 @@ def plot_random_24_hour_window(parquet_file="synthetic_flux_data.parquet"):
     df = pd.read_parquet(parquet_file)
 
     # Ensure data is sorted by time
-    df = df.sort_values(by='time').reset_index(drop=True)
+    df = df.sort_values(by="time").reset_index(drop=True)
 
     # Convert time from ms to a pandas Timestamp
-    df['datetime'] = pd.to_datetime(df['time'], unit='ms')
+    df["datetime"] = pd.to_datetime(df["time"], unit="ms")
 
     # There are 1440 minutes in 24 hours
     samples_per_24h = 1440
@@ -82,11 +78,11 @@ def plot_random_24_hour_window(parquet_file="synthetic_flux_data.parquet"):
 
     # Pick a random start index
     random_start = np.random.randint(0, len(df) - samples_per_24h)
-    subset_df = df.iloc[random_start: random_start + samples_per_24h]
+    subset_df = df.iloc[random_start : random_start + samples_per_24h]
 
     # Plot
     plt.figure(figsize=(10, 6))
-    plt.plot(subset_df['datetime'], subset_df['flux'], marker='.', linewidth=1)
+    plt.plot(subset_df["datetime"], subset_df["flux"], marker=".", linewidth=1)
     plt.xlabel("Time")
     plt.ylabel("Flux")
     plt.title("Random 24-Hour Flux Window")

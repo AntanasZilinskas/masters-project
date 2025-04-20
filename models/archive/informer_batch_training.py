@@ -1,13 +1,14 @@
-import os
 import glob
 import logging
+import os
+from math import ceil
+
 import numpy as np
-import xarray as xr
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from math import ceil
+import xarray as xr
+from torch.utils.data import DataLoader, Dataset
 
 
 def select_device():
@@ -18,20 +19,23 @@ def select_device():
     else:
         return torch.device("cpu")
 
+
 ########################################################################
 # 1) GOESDataset with Optional file_list Argument
 ########################################################################
 
 
 class GOESDataset(Dataset):
-    def __init__(self,
-                 data_dir=None,
-                 file_list=None,
-                 lookback_len=72,
-                 forecast_len=24,
-                 step_per_hour=60,
-                 train=True,
-                 train_split=0.8):
+    def __init__(
+        self,
+        data_dir=None,
+        file_list=None,
+        lookback_len=72,
+        forecast_len=24,
+        step_per_hour=60,
+        train=True,
+        train_split=0.8,
+    ):
         super().__init__()
 
         self.lookback_len = lookback_len * step_per_hour
@@ -54,16 +58,17 @@ class GOESDataset(Dataset):
         for fpath in all_files:
             try:
                 ds = xr.open_dataset(fpath)
-                if 'xrsb_flux' in ds.variables:
-                    flux_var = 'xrsb_flux'
-                elif 'b_flux' in ds.variables:
-                    flux_var = 'b_flux'
-                elif 'a_flux' in ds.variables:
-                    flux_var = 'a_flux'
+                if "xrsb_flux" in ds.variables:
+                    flux_var = "xrsb_flux"
+                elif "b_flux" in ds.variables:
+                    flux_var = "b_flux"
+                elif "a_flux" in ds.variables:
+                    flux_var = "a_flux"
                 else:
                     ds.close()
                     logging.warning(
-                        f"No recognized flux variable in {fpath}, skipping.")
+                        f"No recognized flux variable in {fpath}, skipping."
+                    )
                     continue
 
                 flux_vals = ds[flux_var].values
@@ -104,11 +109,12 @@ class GOESDataset(Dataset):
         start = self.indices[idx]
         end = start + self.lookback_len
         x_seq = self.data[start:end]
-        y_seq = self.data[end:end + self.forecast_len]
+        y_seq = self.data[end : end + self.forecast_len]
 
         x_tensor = torch.tensor(x_seq, dtype=torch.float32)
         y_tensor = torch.tensor(y_seq, dtype=torch.float32)
         return x_tensor, y_tensor
+
 
 ########################################################################
 # 2) Informer model definition (unchanged from before)
@@ -116,8 +122,17 @@ class GOESDataset(Dataset):
 
 
 class Informer(nn.Module):
-    def __init__(self, d_model, n_heads, d_ff, enc_layers, dec_layers,
-                 dropout, lookback_len, forecast_len):
+    def __init__(
+        self,
+        d_model,
+        n_heads,
+        d_ff,
+        enc_layers,
+        dec_layers,
+        dropout,
+        lookback_len,
+        forecast_len,
+    ):
         super().__init__()
         # Implementation details omitted for brevity...
         pass
@@ -126,12 +141,13 @@ class Informer(nn.Module):
         # Toy forward
         return x_mark_enc
 
+
 ########################################################################
 # 3) Evaluate & Save Functions
 ########################################################################
 
 
-def evaluate_informer(model, data_loader, device='mps', criterion=None):
+def evaluate_informer(model, data_loader, device="mps", criterion=None):
     model.eval()
     mse_sum = 0.0
     count = 0
@@ -145,21 +161,24 @@ def evaluate_informer(model, data_loader, device='mps', criterion=None):
             count += 1
     return mse_sum / max(count, 1)
 
+
 ########################################################################
 # 4) CHUNKED TRAINING: chunked_train_informer
 ########################################################################
 
 
-def chunked_train_informer(data_dir,
-                           lookback_len=72,
-                           forecast_len=24,
-                           batch_size=16,
-                           lr=1e-4,
-                           device=None,
-                           model_save_path="informer-chunked.pth",
-                           total_chunks=10,
-                           files_per_chunk=10,
-                           epochs_per_chunk=1):
+def chunked_train_informer(
+    data_dir,
+    lookback_len=72,
+    forecast_len=24,
+    batch_size=16,
+    lr=1e-4,
+    device=None,
+    model_save_path="informer-chunked.pth",
+    total_chunks=10,
+    files_per_chunk=10,
+    epochs_per_chunk=1,
+):
     """
     Load all netCDF files from data_dir, split them into 'total_chunks'
     subsets of size 'files_per_chunk' (or smaller if you run out of files),
@@ -184,7 +203,7 @@ def chunked_train_informer(data_dir,
         dec_layers=1,
         dropout=0.1,
         lookback_len=lookback_len,
-        forecast_len=forecast_len
+        forecast_len=forecast_len,
     ).to(device)
 
     criterion = nn.MSELoss()
@@ -204,23 +223,23 @@ def chunked_train_informer(data_dir,
         chunk_count += 1
 
         logging.info(
-            f"--- Chunk {chunk_i+1} / {total_chunks} => {len(chunk_files)} files ---")
+            f"--- Chunk {chunk_i+1} / {total_chunks} => {len(chunk_files)} files ---"
+        )
 
         # Build a chunked train dataset (train_split=1.0 so it's purely
         # training)
         train_dataset = GOESDataset(
-            data_dir=None,        # we won't use a directory-based glob
+            data_dir=None,  # we won't use a directory-based glob
             file_list=chunk_files,
             lookback_len=lookback_len,
             forecast_len=forecast_len,
             step_per_hour=60,
             train=True,
-            train_split=1.0
+            train_split=1.0,
         )
         train_loader = DataLoader(
-            train_dataset,
-            batch_size=batch_size,
-            shuffle=True)
+            train_dataset, batch_size=batch_size, shuffle=True
+        )
 
         # 4) Train for epochs_per_chunk
         for epoch in range(epochs_per_chunk):
@@ -239,26 +258,25 @@ def chunked_train_informer(data_dir,
 
             avg_loss = total_loss / max(len(train_loader), 1)
             logging.info(
-                f"Chunk {chunk_i+1} - Epoch {epoch+1}/{epochs_per_chunk} - Loss: {avg_loss:.6f}")
+                f"Chunk {chunk_i+1} - Epoch {epoch+1}/{epochs_per_chunk} - Loss: {avg_loss:.6f}"
+            )
 
     # 5) OPTIONAL: Evaluate on a hold-out test set
     # You can define a separate test dataset that uses train=False and e.g. train_split=0.0 or 0.8
     # with all_files or leftover files. Example:
     test_dataset = GOESDataset(
         data_dir=None,
-        file_list=all_files,     # or some subset for testing
+        file_list=all_files,  # or some subset for testing
         lookback_len=lookback_len,
         forecast_len=forecast_len,
         step_per_hour=60,
         train=False,
-        train_split=0.8          # leaving 20% for test
+        train_split=0.8,  # leaving 20% for test
     )
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
     test_mse = evaluate_informer(
-        model,
-        test_loader,
-        device=device,
-        criterion=criterion)
+        model, test_loader, device=device, criterion=criterion
+    )
     logging.info(f"Final Test MSE after chunked training: {test_mse:.6f}")
 
     # 6) Save the model
@@ -278,13 +296,13 @@ if __name__ == "__main__":
     dev = select_device()
     chunked_train_informer(
         data_dir=data_folder,
-        lookback_len=72,       # 3 days
-        forecast_len=24,       # 1 day
+        lookback_len=72,  # 3 days
+        forecast_len=24,  # 1 day
         batch_size=16,
         lr=1e-4,
         device=dev,
         model_save_path="informer-chunked.pth",
-        total_chunks=5,        # Train on 5 "chunks"
-        files_per_chunk=10,    # Each chunk has up to 10 files
-        epochs_per_chunk=1     # # of epochs you want to do per chunk
+        total_chunks=5,  # Train on 5 "chunks"
+        files_per_chunk=10,  # Each chunk has up to 10 files
+        epochs_per_chunk=1,  # # of epochs you want to do per chunk
     )

@@ -63,4 +63,4 @@ This will:
 
 ## Extending the Study
 
-To test additional configurations, modify the `CONFIGURATIONS` list in `ablation_study.py` with new settings. 
+To test additional configurations, modify the `CONFIGURATIONS` list in `ablation_study.py` with new settings.
