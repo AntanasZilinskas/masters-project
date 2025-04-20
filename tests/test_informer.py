@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+"""Test script for the Informer model.
+
+This script tests a saved Informer model by loading it from a checkpoint,
+unpacking model settings, and evaluating its prediction capabilities.
+"""
 import argparse
 import os
 import sys
@@ -7,21 +12,24 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from models.informer import GOESParquetDataset, Informer, select_device
+from models.archive.informer import GOESParquetDataset, Informer, select_device
 
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 )
-"""
-Script to test a saved Informer model.
-It loads a model from a specified checkpoint (which may include metadata),
-automatically unpacks the model settings from the metadata if present, and then
-loads a sample from a provided Parquet file. It finally plots the context, prediction,
-and ground truth (after inverting normalization and log-transforms).
-"""
 
 
 def load_model(model_checkpoint, device, **model_kwargs):
+    """Load a trained Informer model from a checkpoint.
+
+    Args:
+        model_checkpoint: Path to the saved model checkpoint
+        device: Device to load the model onto (CPU or GPU)
+        **model_kwargs: Additional model parameters
+
+    Returns:
+        A tuple of (model, metadata)
+    """
     checkpoint = torch.load(model_checkpoint, map_location=device)
     metadata = None
     if (
@@ -47,11 +55,27 @@ def load_model(model_checkpoint, device, **model_kwargs):
 
 
 def get_sample(dataset, sample_index=0):
+    """Get a single sample from the dataset.
+
+    Args:
+        dataset: The dataset to sample from
+        sample_index: Index of the sample to retrieve
+
+    Returns:
+        A tuple of (input_features, target_values)
+    """
     x, y = dataset[sample_index]
     return x, y
 
 
 def plot_results(x, y_true, y_pred):
+    """Plot the context, ground truth, and predictions.
+
+    Args:
+        x: Context (input) data
+        y_true: Ground truth values
+        y_pred: Predicted values
+    """
     # Plot the context (input) followed by the forecast.
     context_time = np.arange(len(x))
     forecast_time = np.arange(len(x), len(x) + len(y_true))
@@ -71,6 +95,11 @@ def plot_results(x, y_true, y_pred):
 
 
 def main(args):
+    """Run the main testing workflow.
+
+    Args:
+        args: Command line arguments
+    """
     device = select_device()
     # Determine which checkpoint to use.
     if args.model_archive:
