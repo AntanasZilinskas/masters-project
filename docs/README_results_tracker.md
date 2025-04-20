@@ -54,4 +54,4 @@ If you decide to test longer prediction horizons (e.g., 96hr, 120hr), simply add
 You can modify the `track_results.py` script to:
 - Change which metrics are plotted
 - Adjust plot appearance
-- Add additional analysis metrics 
+- Add additional analysis metrics

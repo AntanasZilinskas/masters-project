@@ -13,7 +13,7 @@ class LearnablePositionalEmbedding(nn.Module):
 
     def forward(self, x):
         # x: [batch, seq_len, d_model]
-        return self.pe[:, :x.size(1), :]
+        return self.pe[:, : x.size(1), :]
 
 
 class MultiScalePositionalEmbedding(nn.Module):
@@ -23,9 +23,9 @@ class MultiScalePositionalEmbedding(nn.Module):
 
     def __init__(self, d_model, scales=[1, 2, 4], max_len=5000):
         super().__init__()
-        self.embeddings = nn.ModuleList([
-            nn.Parameter(torch.randn(1, max_len, d_model)) for _ in scales
-        ])
+        self.embeddings = nn.ModuleList(
+            [nn.Parameter(torch.randn(1, max_len, d_model)) for _ in scales]
+        )
 
     def forward(self, x):
         seq_len = x.size(1)

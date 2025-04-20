@@ -47,4 +47,4 @@
         "val_acc": 0.8263913035392761,
         "acc_gap": -0.08921370506286619,
         "min_val_loss_epoch": 6,
-        "early_stopping_triggered": 
+        "early_stopping_triggered":

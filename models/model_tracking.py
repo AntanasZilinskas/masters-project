@@ -1,24 +1,27 @@
-'''
+"""
 Model Tracking and Management for SolarKnowledge
 
 This module provides tools for tracking model versions, saving metadata,
 generating model cards, and maintaining a structured model directory.
-'''
+"""
 
-import os
-import json
 import csv
+import json
+import os
 import shutil
 import subprocess
 from datetime import datetime
-import numpy as np
+
 import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix, classification_report
+import numpy as np
+from sklearn.metrics import classification_report, confusion_matrix
 
 
 def create_model_dir(version, flare_class, time_window):
     """Create a standardized model directory structure."""
-    model_dir = f"models/SolarKnowledge-v{version}-{flare_class}-{time_window}h"
+    model_dir = (
+        f"models/SolarKnowledge-v{version}-{flare_class}-{time_window}h"
+    )
     os.makedirs(model_dir, exist_ok=True)
     return model_dir
 
@@ -26,24 +29,33 @@ def create_model_dir(version, flare_class, time_window):
 def get_git_info():
     """Get the current git commit hash and branch if available."""
     try:
-        commit = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"]).decode().strip()
-        branch = subprocess.check_output(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"]).decode().strip()
+        commit = (
+            subprocess.check_output(["git", "rev-parse", "HEAD"])
+            .decode()
+            .strip()
+        )
+        branch = (
+            subprocess.check_output(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"]
+            )
+            .decode()
+            .strip()
+        )
         return {"commit": commit, "branch": branch}
     except (subprocess.SubprocessError, FileNotFoundError):
         return {"commit": "unknown", "branch": "unknown"}
 
 
 def save_model_with_metadata(
-        model,
-        metrics,
-        hyperparams,
-        history,
-        version,
-        flare_class,
-        time_window,
-        description=None):
+    model,
+    metrics,
+    hyperparams,
+    history,
+    version,
+    flare_class,
+    time_window,
+    description=None,
+):
     """
     Save a model with comprehensive metadata tracking.
 
@@ -65,23 +77,28 @@ def save_model_with_metadata(
     model.model.save_weights(weights_path)
 
     # Extract architecture details
-    architecture = {"name": "SolarKnowledge",
-                    "input_shape": model.model.input_shape[1:],
-                    "num_params": model.model.count_params(),
-                    "precision": str(model.model.dtype_policy) if hasattr(model.model,
-                                                                          "dtype_policy") else "float32"}
+    architecture = {
+        "name": "SolarKnowledge",
+        "input_shape": model.model.input_shape[1:],
+        "num_params": model.model.count_params(),
+        "precision": str(model.model.dtype_policy)
+        if hasattr(model.model, "dtype_policy")
+        else "float32",
+    }
 
     # Create metadata
     metadata = {
         "version": version,
         "timestamp": datetime.now().isoformat(),
-        "description": description or f"SolarKnowledge model for {flare_class}-class flares with {time_window}h prediction window",
+        "description": description
+        or f"SolarKnowledge model for {flare_class}-class flares with {time_window}h prediction window",
         "flare_class": flare_class,
         "time_window": time_window,
         "hyperparameters": hyperparams,
         "performance": metrics,
         "git_info": get_git_info(),
-        "architecture": architecture}
+        "architecture": architecture,
+    }
 
     # Save metadata
     with open(os.path.join(model_dir, "metadata.json"), "w") as f:
@@ -101,14 +118,17 @@ def save_model_with_metadata(
 def save_training_history(history, model_dir):
     """Save training history as CSV and generate learning curves plot."""
     # Save as CSV
-    with open(os.path.join(model_dir, "training_history.csv"), "w", newline="") as f:
+    with open(
+        os.path.join(model_dir, "training_history.csv"), "w", newline=""
+    ) as f:
         writer = csv.writer(f)
         # Write header
         writer.writerow(["epoch"] + list(history.keys()))
         # Write data
         for epoch in range(len(next(iter(history.values())))):
-            writer.writerow([epoch] + [history[k][epoch]
-                            for k in history.keys()])
+            writer.writerow(
+                [epoch] + [history[k][epoch] for k in history.keys()]
+            )
 
     # Generate plot
     plt.figure(figsize=(12, 5))
@@ -142,8 +162,9 @@ def save_training_history(history, model_dir):
 
 def generate_model_card(metadata, metrics, model_dir):
     """Generate a model card markdown document."""
-    timestamp = datetime.fromisoformat(
-        metadata["timestamp"]).strftime("%Y-%m-%d %H:%M")
+    timestamp = datetime.fromisoformat(metadata["timestamp"]).strftime(
+        "%Y-%m-%d %H:%M"
+    )
 
     # Format metrics for display
     metrics_text = ""
@@ -176,7 +197,7 @@ def generate_model_card(metadata, metrics, model_dir):
 """
 
     # Add hyperparameters
-    for param, value in metadata['hyperparameters'].items():
+    for param, value in metadata["hyperparameters"].items():
         model_card += f"- **{param}**: {value}\n"
 
     # Add git info
@@ -214,7 +235,8 @@ def load_model_metadata(version, flare_class, time_window):
 
     if not os.path.exists(metadata_path):
         raise FileNotFoundError(
-            f"No metadata found for model v{version}-{flare_class}-{time_window}h")
+            f"No metadata found for model v{version}-{flare_class}-{time_window}h"
+        )
 
     with open(metadata_path, "r") as f:
         return json.load(f)
@@ -223,8 +245,9 @@ def load_model_metadata(version, flare_class, time_window):
 def list_available_models():
     """List all available models in the models directory."""
     try:
-        model_dirs = [d for d in os.listdir(
-            "models") if d.startswith("SolarKnowledge-v")]
+        model_dirs = [
+            d for d in os.listdir("models") if d.startswith("SolarKnowledge-v")
+        ]
         models = []
 
         for d in model_dirs:
@@ -239,28 +262,32 @@ def list_available_models():
                     with open(metadata_path, "r") as f:
                         metadata = json.load(f)
 
-                    models.append({
-                        "version": version,
-                        "flare_class": flare_class,
-                        "time_window": time_window,
-                        "timestamp": metadata.get("timestamp", "unknown"),
-                        "accuracy": metadata.get("performance", {}).get("accuracy", "unknown")
-                    })
+                    models.append(
+                        {
+                            "version": version,
+                            "flare_class": flare_class,
+                            "time_window": time_window,
+                            "timestamp": metadata.get("timestamp", "unknown"),
+                            "accuracy": metadata.get("performance", {}).get(
+                                "accuracy", "unknown"
+                            ),
+                        }
+                    )
                 else:
-                    models.append({
-                        "version": version,
-                        "flare_class": flare_class,
-                        "time_window": time_window,
-                        "timestamp": "unknown",
-                        "accuracy": "unknown"
-                    })
+                    models.append(
+                        {
+                            "version": version,
+                            "flare_class": flare_class,
+                            "time_window": time_window,
+                            "timestamp": "unknown",
+                            "accuracy": "unknown",
+                        }
+                    )
 
         return sorted(
             models,
-            key=lambda x: (
-                x["flare_class"],
-                x["time_window"],
-                x["version"]))
+            key=lambda x: (x["flare_class"], x["time_window"], x["version"]),
+        )
     except FileNotFoundError:
         return []
 
@@ -278,11 +305,11 @@ def plot_confusion_matrix(y_true, y_pred, model_dir, normalize=False):
     cm = confusion_matrix(y_true, y_pred)
 
     if normalize:
-        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        cm = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
 
     plt.figure(figsize=(8, 6))
-    plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
-    plt.title('Confusion Matrix')
+    plt.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
+    plt.title("Confusion Matrix")
     plt.colorbar()
 
     classes = ["Negative", "Positive"]
@@ -290,17 +317,21 @@ def plot_confusion_matrix(y_true, y_pred, model_dir, normalize=False):
     plt.xticks(tick_marks, classes, rotation=45)
     plt.yticks(tick_marks, classes)
 
-    fmt = '.2f' if normalize else 'd'
-    thresh = cm.max() / 2.
+    fmt = ".2f" if normalize else "d"
+    thresh = cm.max() / 2.0
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]):
-            plt.text(j, i, format(cm[i, j], fmt),
-                     horizontalalignment="center",
-                     color="white" if cm[i, j] > thresh else "black")
+            plt.text(
+                j,
+                i,
+                format(cm[i, j], fmt),
+                horizontalalignment="center",
+                color="white" if cm[i, j] > thresh else "black",
+            )
 
     plt.tight_layout()
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
+    plt.ylabel("True label")
+    plt.xlabel("Predicted label")
 
     plt.savefig(os.path.join(model_dir, "confusion_matrix.png"), dpi=200)
     plt.close()
@@ -324,7 +355,8 @@ def compare_models(versions, flare_classes, time_windows):
         "Time Window",
         "Accuracy",
         "TSS",
-        "Timestamp"]
+        "Timestamp",
+    ]
     rows = []
 
     for v in versions:
@@ -334,16 +366,23 @@ def compare_models(versions, flare_classes, time_windows):
                     metadata = load_model_metadata(v, fc, tw)
                     performance = metadata.get("performance", {})
                     timestamp = datetime.fromisoformat(
-                        metadata["timestamp"]).strftime("%Y-%m-%d")
+                        metadata["timestamp"]
+                    ).strftime("%Y-%m-%d")
 
-                    rows.append([
-                        v,
-                        fc,
-                        f"{tw}h",
-                        f"{performance.get('accuracy', 'N/A'):.4f}" if isinstance(performance.get('accuracy'), float) else "N/A",
-                        f"{performance.get('TSS', 'N/A'):.4f}" if isinstance(performance.get('TSS'), float) else "N/A",
-                        timestamp
-                    ])
+                    rows.append(
+                        [
+                            v,
+                            fc,
+                            f"{tw}h",
+                            f"{performance.get('accuracy', 'N/A'):.4f}"
+                            if isinstance(performance.get("accuracy"), float)
+                            else "N/A",
+                            f"{performance.get('TSS', 'N/A'):.4f}"
+                            if isinstance(performance.get("TSS"), float)
+                            else "N/A",
+                            timestamp,
+                        ]
+                    )
                 except FileNotFoundError:
                     rows.append([v, fc, f"{tw}h", "N/A", "N/A", "N/A"])
 
@@ -380,8 +419,9 @@ def get_next_version(flare_class, time_window):
                 continue
 
             # Check if the directory matches our pattern
-            if d.startswith(
-                    "SolarKnowledge-v") and d.endswith(f"-{flare_class}-{time_window}h"):
+            if d.startswith("SolarKnowledge-v") and d.endswith(
+                f"-{flare_class}-{time_window}h"
+            ):
                 matching_dirs.append(d)
 
         if not matching_dirs:
@@ -455,7 +495,8 @@ def get_latest_version(flare_class, time_window):
                 for i in range(9, -1, -1):  # Check from 9 down to 0
                     version = f"{prev_major}.{i}"
                     if os.path.exists(
-                            f"models/SolarKnowledge-v{version}-{flare_class}-{time_window}h"):
+                        f"models/SolarKnowledge-v{version}-{flare_class}-{time_window}h"
+                    ):
                         return version
 
                 # If no minor version found, default to .0
@@ -471,6 +512,7 @@ if __name__ == "__main__":
         print("Available Models:")
         for model in models:
             print(
-                f"v{model['version']} - {model['flare_class']} - {model['time_window']}h - Accuracy: {model['accuracy']}")
+                f"v{model['version']} - {model['flare_class']} - {model['time_window']}h - Accuracy: {model['accuracy']}"
+            )
     else:
         print("No models found.")

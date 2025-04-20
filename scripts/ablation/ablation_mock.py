@@ -1,82 +1,83 @@
 #!/usr/bin/env python
-'''
+"""
 Mock Ablation Study for SolarKnowledge Model
 This script generates sample ablation study results without actual training.
 
 Author: Antanas Zilinskas
-'''
+"""
 
-import os
 import json
-import numpy as np
+import os
 from datetime import datetime
+
+import numpy as np
 
 # Configurations matching the original ablation study
 CONFIGURATIONS = [
     {
-        'name': 'Full model',
-        'description': '(Conv1D + BN) + LSTM + 4 TEBs + heavy dropout',
-        'use_conv': True,
-        'use_lstm': True,
-        'teb_layers': 4,
-        'dropout_rate': 0.2,
-        'use_class_weighting': True
+        "name": "Full model",
+        "description": "(Conv1D + BN) + LSTM + 4 TEBs + heavy dropout",
+        "use_conv": True,
+        "use_lstm": True,
+        "teb_layers": 4,
+        "dropout_rate": 0.2,
+        "use_class_weighting": True,
     },
     {
-        'name': 'No LSTM',
-        'description': 'only conv + BN, then TEBs',
-        'use_conv': True,
-        'use_lstm': False,
-        'teb_layers': 4,
-        'dropout_rate': 0.2,
-        'use_class_weighting': True
+        "name": "No LSTM",
+        "description": "only conv + BN, then TEBs",
+        "use_conv": True,
+        "use_lstm": False,
+        "teb_layers": 4,
+        "dropout_rate": 0.2,
+        "use_class_weighting": True,
     },
     {
-        'name': 'No conv',
-        'description': 'BN then LSTM',
-        'use_conv': False,
-        'use_lstm': True,
-        'teb_layers': 4,
-        'dropout_rate': 0.2,
-        'use_class_weighting': True
+        "name": "No conv",
+        "description": "BN then LSTM",
+        "use_conv": False,
+        "use_lstm": True,
+        "teb_layers": 4,
+        "dropout_rate": 0.2,
+        "use_class_weighting": True,
     },
     {
-        'name': 'Reduced TEBs',
-        'description': '2 layers instead of 4',
-        'use_conv': True,
-        'use_lstm': True,
-        'teb_layers': 2,
-        'dropout_rate': 0.2,
-        'use_class_weighting': True
+        "name": "Reduced TEBs",
+        "description": "2 layers instead of 4",
+        "use_conv": True,
+        "use_lstm": True,
+        "teb_layers": 2,
+        "dropout_rate": 0.2,
+        "use_class_weighting": True,
     },
     {
-        'name': 'No class weighting',
-        'description': 'No class weights for imbalanced data',
-        'use_conv': True,
-        'use_lstm': True,
-        'teb_layers': 4,
-        'dropout_rate': 0.2,
-        'use_class_weighting': False
+        "name": "No class weighting",
+        "description": "No class weights for imbalanced data",
+        "use_conv": True,
+        "use_lstm": True,
+        "teb_layers": 4,
+        "dropout_rate": 0.2,
+        "use_class_weighting": False,
     },
     {
-        'name': 'Light dropout',
-        'description': 'dropout = 0.1 (lighter)',
-        'use_conv': True,
-        'use_lstm': True,
-        'teb_layers': 4,
-        'dropout_rate': 0.1,
-        'use_class_weighting': True
-    }
+        "name": "Light dropout",
+        "description": "dropout = 0.1 (lighter)",
+        "use_conv": True,
+        "use_lstm": True,
+        "teb_layers": 4,
+        "dropout_rate": 0.1,
+        "use_class_weighting": True,
+    },
 ]
 
 # TSS values from the table in your LaTeX document
 MOCK_TSS_VALUES = {
-    'Full model': 0.872,
-    'No LSTM': 0.856,
-    'No conv': 0.849,
-    'Reduced TEBs': 0.838,
-    'No class weighting': 0.785,
-    'Light dropout': 0.810
+    "Full model": 0.872,
+    "No LSTM": 0.856,
+    "No conv": 0.849,
+    "Reduced TEBs": 0.838,
+    "No class weighting": 0.785,
+    "Light dropout": 0.810,
 }
 
 
@@ -85,23 +86,24 @@ def generate_mock_results(time_window="24", flare_class="M"):
     results = []
 
     print(
-        f"Generating mock results for {time_window}h {flare_class}-class prediction...")
+        f"Generating mock results for {time_window}h {flare_class}-class prediction..."
+    )
 
     for config in CONFIGURATIONS:
         # Get TSS value from mock data
-        tss = MOCK_TSS_VALUES[config['name']]
+        tss = MOCK_TSS_VALUES[config["name"]]
 
         # Create result entry
         result = {
-            'config_name': config['name'],
-            'description': config['description'],
-            'tss': tss,
-            'use_conv': config['use_conv'],
-            'use_lstm': config['use_lstm'],
-            'teb_layers': config['teb_layers'],
-            'dropout_rate': config['dropout_rate'],
-            'use_class_weighting': config['use_class_weighting'],
-            'timestamp': datetime.now().strftime("%Y%m%d_%H%M%S")
+            "config_name": config["name"],
+            "description": config["description"],
+            "tss": tss,
+            "use_conv": config["use_conv"],
+            "use_lstm": config["use_lstm"],
+            "teb_layers": config["teb_layers"],
+            "dropout_rate": config["dropout_rate"],
+            "use_class_weighting": config["use_class_weighting"],
+            "timestamp": datetime.now().strftime("%Y%m%d_%H%M%S"),
         }
 
         results.append(result)
@@ -113,9 +115,9 @@ def generate_mock_results(time_window="24", flare_class="M"):
     os.makedirs(output_dir, exist_ok=True)
 
     output_file = os.path.join(
-        output_dir,
-        f"ablation_results_{time_window}h_{flare_class}_class.json")
-    with open(output_file, 'w') as f:
+        output_dir, f"ablation_results_{time_window}h_{flare_class}_class.json"
+    )
+    with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
 
     print(f"\nMock results saved to {output_file}")
@@ -129,12 +131,14 @@ def generate_mock_results(time_window="24", flare_class="M"):
     print(r"\midrule")
 
     for result in results:
-        if result['config_name'] == 'Full model':
+        if result["config_name"] == "Full model":
             print(
-                f"Full model: {result['description']} & {result['tss']:.3f}\\\\")
+                f"Full model: {result['description']} & {result['tss']:.3f}\\\\"
+            )
         else:
             print(
-                f"\\quad - {result['description']} & {result['tss']:.3f}\\\\")
+                f"\\quad - {result['description']} & {result['tss']:.3f}\\\\"
+            )
 
     print(r"\bottomrule")
     print(r"\end{tabular}")

@@ -1,4 +1,4 @@
-'''
+"""
  author: Antanas Zilinskas
 
  This script tests SolarKnowledge models for flare class: C, M, M5 and time window: 24, 48, 72.
@@ -7,20 +7,30 @@
  - Uses Monte Carlo dropout for better uncertainty estimation and improved TSS
  - Stores uncertainty estimates in the results
  - Generates confidence plots to visualize prediction uncertainty
-'''
+"""
 
-from SolarKnowledge_model import SolarKnowledge
-from utils import get_testing_data, log, supported_flare_class
-from sklearn.metrics import accuracy_score, classification_report, precision_score, recall_score, balanced_accuracy_score, confusion_matrix
-from datetime import datetime
-import seaborn as sns
-import matplotlib.pyplot as plt
-import glob
 import argparse
+import glob
 import json
-import numpy as np
 import os
 import warnings
+from datetime import datetime
+
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+from sklearn.metrics import (
+    accuracy_score,
+    balanced_accuracy_score,
+    classification_report,
+    confusion_matrix,
+    precision_score,
+    recall_score,
+)
+from SolarKnowledge_model import SolarKnowledge
+
+from utils import get_testing_data, log, supported_flare_class
+
 warnings.filterwarnings("ignore")
 
 # Import utility functions and configuration from your project
@@ -56,8 +66,8 @@ def find_latest_model_version(flare_class, time_window):
     versions = []
     for dir_path in matching_dirs:
         dir_name = os.path.basename(dir_path)
-        parts = dir_name.split('-')
-        if len(parts) >= 2 and parts[1].startswith('v'):
+        parts = dir_name.split("-")
+        if len(parts) >= 2 and parts[1].startswith("v"):
             try:
                 version_str = parts[1][1:]  # Remove the 'v' prefix
                 version_num = float(version_str)
@@ -74,14 +84,20 @@ def find_latest_model_version(flare_class, time_window):
 
 
 def test_model(
-        time_window,
-        flare_class,
-        timestamp=None,
-        use_latest=False,
-        mc_passes=20,
-        plot_uncertainties=True):
-    log("Testing initiated for time window: " + str(time_window) +
-        " and flare class: " + flare_class, verbose=True)
+    time_window,
+    flare_class,
+    timestamp=None,
+    use_latest=False,
+    mc_passes=20,
+    plot_uncertainties=True,
+):
+    log(
+        "Testing initiated for time window: "
+        + str(time_window)
+        + " and flare class: "
+        + flare_class,
+        verbose=True,
+    )
 
     # Load the testing data using your project's utility function
     X_test, y_test = get_testing_data(time_window, flare_class)
@@ -109,7 +125,8 @@ def test_model(
     else:
         log(
             f"No model found for flare class {flare_class} with time window {time_window}",
-            verbose=True)
+            verbose=True,
+        )
         # Ensure we record placeholders for missing models.
         time_key = str(time_window)
         if time_key not in all_metrics:
@@ -119,13 +136,13 @@ def test_model(
             "precision": "N/A",
             "recall": "N/A",
             "balanced_accuracy": "N/A",
-            "TSS": "N/A"
+            "TSS": "N/A",
         }
         return
 
     print("Loading weights from model dir:", weight_dir)
     # Try to load weights from the model directory
-    weight_file = os.path.join(weight_dir, 'model_weights.weights.h5')
+    weight_file = os.path.join(weight_dir, "model_weights.weights.h5")
     if not os.path.exists(weight_file):
         log(f"Error: Weight file not found at {weight_file}", verbose=True)
         return
@@ -141,9 +158,11 @@ def test_model(
     # Run predictions using Monte Carlo dropout
     log(
         f"Using Monte Carlo dropout with {mc_passes} passes for robust prediction",
-        verbose=True)
+        verbose=True,
+    )
     mean_preds, std_preds = model.mc_predict(
-        X_test, n_passes=mc_passes, verbose=1)
+        X_test, n_passes=mc_passes, verbose=1
+    )
 
     # Get predicted classes from mean probabilities
     predicted_classes = np.argmax(mean_preds, axis=-1)
@@ -162,7 +181,8 @@ def test_model(
             predicted_classes,
             flare_class,
             time_window,
-            weight_dir)
+            weight_dir,
+        )
 
     # Calculate basic metrics:
     acc = accuracy_score(y_true, predicted_classes)
@@ -172,15 +192,18 @@ def test_model(
     # Compute TSS: sensitivity + specificity - 1. For binary classification,
     # sensitivity = recall for class 1, specificity = recall for class 0.
     cm = confusion_matrix(y_true, predicted_classes)
-    sensitivity = cm[1, 1] / \
-        (cm[1, 1] + cm[1, 0]) if (cm[1, 1] + cm[1, 0]) > 0 else 0
-    specificity = cm[0, 0] / \
-        (cm[0, 0] + cm[0, 1]) if (cm[0, 0] + cm[0, 1]) > 0 else 0
+    sensitivity = (
+        cm[1, 1] / (cm[1, 1] + cm[1, 0]) if (cm[1, 1] + cm[1, 0]) > 0 else 0
+    )
+    specificity = (
+        cm[0, 0] / (cm[0, 0] + cm[0, 1]) if (cm[0, 0] + cm[0, 1]) > 0 else 0
+    )
     TSS = sensitivity + specificity - 1
 
     print("==============================================")
     print(
-        f"Accuracy for flare class {flare_class} with time window {time_window}: {acc:.4f}")
+        f"Accuracy for flare class {flare_class} with time window {time_window}: {acc:.4f}"
+    )
     print(f"TSS (True Skill Statistic): {TSS:.4f}")
     print("Classification Report:")
     print(classification_report(y_true, predicted_classes))
@@ -194,7 +217,7 @@ def test_model(
         "balanced_accuracy": round(bal_acc, 4),
         "TSS": round(TSS, 4),
         "sensitivity": round(sensitivity, 4),
-        "specificity": round(specificity, 4)
+        "specificity": round(specificity, 4),
     }
 
     # Add uncertainty metrics
@@ -230,31 +253,32 @@ def test_model(
     all_metrics[time_key][flare_class] = metrics_dict
 
     # Update model's metadata file with test results
-    metadata_file = os.path.join(weight_dir, 'metadata.json')
+    metadata_file = os.path.join(weight_dir, "metadata.json")
     if os.path.exists(metadata_file):
         try:
             # Load existing metadata
-            with open(metadata_file, 'r') as f:
+            with open(metadata_file, "r") as f:
                 metadata = json.load(f)
 
             # Add or update test results
-            if 'test_results' not in metadata:
-                metadata['test_results'] = {}
+            if "test_results" not in metadata:
+                metadata["test_results"] = {}
 
             # Use test date as a key to allow multiple test runs
             test_key = datetime.now().strftime("%Y%m%d%H%M%S")
-            metadata['test_results'][test_key] = metrics_dict
+            metadata["test_results"][test_key] = metrics_dict
 
             # Add latest test results at the top level for easy access
-            metadata['latest_test'] = metrics_dict
+            metadata["latest_test"] = metrics_dict
 
             # Write updated metadata back to the file
-            with open(metadata_file, 'w') as f:
+            with open(metadata_file, "w") as f:
                 json.dump(metadata, f, indent=4)
 
             log(
                 f"Updated metadata file at {metadata_file} with test results",
-                verbose=True)
+                verbose=True,
+            )
         except Exception as e:
             log(f"Error updating metadata file: {str(e)}", verbose=True)
     else:
@@ -264,13 +288,8 @@ def test_model(
 
 
 def create_uncertainty_plots(
-        mean_preds,
-        std_preds,
-        y_true,
-        y_pred,
-        flare_class,
-        time_window,
-        output_dir):
+    mean_preds, std_preds, y_true, y_pred, flare_class, time_window, output_dir
+):
     """Create plots to visualize prediction uncertainties."""
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 
@@ -283,13 +302,26 @@ def create_uncertainty_plots(
     # Plot distributions for correct and incorrect predictions
     correct = y_true == y_pred
 
-    sns.histplot(confidence[correct], color='green', alpha=0.5,
-                 label='Correct Predictions', kde=True, bins=20)
-    sns.histplot(confidence[~correct], color='red', alpha=0.5,
-                 label='Incorrect Predictions', kde=True, bins=20)
+    sns.histplot(
+        confidence[correct],
+        color="green",
+        alpha=0.5,
+        label="Correct Predictions",
+        kde=True,
+        bins=20,
+    )
+    sns.histplot(
+        confidence[~correct],
+        color="red",
+        alpha=0.5,
+        label="Incorrect Predictions",
+        kde=True,
+        bins=20,
+    )
 
     plt.title(
-        f"Prediction Confidence Distribution - {flare_class}-class ({time_window}h window)")
+        f"Prediction Confidence Distribution - {flare_class}-class ({time_window}h window)"
+    )
     plt.xlabel("Confidence Score")
     plt.ylabel("Count")
     plt.legend()
@@ -297,7 +329,8 @@ def create_uncertainty_plots(
 
     # Save the figure
     confidence_file = os.path.join(
-        output_dir, f"confidence_dist_{timestamp}.png")
+        output_dir, f"confidence_dist_{timestamp}.png"
+    )
     plt.savefig(confidence_file, dpi=300)
     plt.close()
 
@@ -308,13 +341,24 @@ def create_uncertainty_plots(
     uncertainty = np.max(std_preds, axis=1)
 
     # Create scatter plot with different colors for correct/incorrect
-    plt.scatter(confidence[correct], uncertainty[correct],
-                color='green', alpha=0.5, label='Correct Predictions')
-    plt.scatter(confidence[~correct], uncertainty[~correct],
-                color='red', alpha=0.5, label='Incorrect Predictions')
+    plt.scatter(
+        confidence[correct],
+        uncertainty[correct],
+        color="green",
+        alpha=0.5,
+        label="Correct Predictions",
+    )
+    plt.scatter(
+        confidence[~correct],
+        uncertainty[~correct],
+        color="red",
+        alpha=0.5,
+        label="Incorrect Predictions",
+    )
 
     plt.title(
-        f"Confidence vs. Uncertainty - {flare_class}-class ({time_window}h window)")
+        f"Confidence vs. Uncertainty - {flare_class}-class ({time_window}h window)"
+    )
     plt.xlabel("Confidence Score")
     plt.ylabel("Uncertainty (Std. Dev.)")
     plt.legend()
@@ -322,52 +366,58 @@ def create_uncertainty_plots(
 
     # Save the figure
     uncertainty_file = os.path.join(
-        output_dir, f"uncertainty_scatter_{timestamp}.png")
+        output_dir, f"uncertainty_scatter_{timestamp}.png"
+    )
     plt.savefig(uncertainty_file, dpi=300)
     plt.close()
 
     log(f"Saved uncertainty visualization plots to {output_dir}", verbose=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Add command line argument for timestamp
     parser = argparse.ArgumentParser(
-        description="Test SolarKnowledge models for solar flare prediction")
+        description="Test SolarKnowledge models for solar flare prediction"
+    )
     parser.add_argument(
-        "--timestamp",
-        "-t",
-        help="Specific model timestamp to test")
+        "--timestamp", "-t", help="Specific model timestamp to test"
+    )
     parser.add_argument(
-        "--latest",
-        action="store_true",
-        help="Test the latest model version")
+        "--latest", action="store_true", help="Test the latest model version"
+    )
     parser.add_argument(
-        "--version",
-        "-v",
-        help="Test a specific model version")
+        "--version", "-v", help="Test a specific model version"
+    )
     parser.add_argument(
         "--mc-passes",
         type=int,
         default=20,
-        help="Number of Monte Carlo dropout passes (default: 20)")
-    parser.add_argument("--no-plots", action="store_true",
-                        help="Skip generating uncertainty plots")
+        help="Number of Monte Carlo dropout passes (default: 20)",
+    )
+    parser.add_argument(
+        "--no-plots",
+        action="store_true",
+        help="Skip generating uncertainty plots",
+    )
     args = parser.parse_args()
 
     # Can't use multiple selection methods together
     if sum([bool(args.timestamp), args.latest, bool(args.version)]) > 1:
-        print("Error: Cannot use multiple model selection options together. Use only one of: --timestamp, --latest, --version")
+        print(
+            "Error: Cannot use multiple model selection options together. Use only one of: --timestamp, --latest, --version"
+        )
         exit(1)
 
     # Loop over the desired time windows and flare classes
     for time_window in [24, 48, 72]:
-        for flare_class in ['C', 'M', 'M5']:
+        for flare_class in ["C", "M", "M5"]:
             if flare_class not in supported_flare_class:
                 print(
                     "Unsupported flare class:",
                     flare_class,
                     "It must be one of:",
-                    ", ".join(supported_flare_class))
+                    ", ".join(supported_flare_class),
+                )
                 continue
             test_model(
                 str(time_window),
@@ -375,9 +425,12 @@ if __name__ == '__main__':
                 args.timestamp,
                 args.latest,
                 mc_passes=args.mc_passes,
-                plot_uncertainties=not args.no_plots
+                plot_uncertainties=not args.no_plots,
             )
-            log("===========================================================\n\n", verbose=True)
+            log(
+                "===========================================================\n\n",
+                verbose=True,
+            )
 
     # Save the metrics for all time windows into a JSON file
     output_file = "this_work_results.json"
@@ -392,7 +445,8 @@ if __name__ == '__main__':
         with open(timestamped_output, "w") as f:
             json.dump(all_metrics, f, indent=4)
         print(
-            f"Saved test metrics for timestamp {args.timestamp} into {timestamped_output}")
+            f"Saved test metrics for timestamp {args.timestamp} into {timestamped_output}"
+        )
     elif args.latest:
         latest_output = "results_latest.json"
         with open(latest_output, "w") as f:
@@ -403,4 +457,5 @@ if __name__ == '__main__':
         with open(version_output, "w") as f:
             json.dump(all_metrics, f, indent=4)
         print(
-            f"Saved test metrics for version v{args.version} into {version_output}")
+            f"Saved test metrics for version v{args.version} into {version_output}"
+        )

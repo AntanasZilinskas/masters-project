@@ -43,8 +43,8 @@ from SolarKnowledge_model import SolarKnowledge
 # Load the model
 model = SolarKnowledge()
 model.load_model(
-    input_shape=(10, 9), 
-    flare_class="C", 
+    input_shape=(10, 9),
+    flare_class="C",
     w_dir="SolarKnowledge-v1.3-C-72h"
 )
 
