@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.10]
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: Install deps
+      run: |
+        pip install -r requirements.txt
+        pip install -r tests/requirements-ci.txt   # e.g. pytest, black, flake8
+
+    # ------- 1 Lint & format ----------------------------------
+    - name: Lint with flake8
+      run: |
+        flake8 solar_knowledge tests
+
+    - name: Check code style with black
+      run: |
+        black --check solar_knowledge tests
+
+    # ------- 2 Unit tests -------------------------------------
+    - name: Run pytest with coverage
+      env:
+        TF_CPP_MIN_LOG_LEVEL: "3"
+      run: |
+        pytest --cov=solar_knowledge --cov-report=xml --cov-report=term -q
+    
+    # Save coverage
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage.xml
+        fail_ci_if_error: false
+
+    # ------- 3 Smoke training (1 epoch on tiny data) ----------
+    - name: Smoke train SolarKnowledge
+      run: |
+        python -m solar_knowledge.smoke_train \
+          --data-dir datasets/tiny_sample \
+          --epochs 1 
