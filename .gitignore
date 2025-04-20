@@ -20,7 +20,6 @@
 main.pdf
 master's\ writing/Master's\ Project\ Early\ Stage\ Gateway/main.pdf
 master's writing/Master's Project Early Stage Gateway/main.pdf
-*.txt
 *.zip
 *.csv
 *.npy
@@ -28,3 +27,7 @@ master's writing/Master's Project Early Stage Gateway/main.pdf
 /nature_models/models/24/C/model_weights.weights.h5
 ~
 fix_conda_path.sh
+*.txt
+!requirements.txt
+!metadata.txt
+!requirements-ci.txt
