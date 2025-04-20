@@ -11,7 +11,7 @@ torch==2.6.0
 pillow==9.5.0
 h5py==3.13.0
 tqdm==4.67.1
-requests==2.31.0
+requests==2.32.3
 fastparquet==2024.11.0
 pyarrow==19.0.0
 scipy==1.14.1
