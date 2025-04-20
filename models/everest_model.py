@@ -8,13 +8,13 @@ load_weights() – so the existing training / testing scripts continue to work
 without modification.  Internally it adds three improvements tailored for rare
 solar‑flare events:
 
-1. **Performer** linear‑attention blocks – handle up to 432 tokens (≈72 h of 10‑min
+1. **Performer** linear‑attention blocks – handle up to 432 tokens (≈72 h of 10‑min
    SHARP cadence) with O(L) memory.
 2. **Class‑Balanced Focal Loss** – sharper gradients on the positive (flare)
    minority.
 3. **Monte‑Carlo Dropout** – calibrated predictive uncertainty.
 
-Only standard dependencies (tensorflow ≥ 2.12, tensorflow‑addons) are required.
+Only standard dependencies (tensorflow ≥ 2.12, tensorflow‑addons) are required.
 All model‑saving conventions (directory layout, metadata.json, weight file names) are preserved.
 """
 
@@ -25,6 +25,9 @@ from tensorflow.keras.callbacks import EarlyStopping
 
 # Import our custom Performer implementation instead of performer_keras
 from performer_custom import Performer
+
+# Set random seed for reproducibility
+tf.keras.utils.set_random_seed(42)
 
 # Mixed precision on Apple Silicon / GPU
 tf.keras.mixed_precision.set_global_policy("mixed_float16")
@@ -56,19 +59,22 @@ class PositionalEncoding(layers.Layer):
 class PerformerBlock(layers.Layer):
     def __init__(self, embed_dim: int, num_heads: int, ff_dim: int, dropout: float = 0.2):
         super().__init__()
-        # Replace Performer with standard MultiHeadAttention for compatibility
-        self.attn = layers.MultiHeadAttention(num_heads=num_heads, key_dim=embed_dim//num_heads)
-        self.ffn  = models.Sequential([
+        # Use the custom Performer implementation for linear attention
+        self.attn = Performer(num_heads=num_heads, 
+                             key_dim=embed_dim // num_heads,
+                             dropout=dropout)
+        self.drop1 = layers.Dropout(dropout)
+        self.norm1 = layers.LayerNormalization(epsilon=1e-6)
+
+        self.ffn = models.Sequential([
             layers.Dense(ff_dim, activation=tf.keras.activations.gelu),
             layers.Dropout(dropout),
             layers.Dense(embed_dim)
         ])
-        self.norm1 = layers.LayerNormalization(epsilon=1e-6)
-        self.norm2 = layers.LayerNormalization(epsilon=1e-6)
-        self.drop1 = layers.Dropout(dropout)
         self.drop2 = layers.Dropout(dropout)
+        self.norm2 = layers.LayerNormalization(epsilon=1e-6)
+        
     def call(self, x, training=False):
-        # Use MultiHeadAttention's standard call signature
         h = self.attn(x, x, training=training)
         x = self.norm1(x + self.drop1(h, training=training))
         h2 = self.ffn(x, training=training)
@@ -114,20 +120,9 @@ class EVEREST:
         # Try to import tensorflow_addons for focal loss, fall back to standard loss if not available
         try:
             import tensorflow_addons as tfa
-            # Use CategoricalCrossentropy with focal loss parameters for multi-class problems
-            from tensorflow.keras.losses import CategoricalCrossentropy
-            
-            # Create a custom loss function that applies focal loss weighting
-            def categorical_focal_loss(y_true, y_pred):
-                # Apply focal loss weighting: alpha * (1 - p)^gamma * log(p)
-                # where p is the predicted probability for the true class
-                ce = CategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE)(y_true, y_pred)
-                p = tf.reduce_sum(y_true * y_pred, axis=-1)
-                focal_weight = alpha * tf.pow(1. - p, gamma)
-                return tf.reduce_mean(focal_weight * ce)
-                
-            loss = categorical_focal_loss
-            print("Using custom Categorical Focal Loss")
+            # Use TFA's SigmoidFocalCrossEntropy directly
+            loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=alpha, gamma=gamma)
+            print("Using TensorFlow Addons SigmoidFocalCrossEntropy")
         except ImportError:
             # Fall back to categorical crossentropy
             loss = tf.keras.losses.CategoricalCrossentropy()
@@ -140,11 +135,16 @@ class EVEREST:
     def fit(self, X, y, validation_data=None, epochs: int = 100, batch_size: int = 512,
             class_weight=None):
         if class_weight is None:
-            # default heavy up‑weight for minority
-            class_weight = {0:1.0, 1:15.0}
+            # Calculate class weight with safeguard against missing class
+            class_counts = np.sum(y, 0)
+            pos = max(1, class_counts[1])  # Ensure non-zero denominator
+            weight = {0: 1.0, 1: max(5, len(y)/pos)}
+        else:
+            weight = class_weight
+            
         return self.model.fit(X, y, epochs=epochs, batch_size=batch_size,
                               validation_data=validation_data,
-                              class_weight=class_weight,
+                              class_weight=weight,
                               callbacks=self.callbacks, verbose=2)
     # ---------------------------------------------------------------------
     def mc_predict(self, X, n_passes: int = 20, batch_size: int = 1024):
@@ -154,33 +154,35 @@ class EVEREST:
         Args:
             X: Input data of shape [batch_size, seq_len, features]
             n_passes: Number of forward passes with dropout active
-            batch_size: Size of batches for prediction (not used directly in call)
+            batch_size: Size of batches for prediction
             
         Returns:
             mean_preds: Mean predictions across all passes
             std_preds: Standard deviation of predictions (uncertainty)
         """
         # Process in batches if needed
-        def process_batch(batch_data):
+        if len(X) <= batch_size:
+            # For small inputs, process all at once
             preds = []
             for _ in range(n_passes):
-                # Note: batch_size is not passed to __call__ directly
-                preds.append(self.model(batch_data, training=True).numpy())
-            return np.stack(preds, 0)
-            
-        # For small inputs, process all at once
-        if len(X) <= batch_size:
-            all_preds = process_batch(X)
+                preds.append(self.model(X, training=True).numpy())
+            all_preds = np.stack(preds, 0)
         else:
             # Process in batches to avoid memory issues
             batch_preds = []
             for i in range(0, len(X), batch_size):
                 end_idx = min(i + batch_size, len(X))
                 batch_data = X[i:end_idx]
-                batch_preds.append(process_batch(batch_data))
+                
+                # Run multiple passes for this batch
+                pass_preds = []
+                for _ in range(n_passes):
+                    pass_preds.append(self.model(batch_data, training=True).numpy())
+                # Stack along the pass dimension first (axis=0)
+                batch_preds.append(np.stack(pass_preds, 0))
             
-            # Concatenate results along the batch dimension (axis=1)
-            all_preds = np.concatenate([p for p in batch_preds], axis=1)
+            # Concatenate batches along the batch dimension (axis=1)
+            all_preds = np.concatenate(batch_preds, axis=1)
         
         # Calculate mean and standard deviation across passes
         return all_preds.mean(0), all_preds.std(0)
