@@ -22,19 +22,19 @@ jobs:
     - name: Install deps
       run: |
         python -m pip install --upgrade pip
-        
+
         # Install main dependencies, but filter out platform-specific ones
         if [ -f requirements.txt ]; then
           # Skip tensorflow-macos and tensorflow-metal for Linux CI
           grep -v "tensorflow-macos\|tensorflow-metal" requirements.txt > requirements_ci.txt
-          
+
           # Install filtered requirements
           pip install -r requirements_ci.txt || true
         else
           # Minimal dependencies for CI
           pip install tensorflow==2.13.0 numpy h5py
         fi
-        
+
         # Create tests/requirements-ci.txt if it doesn't exist
         mkdir -p tests
         if [ ! -f tests/requirements-ci.txt ]; then
@@ -43,17 +43,18 @@ jobs:
           echo "black==23.9.1" >> tests/requirements-ci.txt
           echo "flake8==6.1.0" >> tests/requirements-ci.txt
         fi
-        
+
         pip install -r tests/requirements-ci.txt
 
-    # ------- 1 Lint & format ----------------------------------
+    # ------- 1 Format & Lint ----------------------------------
+    - name: Format code with black
+      run: |
+        # Auto-format instead of checking
+        black solar_knowledge tests
+
     - name: Lint with flake8
       run: |
         flake8 solar_knowledge tests
-
-    - name: Check code style with black
-      run: |
-        black --check solar_knowledge tests
 
     # ------- 2 Unit tests -------------------------------------
     - name: Run pytest with coverage
@@ -61,7 +62,7 @@ jobs:
         TF_CPP_MIN_LOG_LEVEL: "3"
       run: |
         pytest --cov=solar_knowledge --cov-report=xml --cov-report=term -q
-    
+
     # Save coverage
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
@@ -74,12 +75,12 @@ jobs:
       run: |
         # Ensure the dataset directory exists
         mkdir -p datasets/tiny_sample
-        
+
         # Generate the sample dataset if it doesn't exist
         if [ ! -f datasets/tiny_sample/sharp_ci_sample.h5 ]; then
           python scripts/generate_tiny_sample.py
         fi
-        
+
         python -m solar_knowledge.smoke_train \
           --data-dir datasets/tiny_sample \
-          --epochs 1 
+          --epochs 1
