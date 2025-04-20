@@ -1,27 +1,28 @@
 #!/usr/bin/env python
-'''
+"""
 Visualize Ablation Study Results for SolarKnowledge Model
 This script creates visualizations and formatted output from ablation study results.
 
 Author: Antanas Zilinskas
-'''
+"""
 
-import os
 import json
-import numpy as np
+import os
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
-from matplotlib.ticker import MaxNLocator
 import seaborn as sns
+from matplotlib.ticker import MaxNLocator
 
 
 def load_ablation_results(filepath):
     """Load ablation study results from JSON file"""
-    with open(filepath, 'r') as f:
+    with open(filepath, "r") as f:
         return json.load(f)
 
 
-def create_bar_chart(results, metric='tss', output_dir="results/ablation"):
+def create_bar_chart(results, metric="tss", output_dir="results/ablation"):
     """Create a bar chart showing ablation results"""
     # Extract configuration names and metric values
     config_names = []
@@ -32,7 +33,7 @@ def create_bar_chart(results, metric='tss', output_dir="results/ablation"):
     other_models = []
 
     for result in results:
-        if result['config_name'] == 'Full model':
+        if result["config_name"] == "Full model":
             full_model = result
         else:
             other_models.append(result)
@@ -41,44 +42,45 @@ def create_bar_chart(results, metric='tss', output_dir="results/ablation"):
     other_models.sort(key=lambda x: x[metric], reverse=True)
 
     # Combine full model and sorted other models
-    sorted_results = [full_model] + \
-        other_models if full_model else other_models
+    sorted_results = (
+        [full_model] + other_models if full_model else other_models
+    )
 
     for result in sorted_results:
-        if result['config_name'] == 'Full model':
-            config_names.append('Full model')
+        if result["config_name"] == "Full model":
+            config_names.append("Full model")
         else:
             # For ablated models, use a shorter description
-            config_names.append(result['description'])
+            config_names.append(result["description"])
         metric_values.append(result[metric])
 
     # Create figure with larger size
     plt.figure(figsize=(12, 6))
 
     # Create bars with different colors for full model vs ablated versions
-    colors = ['#1f77b4'] + ['#ff7f0e'] * (len(config_names) - 1)
+    colors = ["#1f77b4"] + ["#ff7f0e"] * (len(config_names) - 1)
 
     # Create bar chart
     bars = plt.bar(range(len(config_names)), metric_values, color=colors)
 
     # Add values on top of bars
     for i, v in enumerate(metric_values):
-        plt.text(i, v + 0.01, f"{v:.3f}", ha='center')
+        plt.text(i, v + 0.01, f"{v:.3f}", ha="center")
 
     # Labels and title
     plt.ylabel(metric.upper(), fontsize=12)
     plt.title(
-        f'Ablation Study Results - Impact on {metric.upper()}',
-        fontsize=14)
+        f"Ablation Study Results - Impact on {metric.upper()}", fontsize=14
+    )
 
     # Set x-tick labels with rotation for readability
     plt.xticks(
-        range(
-            len(config_names)),
+        range(len(config_names)),
         config_names,
         rotation=45,
-        ha='right',
-        fontsize=10)
+        ha="right",
+        fontsize=10,
+    )
 
     # Adjust y-axis to start from a reasonable value for better visualization
     y_min = min(metric_values) * 0.9
@@ -88,40 +90,39 @@ def create_bar_chart(results, metric='tss', output_dir="results/ablation"):
     # Add a horizontal line for the full model performance for reference
     if full_model:
         plt.axhline(
-            y=full_model[metric],
-            color='#1f77b4',
-            linestyle='--',
-            alpha=0.7)
+            y=full_model[metric], color="#1f77b4", linestyle="--", alpha=0.7
+        )
 
     plt.tight_layout()
 
     # Save the figure
     os.makedirs(output_dir, exist_ok=True)
     output_file = os.path.join(output_dir, f"ablation_{metric}_chart.png")
-    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    plt.savefig(output_file, dpi=300, bbox_inches="tight")
     print(f"Bar chart saved to {output_file}")
 
     return output_file
 
 
-def create_comparison_table(results, metric='tss'):
+def create_comparison_table(results, metric="tss"):
     """Create a formatted table comparing ablation results"""
     # Create DataFrame for better formatting
     df = pd.DataFrame(results)
 
     # Sort with full model first
-    df = df.sort_values(by=['config_name'],
-                        key=lambda x: x.map({'Full model': 0}).fillna(1))
+    df = df.sort_values(
+        by=["config_name"], key=lambda x: x.map({"Full model": 0}).fillna(1)
+    )
 
     # Format the table
-    pd.set_option('display.max_colwidth', None)
+    pd.set_option("display.max_colwidth", None)
 
     # Select and rename columns for the table
-    table_df = df[['config_name', 'description', metric]].copy()
-    table_df.columns = ['Configuration', 'Description', metric.upper()]
+    table_df = df[["config_name", "description", metric]].copy()
+    table_df.columns = ["Configuration", "Description", metric.upper()]
 
     # Format metric values
-    table_df[metric.upper()] = table_df[metric.upper()].map('{:.3f}'.format)
+    table_df[metric.upper()] = table_df[metric.upper()].map("{:.3f}".format)
 
     # Print table
     print("\nAblation Study Results:")
@@ -131,7 +132,9 @@ def create_comparison_table(results, metric='tss'):
     print("\nLaTeX Table:")
     print("\\begin{table}[ht]")
     print("\\centering")
-    print("\\caption{Ablation of model components on the 24h $\\geq$M-class task. Removing or modifying certain parts significantly impacts TSS.}")
+    print(
+        "\\caption{Ablation of model components on the 24h $\\geq$M-class task. Removing or modifying certain parts significantly impacts TSS.}"
+    )
     print("\\label{tab:ablation}")
     print("\\small")
     print("\\begin{tabular}{l|c}")
@@ -141,9 +144,10 @@ def create_comparison_table(results, metric='tss'):
 
     # Print each row in LaTeX format
     for i, row in table_df.iterrows():
-        if row['Configuration'] == 'Full model':
+        if row["Configuration"] == "Full model":
             print(
-                f"Full model: {row['Description']} & {row[metric.upper()]}\\\\")
+                f"Full model: {row['Description']} & {row[metric.upper()]}\\\\"
+            )
         else:
             print(f"\\quad - {row['Description']} & {row[metric.upper()]}\\\\")
 
@@ -158,14 +162,14 @@ def create_heatmap(results, output_dir="results/ablation"):
     """Create a heatmap showing the impact of different ablations"""
     # Extract features and their impact
     features = {
-        'LSTM': [r['use_lstm'] for r in results],
-        'Conv1D': [r['use_conv'] for r in results],
-        'TEBs=4': [r['teb_layers'] == 4 for r in results],
-        'Class weighting': [r['use_class_weighting'] for r in results],
-        'Heavy dropout': [r['dropout_rate'] >= 0.2 for r in results]
+        "LSTM": [r["use_lstm"] for r in results],
+        "Conv1D": [r["use_conv"] for r in results],
+        "TEBs=4": [r["teb_layers"] == 4 for r in results],
+        "Class weighting": [r["use_class_weighting"] for r in results],
+        "Heavy dropout": [r["dropout_rate"] >= 0.2 for r in results],
     }
 
-    tss_values = [r['tss'] for r in results]
+    tss_values = [r["tss"] for r in results]
 
     # Create a matrix for heatmap
     matrix = []
@@ -181,35 +185,54 @@ def create_heatmap(results, output_dir="results/ablation"):
     df = pd.DataFrame(matrix, columns=feature_names)
 
     # Add TSS as a column
-    df['TSS'] = tss_values
+    df["TSS"] = tss_values
 
     # Sort by TSS
-    df = df.sort_values(by='TSS', ascending=False)
+    df = df.sort_values(by="TSS", ascending=False)
 
     # Create figure
     plt.figure(figsize=(10, len(results) * 0.8))
 
     # Create heatmap
-    sns.heatmap(df[feature_names], annot=False, cmap='Blues', cbar=False,
-                linewidths=0.5, linecolor='lightgray')
+    sns.heatmap(
+        df[feature_names],
+        annot=False,
+        cmap="Blues",
+        cbar=False,
+        linewidths=0.5,
+        linecolor="lightgray",
+    )
 
     # Add TSS values as text annotations
-    for i, tss in enumerate(df['TSS']):
-        plt.text(len(feature_names) + 0.5, i + 0.5, f"{tss:.3f}",
-                 ha='center', va='center', fontsize=11)
+    for i, tss in enumerate(df["TSS"]):
+        plt.text(
+            len(feature_names) + 0.5,
+            i + 0.5,
+            f"{tss:.3f}",
+            ha="center",
+            va="center",
+            fontsize=11,
+        )
 
     # Add TSS header
-    plt.text(len(feature_names) + 0.5, -0.1, 'TSS',
-             ha='center', va='center', fontsize=12, fontweight='bold')
+    plt.text(
+        len(feature_names) + 0.5,
+        -0.1,
+        "TSS",
+        ha="center",
+        va="center",
+        fontsize=12,
+        fontweight="bold",
+    )
 
     # Set y-tick labels
     config_labels = []
     for i, idx in enumerate(df.index):
         result = results[idx]
-        if result['config_name'] == 'Full model':
-            config_labels.append('Full model')
+        if result["config_name"] == "Full model":
+            config_labels.append("Full model")
         else:
-            config_labels.append(result['description'])
+            config_labels.append(result["description"])
 
     plt.yticks(np.arange(len(config_labels)) + 0.5, config_labels, fontsize=10)
 
@@ -218,7 +241,7 @@ def create_heatmap(results, output_dir="results/ablation"):
     # Save the figure
     os.makedirs(output_dir, exist_ok=True)
     output_file = os.path.join(output_dir, "ablation_feature_heatmap.png")
-    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    plt.savefig(output_file, dpi=300, bbox_inches="tight")
     print(f"Heatmap saved to {output_file}")
 
     return output_file
@@ -229,7 +252,7 @@ def analyze_ablation_impact(results):
     # Find the full model result
     full_model = None
     for result in results:
-        if result['config_name'] == 'Full model':
+        if result["config_name"] == "Full model":
             full_model = result
             break
 
@@ -242,11 +265,12 @@ def analyze_ablation_impact(results):
     print(f"Full model TSS: {full_model['tss']:.3f}")
 
     for result in results:
-        if result['config_name'] != 'Full model':
-            impact = full_model['tss'] - result['tss']
-            impact_percent = (impact / full_model['tss']) * 100
+        if result["config_name"] != "Full model":
+            impact = full_model["tss"] - result["tss"]
+            impact_percent = (impact / full_model["tss"]) * 100
             print(
-                f"{result['description']}: -{impact:.3f} TSS (-{impact_percent:.1f}%)")
+                f"{result['description']}: -{impact:.3f} TSS (-{impact_percent:.1f}%)"
+            )
 
 
 if __name__ == "__main__":

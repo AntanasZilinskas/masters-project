@@ -12,43 +12,42 @@ using a transformer-based framework. Sci Rep 13, 13665 (2023).
 
 import argparse
 import os
-import numpy as np
-import h5py
 from datetime import datetime
+
+import h5py
+import numpy as np
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Generate tiny sample dataset for CI")
+        description="Generate tiny sample dataset for CI"
+    )
     parser.add_argument(
         "--output-dir",
         type=str,
         default="datasets/tiny_sample",
-        help="Directory to save the tiny sample dataset"
+        help="Directory to save the tiny sample dataset",
     )
     parser.add_argument(
         "--num-samples",
         type=int,
         default=30,
-        help="Number of samples to generate (half positive, half negative)"
+        help="Number of samples to generate (half positive, half negative)",
     )
     parser.add_argument(
         "--sequence-length",
         type=int,
         default=100,
-        help="Length of time sequence for each sample"
+        help="Length of time sequence for each sample",
     )
     parser.add_argument(
         "--num-features",
         type=int,
         default=14,
-        help="Number of features per timestep"
+        help="Number of features per timestep",
     )
     parser.add_argument(
-        "--seed",
-        type=int,
-        default=42,
-        help="Random seed for reproducibility"
+        "--seed", type=int, default=42, help="Random seed for reproducibility"
     )
     return parser.parse_args()
 
@@ -66,12 +65,13 @@ def generate_sample(sequence_length, num_features, is_positive, seed=None):
     if is_positive:
         # Add a spike pattern characteristic of flares
         peak_idx = np.random.randint(
-            sequence_length // 3,
-            2 * sequence_length // 3)
+            sequence_length // 3, 2 * sequence_length // 3
+        )
         spike = np.zeros((sequence_length, num_features))
         window = 10
-        for i in range(max(0, peak_idx - window),
-                       min(sequence_length, peak_idx + window)):
+        for i in range(
+            max(0, peak_idx - window), min(sequence_length, peak_idx + window)
+        ):
             dist = abs(i - peak_idx)
             magnitude = (1 - dist / window) * 2.0
             if magnitude > 0:
@@ -109,7 +109,7 @@ def main():
             args.sequence_length,
             args.num_features,
             is_positive=True,
-            seed=args.seed + i
+            seed=args.seed + i,
         )
         y[i] = 1
 
@@ -119,7 +119,7 @@ def main():
             args.sequence_length,
             args.num_features,
             is_positive=False,
-            seed=args.seed + num_pos + i
+            seed=args.seed + num_pos + i,
         )
         y[i + num_pos] = 0
 
@@ -146,7 +146,8 @@ def main():
         f.write(f"SHARP-2023-CI-Sample Dataset\n")
         f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(
-            f"Samples: {args.num_samples} ({num_pos} positive, {num_neg} negative)\n")
+            f"Samples: {args.num_samples} ({num_pos} positive, {num_neg} negative)\n"
+        )
         f.write(f"Sequence length: {args.sequence_length}\n")
         f.write(f"Features: {args.num_features}\n")
         f.write(f"Reference: Abduallah et al. (2023)\n")

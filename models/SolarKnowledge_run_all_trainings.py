@@ -1,4 +1,4 @@
-'''
+"""
  author: Antanas Zilinskas
  Based on work by Yasser Abduallah
 
@@ -10,32 +10,41 @@
  - Uses focal loss to handle class imbalance
  - Applies class weights based on flare class rarity
  - Enables Monte Carlo dropout for better uncertainty estimation
-'''
+"""
 
-from model_tracking import (
-    save_model_with_metadata,
-    compare_models,
-    get_next_version,
-    get_latest_version
-)
-from SolarKnowledge_model import SolarKnowledge
-from utils import get_training_data, data_transform, log, supported_flare_class
-import numpy as np
-import tensorflow as tf
 import argparse
 import os
 import warnings
-warnings.filterwarnings('ignore')
+
+import numpy as np
+import tensorflow as tf
+from model_tracking import (
+    compare_models,
+    get_latest_version,
+    get_next_version,
+    save_model_with_metadata,
+)
+from SolarKnowledge_model import SolarKnowledge
+
+from utils import data_transform, get_training_data, log, supported_flare_class
+
+warnings.filterwarnings("ignore")
 
 
 def train(
-        time_window,
-        flare_class,
-        version=None,
-        description=None,
-        auto_increment=True):
-    log('Training is initiated for time window: ' + str(time_window) +
-        ' and flare class: ' + flare_class, verbose=True)
+    time_window,
+    flare_class,
+    version=None,
+    description=None,
+    auto_increment=True,
+):
+    log(
+        "Training is initiated for time window: "
+        + str(time_window)
+        + " and flare class: "
+        + flare_class,
+        verbose=True,
+    )
 
     # Determine version automatically if not specified or auto_increment is
     # True
@@ -43,7 +52,8 @@ def train(
         version = get_next_version(flare_class, time_window)
         log(
             f"Automatically using version v{version} (next available)",
-            verbose=True)
+            verbose=True,
+        )
     else:
         log(f"Using specified version v{version}", verbose=True)
 
@@ -58,7 +68,9 @@ def train(
     X_train, y_train = get_training_data(time_window, flare_class)
     y_train_tr = data_transform(y_train)
 
-    epochs = 100  # extend the number of epochs to let the model converge further
+    epochs = (
+        100  # extend the number of epochs to let the model converge further
+    )
     input_shape = (X_train.shape[1], X_train.shape[2])
 
     # Calculate class weights based on class distribution
@@ -71,18 +83,25 @@ def train(
     class_weight = {}
     for i in range(n_classes):
         # More aggressive weighting for very rare classes like M5
-        if flare_class == 'M5':
+        if flare_class == "M5":
             # Higher weight for the positive class in M5 flares (very rare)
-            class_weight[i] = n_samples / \
-                (n_classes * class_counts[i]) if i == 1 else 1.0
-        elif flare_class == 'M':
+            class_weight[i] = (
+                n_samples / (n_classes * class_counts[i]) if i == 1 else 1.0
+            )
+        elif flare_class == "M":
             # Moderate weight for M-class flares (rare)
-            class_weight[i] = n_samples / \
-                (n_classes * class_counts[i]) * 0.8 if i == 1 else 1.0
+            class_weight[i] = (
+                n_samples / (n_classes * class_counts[i]) * 0.8
+                if i == 1
+                else 1.0
+            )
         else:
             # Lower weight for C-class flares (more common)
-            class_weight[i] = n_samples / \
-                (n_classes * class_counts[i]) * 0.6 if i == 1 else 1.0
+            class_weight[i] = (
+                n_samples / (n_classes * class_counts[i]) * 0.6
+                if i == 1
+                else 1.0
+            )
 
     log(f"Class distribution: {class_counts}", verbose=True)
     log(f"Using class weights: {class_weight}", verbose=True)
@@ -98,11 +117,7 @@ def train(
     # Add an additional ReduceLROnPlateau callback to lower the learning rate
     # when training plateaus.
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
-        monitor='loss',
-        factor=0.5,
-        patience=3,
-        verbose=1,
-        min_lr=1e-6
+        monitor="loss", factor=0.5, patience=3, verbose=1, min_lr=1e-6
     )
 
     # Combine existing callbacks with the learning rate scheduler
@@ -111,46 +126,50 @@ def train(
     # Train the model and store the history
     log(
         f"Starting training for {flare_class}-class flares with {time_window}h window",
-        verbose=True)
+        verbose=True,
+    )
 
-    history = model.model.fit(X_train, y_train_tr,
-                              epochs=epochs,
-                              verbose=2,
-                              batch_size=512,
-                              callbacks=callbacks,
-                              class_weight=class_weight)
+    history = model.model.fit(
+        X_train,
+        y_train_tr,
+        epochs=epochs,
+        verbose=2,
+        batch_size=512,
+        callbacks=callbacks,
+        class_weight=class_weight,
+    )
 
     # Get performance metrics from training history
     metrics = {}
-    if history.history and 'accuracy' in history.history:
-        metrics['final_training_accuracy'] = history.history['accuracy'][-1]
-        metrics['final_training_loss'] = history.history['loss'][-1]
-        metrics['epochs_trained'] = len(history.history['accuracy'])
+    if history.history and "accuracy" in history.history:
+        metrics["final_training_accuracy"] = history.history["accuracy"][-1]
+        metrics["final_training_loss"] = history.history["loss"][-1]
+        metrics["epochs_trained"] = len(history.history["accuracy"])
 
         # Add TSS if available
-        if 'tss' in history.history:
-            metrics['final_training_tss'] = history.history['tss'][-1]
+        if "tss" in history.history:
+            metrics["final_training_tss"] = history.history["tss"][-1]
 
     # Create hyperparameters dictionary
     hyperparams = {
-        'learning_rate': 1e-4,
-        'batch_size': 512,
-        'early_stopping_patience': 5,
-        'epochs': epochs,
-        'num_transformer_blocks': 6,
-        'embed_dim': 128,
-        'num_heads': 4,
-        'ff_dim': 256,
-        'dropout_rate': 0.2,
-        'focal_loss': True,
-        'focal_loss_alpha': 0.25,
-        'focal_loss_gamma': 2.0,
-        'class_weights': class_weight
+        "learning_rate": 1e-4,
+        "batch_size": 512,
+        "early_stopping_patience": 5,
+        "epochs": epochs,
+        "num_transformer_blocks": 6,
+        "embed_dim": 128,
+        "num_heads": 4,
+        "ff_dim": 256,
+        "dropout_rate": 0.2,
+        "focal_loss": True,
+        "focal_loss_alpha": 0.25,
+        "focal_loss_gamma": 2.0,
+        "class_weights": class_weight,
     }
 
     # Include information about previous version in metadata if it exists
     if prev_version:
-        hyperparams['previous_version'] = prev_version
+        hyperparams["previous_version"] = prev_version
 
     # Save model with all metadata
     model_dir = save_model_with_metadata(
@@ -161,54 +180,61 @@ def train(
         version=version,
         flare_class=flare_class,
         time_window=time_window,
-        description=description
+        description=description,
     )
 
     log(f"Model saved to {model_dir}", verbose=True)
     return model_dir, version
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Add command line arguments
     parser = argparse.ArgumentParser(
-        description='Train SolarKnowledge models for solar flare prediction')
+        description="Train SolarKnowledge models for solar flare prediction"
+    )
     parser.add_argument(
-        '--version',
-        '-v',
+        "--version",
+        "-v",
         type=str,
-        help='Model version identifier (auto-incremented by default)')
+        help="Model version identifier (auto-incremented by default)",
+    )
     parser.add_argument(
-        '--description',
-        '-d',
+        "--description",
+        "-d",
         type=str,
-        help='Description of the model being trained')
+        help="Description of the model being trained",
+    )
     parser.add_argument(
-        '--specific-flare',
-        '-f',
+        "--specific-flare",
+        "-f",
         type=str,
-        help='Train only for a specific flare class (C, M, or M5)')
+        help="Train only for a specific flare class (C, M, or M5)",
+    )
     parser.add_argument(
-        '--specific-window',
-        '-w',
+        "--specific-window",
+        "-w",
         type=str,
-        help='Train only for a specific time window (24, 48, or 72)')
+        help="Train only for a specific time window (24, 48, or 72)",
+    )
     parser.add_argument(
-        '--compare',
-        action='store_true',
-        help='Compare all models after training')
+        "--compare",
+        action="store_true",
+        help="Compare all models after training",
+    )
     parser.add_argument(
-        '--no-auto-increment',
-        action='store_true',
-        help='Do not auto-increment version')
+        "--no-auto-increment",
+        action="store_true",
+        help="Do not auto-increment version",
+    )
     args = parser.parse_args()
 
     # Determine which flare classes and time windows to train for
-    flare_classes = [
-        args.specific_flare] if args.specific_flare else [
-        'C', 'M', 'M5']
-    time_windows = [
-        args.specific_window] if args.specific_window else [
-        24, 48, 72]
+    flare_classes = (
+        [args.specific_flare] if args.specific_flare else ["C", "M", "M5"]
+    )
+    time_windows = (
+        [args.specific_window] if args.specific_window else [24, 48, 72]
+    )
 
     # Train models
     trained_models = []
@@ -218,10 +244,11 @@ if __name__ == '__main__':
         for flare_class in flare_classes:
             if flare_class not in supported_flare_class:
                 print(
-                    'Unsupported flare class:',
+                    "Unsupported flare class:",
                     flare_class,
-                    'It must be one of:',
-                    ', '.join(supported_flare_class))
+                    "It must be one of:",
+                    ", ".join(supported_flare_class),
+                )
                 continue
 
             model_dir, version = train(
@@ -229,17 +256,22 @@ if __name__ == '__main__':
                 flare_class,
                 version=args.version,
                 description=args.description,
-                auto_increment=not args.no_auto_increment
+                auto_increment=not args.no_auto_increment,
             )
 
-            trained_models.append({
-                'time_window': time_window,
-                'flare_class': flare_class,
-                'model_dir': model_dir,
-                'version': version
-            })
+            trained_models.append(
+                {
+                    "time_window": time_window,
+                    "flare_class": flare_class,
+                    "model_dir": model_dir,
+                    "version": version,
+                }
+            )
             versions.append(version)
-            log('===========================================================\n\n', verbose=True)
+            log(
+                "===========================================================\n\n",
+                verbose=True,
+            )
 
     # Compare models if requested
     if args.compare and trained_models:
@@ -248,6 +280,6 @@ if __name__ == '__main__':
         comparison = compare_models(
             list(set(versions)),  # Unique versions
             flare_classes,
-            [str(tw) for tw in time_windows]
+            [str(tw) for tw in time_windows],
         )
         print(comparison)

@@ -1,11 +1,13 @@
 # ... existing code ...
 
+
 def download_hmi_data(
-        start_time,
-        end_time,
-        cadence,
-        product="hmi.M_45s",
-        email="antanas.zilinskas21@imperial.ac.uk"):
+    start_time,
+    end_time,
+    cadence,
+    product="hmi.M_45s",
+    email="antanas.zilinskas21@imperial.ac.uk",
+):
     """
     Download HMI data using JSOC client instead of VSO
 
@@ -22,10 +24,11 @@ def download_hmi_data(
     email : str
         Email address for JSOC export (required)
     """
-    import sunpy.map
-    from sunpy.net import Fido, attrs as a
-    from astropy.time import Time
     import astropy.units as u
+    import sunpy.map
+    from astropy.time import Time
+    from sunpy.net import Fido
+    from sunpy.net import attrs as a
     from sunpy.net import jsoc
 
     print(f"Searching for {product} data from {start_time} to {end_time}...")
@@ -52,8 +55,8 @@ def download_hmi_data(
         a.Time(tstart, tend),
         a.jsoc.Series(product),
         a.jsoc.Notify(email),
-        a.jsoc.Segment('magnetogram'),
-        a.Sample(cadence_str)
+        a.jsoc.Segment("magnetogram"),
+        a.Sample(cadence_str),
     )
 
     if len(response) == 0:
@@ -67,7 +70,7 @@ def download_hmi_data(
     os.makedirs(download_dir, exist_ok=True)
 
     # Request data export
-    requests = client.request_data(response, method='url', protocol='fits')
+    requests = client.request_data(response, method="url", protocol="fits")
 
     # Download data
     downloaded_files = client.get_request(requests, path=download_dir)
@@ -88,7 +91,7 @@ if __name__ == "__main__":
         end_time="2022-09-16 04:10",
         cadence=12 * u.minute,
         product="hmi.sharp_cea_720s",  # SHARP data with vector magnetic field
-        email=email
+        email=email,
     )
 
     # Alternative: Download magnetogram data for the same period
@@ -97,5 +100,5 @@ if __name__ == "__main__":
         end_time="2022-09-16 04:10",
         cadence=12 * u.minute,
         product="hmi.M_45s",  # Line-of-sight magnetogram data
-        email=email
+        email=email,
     )

@@ -3,13 +3,15 @@ Download SDO magnetograms, GOES X-ray flux data, and SHARP parameters
 into a local /data directory.
 """
 
-import os
-import requests
 import datetime
+import os
+
+import astropy.units as u
 import drms  # pip install drms
 import pandas as pd
-from sunpy.net import Fido, attrs as a
-import astropy.units as u
+import requests
+from sunpy.net import Fido
+from sunpy.net import attrs as a
 
 
 def ensure_data_directory(data_path="./data"):
@@ -27,7 +29,7 @@ def download_sdo_magnetograms(start_date, end_date, data_path="./data"):
     ensure_data_directory(data_path)
 
     # DRMS client configuration
-    client = drms.Client(email='az2221@imperial.ac.uk')
+    client = drms.Client(email="az2221@imperial.ac.uk")
     # Example series: "hmi.M_45s" for HMI line-of-sight magnetograms
     series = "hmi.M_45s"
 
@@ -42,7 +44,8 @@ def download_sdo_magnetograms(start_date, end_date, data_path="./data"):
 
         # Download each magnetogram
         download_info = client.fetch(
-            result, path=f"{data_path}/{{file}}", progress=True)
+            result, path=f"{data_path}/{{file}}", progress=True
+        )
         print("SDO HMI magnetograms download complete.")
     except Exception as e:
         print(f"Error downloading SDO data: {e}")
@@ -83,7 +86,7 @@ def download_sharp_parameters(start_date, end_date, data_path="./data"):
     """
     ensure_data_directory(data_path)
 
-    client = drms.Client(email='your_email@domain.com')
+    client = drms.Client(email="your_email@domain.com")
     series = "hmi.sharp_720s"  # the main SHARP series
 
     # Example of time-based query. In practice, you’d refine using HARPNUM or
@@ -99,7 +102,8 @@ def download_sharp_parameters(start_date, end_date, data_path="./data"):
                 "NOAA_ARS",
                 "USFLUX",
                 "TOTUSJH",
-                "TOTPOT"],
+                "TOTPOT",
+            ],
         )
         print(f"Found {len(result)} SHARP records. Saving to CSV...")
 
@@ -127,9 +131,9 @@ if __name__ == "__main__":
     # Example search: SDO/HMI Magnetograms for a short time range
     result = Fido.search(
         a.Time("2023-01-01 00:00", "2023-01-01 02:00"),  # time range
-        a.Instrument("HMI"),                            # instrument
-        a.Physobs("LOS_magnetic_field"),                # LOS magnetogram
-        a.Sample(3600 * u.second)                       # 1-hour sampling
+        a.Instrument("HMI"),  # instrument
+        a.Physobs("LOS_magnetic_field"),  # LOS magnetogram
+        a.Sample(3600 * u.second),  # 1-hour sampling
     )
 
     # Print found records

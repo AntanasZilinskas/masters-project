@@ -70,4 +70,4 @@ The study produces:
 - **Plot files**: Visualizations showing how metrics change with sequence length
 - **Console logs**: Detailed progress and results
 
-All outputs are saved in the `results/` directory. 
+All outputs are saved in the `results/` directory.

@@ -1,7 +1,8 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
 
 
 class ProbSparseAttention(nn.Module):
@@ -21,10 +22,11 @@ class ProbSparseAttention(nn.Module):
         d_k = Q.size(-1)
         scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
         if mask is not None:
-            scores = scores.masked_fill(mask == 0, float('-inf'))
+            scores = scores.masked_fill(mask == 0, float("-inf"))
         # Define threshold: mean plus some multiple of std.
         threshold = scores.mean(
-            dim=-1, keepdim=True) + self.sparsity_factor * scores.std(dim=-1, keepdim=True)
+            dim=-1, keepdim=True
+        ) + self.sparsity_factor * scores.std(dim=-1, keepdim=True)
         sparse_mask = scores >= threshold
         sparse_scores = scores.masked_fill(~sparse_mask, -1e9)
         attn = F.softmax(sparse_scores, dim=-1)
@@ -49,7 +51,8 @@ class LinearAttention(nn.Module):
         # Aggregate K_prime and V by contracting over the sequence.
         KV = torch.einsum("bhlk,bhlv->bhlv", K_prime, V)
         # Compute a normalization factor.
-        Z = 1 / (torch.einsum("bhlk,bhl->bhl",
-                 Q_prime, K_prime.sum(dim=-2)) + 1e-6)
+        Z = 1 / (
+            torch.einsum("bhlk,bhl->bhl", Q_prime, K_prime.sum(dim=-2)) + 1e-6
+        )
         output = torch.einsum("bhlk,bhlv->bhlv", Q_prime, KV) * Z.unsqueeze(-1)
         return output

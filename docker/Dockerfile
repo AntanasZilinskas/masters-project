@@ -26,4 +26,4 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Default command to run when the container starts
-CMD ["python3", "-m", "solar_knowledge.eval_full", "--help"] 
+CMD ["python3", "-m", "solar_knowledge.eval_full", "--help"]

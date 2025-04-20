@@ -1,23 +1,21 @@
-import logging
-import torch
-import numpy as np
-import matplotlib.pyplot as plt  # <-- new import for plotting
-from torch.utils.data import Dataset, DataLoader
-import os
 import glob
+import logging
+import os
 import pprint
 
+import matplotlib.pyplot as plt  # <-- new import for plotting
+import numpy as np
+import torch
+
 # 1) Local import of the same-folder module (no leading dot).
-from informer import (
-    select_device,   # includes MPS checking
-    GOESDataset,
-    Informer,
-)
+from informer import select_device  # includes MPS checking
+from informer import GOESDataset, Informer
+from torch.utils.data import DataLoader, Dataset
 
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%H:%M:%S"
+    datefmt="%H:%M:%S",
 )
 
 
@@ -27,14 +25,16 @@ class GOESDataset(Dataset):
     merges them, and creates sliding windows (lookback -> forecast).
     """
 
-    def __init__(self,
-                 data_dir,
-                 lookback_len=24,
-                 forecast_len=24,
-                 step_per_hour=60,
-                 train=True,
-                 train_split=0.8,
-                 max_files=None):
+    def __init__(
+        self,
+        data_dir,
+        lookback_len=24,
+        forecast_len=24,
+        step_per_hour=60,
+        train=True,
+        train_split=0.8,
+        max_files=None,
+    ):
         super().__init__()
         self.lookback_len = lookback_len * step_per_hour
         self.forecast_len = forecast_len * step_per_hour
@@ -55,7 +55,8 @@ class GOESDataset(Dataset):
             pprint.pprint(all_files)
 
         logging.info(
-            f"Found {len(all_files)} netCDF files in '{data_dir}' with 'avg1m_g13'")
+            f"Found {len(all_files)} netCDF files in '{data_dir}' with 'avg1m_g13'"
+        )
         if len(all_files) == 0:
             raise FileNotFoundError(
                 f"No .nc files matching '*avg1m_g13*.nc' in {data_dir}"
@@ -69,30 +70,33 @@ class GOESDataset(Dataset):
             print(f"[DEBUG] Attempting to open: {fpath}")
             try:
                 ds = xr.open_dataset(fpath)
-                if 'xrsb_flux' in ds.variables:
-                    flux_var = 'xrsb_flux'
-                elif 'b_flux' in ds.variables:
-                    flux_var = 'b_flux'
-                elif 'a_flux' in ds.variables:
-                    flux_var = 'a_flux'
+                if "xrsb_flux" in ds.variables:
+                    flux_var = "xrsb_flux"
+                elif "b_flux" in ds.variables:
+                    flux_var = "b_flux"
+                elif "a_flux" in ds.variables:
+                    flux_var = "a_flux"
                 else:
                     ds.close()
                     logging.warning(
-                        f"No recognized flux variable in {fpath}, skipping.")
+                        f"No recognized flux variable in {fpath}, skipping."
+                    )
                     continue
 
                 flux_vals = ds[flux_var].values
                 ds.close()
                 flux_list.append(flux_vals)
                 print(
-                    f"[DEBUG] Loaded {len(flux_vals)} timesteps from {fpath} (var='{flux_var}')")
+                    f"[DEBUG] Loaded {len(flux_vals)} timesteps from {fpath} (var='{flux_var}')"
+                )
             except Exception as e:
                 logging.warning(f"Could not load {fpath}. Error: {e}")
                 continue
 
         if len(flux_list) == 0:
             raise ValueError(
-                "No valid flux data found among the selected netCDF files.")
+                "No valid flux data found among the selected netCDF files."
+            )
 
         # Concatenate all flux arrays into a single time-series
         all_flux = np.concatenate(flux_list, axis=0)
@@ -111,7 +115,8 @@ class GOESDataset(Dataset):
         else:
             self.data = self.data[split_index:]
             logging.info(
-                f"Validation/Testing portion: {len(self.data)} samples")
+                f"Validation/Testing portion: {len(self.data)} samples"
+            )
 
         # 5) Build sliding window indices
         self.indices = []
@@ -130,23 +135,29 @@ class GOESDataset(Dataset):
         start = self.indices[idx]
         end = start + self.lookback_len
         x_seq = self.data[start:end]  # shape: [lookback_len]
-        y_seq = self.data[end:end + self.forecast_len]  # shape: [forecast_len]
+        y_seq = self.data[
+            end : end + self.forecast_len
+        ]  # shape: [forecast_len]
 
         import torch
+
         x_tensor = torch.tensor(x_seq, dtype=torch.float32)
         y_tensor = torch.tensor(y_seq, dtype=torch.float32)
         return x_tensor, y_tensor
 
 
-def load_trained_informer(model_path, device='cpu',
-                          lookback_len=24,
-                          forecast_len=24,
-                          d_model=64,
-                          n_heads=4,
-                          d_ff=128,
-                          enc_layers=2,
-                          dec_layers=1,
-                          dropout=0.1):
+def load_trained_informer(
+    model_path,
+    device="cpu",
+    lookback_len=24,
+    forecast_len=24,
+    d_model=64,
+    n_heads=4,
+    d_ff=128,
+    enc_layers=2,
+    dec_layers=1,
+    dropout=0.1,
+):
     """
     Reconstructs the Informer model architecture, then loads its saved state dict
     from the specified checkpoint (model_path).
@@ -159,7 +170,7 @@ def load_trained_informer(model_path, device='cpu',
         dec_layers=dec_layers,
         dropout=dropout,
         lookback_len=lookback_len,
-        forecast_len=forecast_len
+        forecast_len=forecast_len,
     )
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.to(device)
@@ -168,7 +179,7 @@ def load_trained_informer(model_path, device='cpu',
     return model
 
 
-def predict_and_compare(model, test_dataset, device='cpu'):
+def predict_and_compare(model, test_dataset, device="cpu"):
     """
     Runs inference on the test dataset to get 24-hour predictions from each
     24-hour input window, then compares them with the actual target data.
@@ -203,13 +214,14 @@ def predict_and_compare(model, test_dataset, device='cpu'):
             all_targets.append(y_np)
 
             # Compute MSE for this window
-            mse = np.mean((pred_np - y_np)**2)
+            mse = np.mean((pred_np - y_np) ** 2)
             mse_sum += mse
             count += 1
 
             if (batch_idx + 1) % 50 == 0:
                 logging.debug(
-                    f"[{batch_idx+1}/{len(test_loader)}] Sample MSE: {mse:.6f}")
+                    f"[{batch_idx+1}/{len(test_loader)}] Sample MSE: {mse:.6f}"
+                )
 
     overall_mse = mse_sum / max(count, 1)
     logging.info(f"Prediction MSE on test dataset: {overall_mse:.6f}")
@@ -227,8 +239,8 @@ def plot_predictions(all_predictions, all_targets, num_windows=3):
         return
 
     fig, axes = plt.subplots(
-        num_windows, 1, figsize=(
-            8, 4 * num_windows), sharex=False)
+        num_windows, 1, figsize=(8, 4 * num_windows), sharex=False
+    )
 
     if num_windows == 1:
         # If there's only one window, axes is not a list
@@ -271,7 +283,7 @@ def main():
         d_ff=128,
         enc_layers=2,
         dec_layers=1,
-        dropout=0.1
+        dropout=0.1,
     )
 
     # 2) Construct the test dataset from exactly 2 adjacent daily files
@@ -282,18 +294,20 @@ def main():
         step_per_hour=60,  # 1-min data => 60 steps/hour => 1440 steps/day
         train=False,
         train_split=0.0,  # all data loaded goes to the "test" split
-        max_files=2       # load exactly 2 daily files => 2880 steps total
+        max_files=2,  # load exactly 2 daily files => 2880 steps total
     )
 
     # 3) Predict & Compare
     all_preds, all_tgts, test_mse = predict_and_compare(
-        model, test_dataset, device=device)
+        model, test_dataset, device=device
+    )
 
     # 4) Log a snippet of results
     logging.info("Example predictions vs. targets (first 3 windows):")
     for i in range(min(3, len(all_preds))):
         logging.info(
-            f"Window {i+1} - Pred: {all_preds[i][:5]}..., Tgt: {all_tgts[i][:5]}...")
+            f"Window {i+1} - Pred: {all_preds[i][:5]}..., Tgt: {all_tgts[i][:5]}..."
+        )
 
     # 5) Plot a few windows
     plot_predictions(all_preds, all_tgts, num_windows=3)

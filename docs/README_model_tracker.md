@@ -134,4 +134,4 @@ python model_tracker.py show 20250415_123456
 
 All model metadata is stored in timestamped files within the weights directory structure:
 - Each model saves a `metadata_[timestamp].json` file in its respective directory
-- The model tracker scans and consolidates these files into `model_results.json` 
+- The model tracker scans and consolidates these files into `model_results.json`
