@@ -81,6 +81,44 @@ class PerformerBlock(layers.Layer):
         return self.norm2(x + self.drop2(h2, training=training))
 
 # ---------------------------------------------------------------------------
+# Custom Focal Loss for one-hot encoded labels
+# ---------------------------------------------------------------------------
+class CategoricalFocalLoss(tf.keras.losses.Loss):
+    def __init__(self, alpha=0.25, gamma=2.0, from_logits=False, **kwargs):
+        super().__init__(**kwargs)
+        self.alpha = alpha
+        self.gamma = gamma
+        self.from_logits = from_logits
+        
+    def call(self, y_true, y_pred):
+        # Convert from one-hot to sparse if needed (for our binary case)
+        if tf.shape(y_true)[-1] == 2:  # One-hot encoded with 2 classes
+            # Get the target label (0 or 1)
+            y_true_sparse = tf.argmax(y_true, axis=-1)
+            # For binary, we only care about positive class probability
+            y_pred_pos = y_pred[:, 1]
+            
+            # Compute binary focal loss
+            # First convert target to float
+            y_true_float = tf.cast(y_true_sparse, dtype=tf.float32)
+            
+            # Apply focal weights: alpha * (1-p)^gamma for positives, (1-alpha) * p^gamma for negatives
+            p_t = tf.where(tf.equal(y_true_float, 1.0), y_pred_pos, 1.0 - y_pred_pos)
+            alpha_factor = tf.where(tf.equal(y_true_float, 1.0), 
+                                    self.alpha * tf.ones_like(y_true_float),
+                                    (1.0 - self.alpha) * tf.ones_like(y_true_float))
+            focal_weight = alpha_factor * tf.pow(1.0 - p_t, self.gamma)
+            
+            # Calculate losses for each sample
+            losses = -focal_weight * tf.math.log(tf.clip_by_value(p_t, 1e-8, 1.0))
+            
+            # Return mean loss
+            return tf.reduce_mean(losses)
+        else:
+            # Fall back to categorical_crossentropy for multi-class
+            return tf.keras.losses.categorical_crossentropy(y_true, y_pred, from_logits=self.from_logits)
+
+# ---------------------------------------------------------------------------
 # EVEREST model (SHARP‑only)
 # ---------------------------------------------------------------------------
 class EVEREST:
@@ -117,16 +155,15 @@ class EVEREST:
     def compile(self, lr: float = 1e-4, alpha: float = 0.25, gamma: float = 2.0):
         from tensorflow.keras.metrics import Accuracy
 
-        # Try to import tensorflow_addons for focal loss, fall back to standard loss if not available
+        # Try to use our custom focal loss, or fall back to standard loss if needed
         try:
-            import tensorflow_addons as tfa
-            # Use TFA's SigmoidFocalCrossEntropy directly
-            loss = tfa.losses.SigmoidFocalCrossEntropy(alpha=alpha, gamma=gamma)
-            print("Using TensorFlow Addons SigmoidFocalCrossEntropy")
-        except ImportError:
+            # Use our custom implementation that properly handles one-hot labels
+            loss = CategoricalFocalLoss(alpha=alpha, gamma=gamma)
+            print("Using custom CategoricalFocalLoss")
+        except Exception as e:
             # Fall back to categorical crossentropy
             loss = tf.keras.losses.CategoricalCrossentropy()
-            print("TensorFlow Addons not available, using standard Categorical Crossentropy loss")
+            print(f"Error setting up focal loss: {e}, using standard Categorical Crossentropy loss")
         
         self.model.compile(optimizer=tf.keras.optimizers.Adam(lr),
                            loss=loss,
