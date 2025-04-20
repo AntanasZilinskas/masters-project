@@ -5,24 +5,77 @@ This script tests a saved Informer model by loading it from a checkpoint,
 unpacking model settings, and evaluating its prediction capabilities.
 """
 import argparse
+import importlib.util
 import os
 import sys
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-# Add the project root to the Python path
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+# Make sure the module can be found by adding all possible paths
+current_dir = Path(__file__).resolve().parent
+project_root = current_dir.parent
+possible_model_dirs = [
+    project_root,  # Direct import from project root
+    project_root.parent,  # One level up
+    os.path.join(project_root, ".."),  # Alternative format
+    os.getcwd(),  # Current working directory
+]
+
+# Add all possible paths to sys.path
+for path in possible_model_dirs:
+    if path not in sys.path and os.path.exists(path):
+        sys.path.insert(0, str(path))
+        print(f"Added {path} to sys.path")
+
+# Print diagnostic information
+print(f"Current directory: {os.getcwd()}")
+print(f"sys.path: {sys.path}")
+print(
+    f"Looking for models module in: {[os.path.join(p, 'models') for p in sys.path if os.path.exists(os.path.join(p, 'models'))]}"
 )
 
-# Now import the model after the path is set up
-from models.archive.informer import (  # noqa: E402
-    GOESParquetDataset,
-    Informer,
-    select_device,
-)
+# Try dynamic import as fallback
+models_archive_informer = None
+try:
+    # First try regular import
+    from models.archive.informer import (  # noqa: E402
+        GOESParquetDataset,
+        Informer,
+        select_device,
+    )
+
+    print("Successfully imported models.archive.informer")
+except ImportError as e:
+    print(f"Regular import failed: {e}")
+
+    # Try to find the module file directly
+    for base_path in possible_model_dirs:
+        module_path = os.path.join(
+            base_path, "models", "archive", "informer.py"
+        )
+        if os.path.exists(module_path):
+            print(f"Found module at {module_path}")
+            spec = importlib.util.spec_from_file_location(
+                "models.archive.informer", module_path
+            )
+            models_archive_informer = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(models_archive_informer)
+            GOESParquetDataset = models_archive_informer.GOESParquetDataset
+            Informer = models_archive_informer.Informer
+            select_device = models_archive_informer.select_device
+            print("Successfully loaded module dynamically")
+            break
+
+    if models_archive_informer is None:
+        print("Could not find the module file anywhere. Paths checked:")
+        for base_path in possible_model_dirs:
+            print(
+                f"  - {os.path.join(base_path, 'models', 'archive', 'informer.py')}"
+            )
+        raise ImportError("Could not import models.archive.informer")
 
 
 def load_model(model_checkpoint, device, **model_kwargs):
