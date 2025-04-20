@@ -10,7 +10,8 @@ def show_fits_image(path_to_fits):
         hdul.info()
         for i, hdu in enumerate(hdul):
             print(
-                f"HDU[{i}] = {type(hdu)} with shape {hdu.data.shape if hdu.data is not None else 'None'}")
+                f"HDU[{i}] = {type(hdu)} with shape {hdu.data.shape if hdu.data is not None else 'None'}"
+            )
         # For a simple FITS file, the primary HDU often contains the image data
         # Option 1: Hardcode the extension index:
         image_data = hdul[1].data
@@ -27,7 +28,7 @@ def show_fits_image(path_to_fits):
             return
 
         # Display the image using matplotlib
-        plt.imshow(image_data, cmap='gray', origin='lower')
+        plt.imshow(image_data, cmap="gray", origin="lower")
         plt.colorbar()
         plt.title("FITS Image")
         plt.show()
@@ -36,4 +37,5 @@ def show_fits_image(path_to_fits):
 # Example usage, adjust path accordingly:
 # show_fits_image("data/example_file.fits")
 show_fits_image(
-    "data/hmi.m_45s/hmi.m_45s.2022.01.01_00_01_30_TAI.magnetogram.fits")
+    "data/hmi.m_45s/hmi.m_45s.2022.01.01_00_01_30_TAI.magnetogram.fits"
+)

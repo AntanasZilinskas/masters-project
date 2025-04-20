@@ -2,7 +2,7 @@
 %
 \ProvidesPackage{kpfonts}
 	[ 2010/08/20 v3.31]
-	
+
 \newif\ifkp@math	  \kp@mathtrue
 \newif\ifkp@text  	\kp@texttrue
 \newif\ifkp@sf      \kp@sftrue
@@ -156,7 +156,7 @@
 %
 %%% easyscsl, courtesy from François Pétiard
 %
-	\ifkp@easyscsl 
+	\ifkp@easyscsl
 		\renewcommand{\itshape}{\not@math@alphabet\itshape\mathit%
 			\ifthenelse{\equal{\f@shape}{\scdefault}}{\fontshape{scsl}}{%
 			\fontshape\itdefault}\selectfont}
@@ -165,7 +165,7 @@
 			\ifthenelse{\equal{\f@shape}{\itdefault}}{\fontshape{scsl}}{\fontshape\scdefault}}\selectfont}
 		\renewcommand{\slshape}{\not@math@alphabet\slshape\relax%
 			\ifthenelse{\equal{\f@shape}{\scdefault}}{\fontshape{scsl}}{%
-			\fontshape\sldefault}\selectfont} 
+			\fontshape\sldefault}\selectfont}
 	\fi
 %
 %%% famille, petitesmajuscules, style, f-ligatures and Q tail
@@ -237,7 +237,7 @@
 %
 %%% Other sc, other scsl
 %
-    
+
     \newcommand{\otherscshape}{%
         \SiFonteContient{\fontname\the\font}{tt}{}{%
           \SiFonteContient{\fontname\the\font}{ss}{\fontfamily{jkpss\kp@othersc\kp@flig\kp@style}}{%
@@ -304,11 +304,11 @@
 %
 %%% \kp@famillem \kp@stylem and \kp@widerm
 %
-		
+
 		\ifkp@lightmath\def\kp@famillem{l}
 			\else\def\kp@famillem{}
 				\fi
-				
+
 		\ifkp@vosm\def\kp@stylem{vos}
 			\else\ifkp@osm\def\kp@stylem{os}
 				\else\ifkp@osnm\def\kp@stylem{osn}
@@ -317,7 +317,7 @@
     \ifkp@nofligatures\def\kp@fligm{f}
       \else\def\kp@fligm{}
         \fi
-        
+
     \ifkp@widermath\def\kp@widerm{w}
       \else\def\kp@widerm{}
         \fi
@@ -326,16 +326,16 @@
 %
 %%% \kp@stylemi et \kp@stylemath
 %
-		
+
 		\ifkp@vosm\def\kp@stylemi{vos}
 			\else\def\kp@stylemi{}\fi
-		
+
 		\ifkp@sfmath
 		    \def\kp@stylemath{ss}
 			\else
 			  \def\kp@stylemath{}
 			\fi
-			
+
 %
 %%% New math Versions
 %
@@ -350,7 +350,7 @@
 			\ifkp@sfmath
 			  \DeclareSymbolFont{operators}{OT1}{jkpss\kp@fligm\kp@stylem}{m}{n}
 				\SetSymbolFont{operators}{bold}{OT1}{jkpss\kp@fligm\kp@stylem}{b}{n}
-			\else	
+			\else
 			  \DeclareSymbolFont{operators}{OT1}{jkp\kp@famillem\kp@fligm\kp@stylem}{m}{n}
 				\SetSymbolFont{operators}{bold}{OT1}{jkp\kp@famillem\kp@fligm\kp@stylem}{b}{n}
 			\fi
@@ -358,19 +358,19 @@
 				\SetSymbolFont{operators}{boldrm}{OT1}{jkp\kp@famillem\kp@fligm\kp@stylem}{b}{n}
 				\SetSymbolFont{operators}{sf}{OT1}{jkpss\kp@fligm\kp@stylem}{m}{n}
 				\SetSymbolFont{operators}{boldsf}{OT1}{jkpss\kp@fligm\kp@stylem}{b}{n}
-			
+
 			\def\operator@font{\mathgroup\symoperators}
-			
+
 			\DeclareMathAlphabet{\mathrm}{OT1}{jkp\kp@famillem\kp@fligm\kp@stylem}{m}{n}
 				\SetMathAlphabet{\mathrm}{bold}{OT1}{jkp\kp@famillem\kp@fligm\kp@stylem}{b}{n}
 				\SetMathAlphabet{\mathrm}{rm}{OT1}{jkp\kp@famillem\kp@fligm\kp@stylem}{m}{n}
 				\SetMathAlphabet{\mathrm}{boldrm}{OT1}{jkp\kp@famillem\kp@fligm\kp@stylem}{b}{n}
 				\SetMathAlphabet{\mathrm}{sf}{OT1}{jkp\kp@fligm\kp@stylem}{m}{n}
 				\SetMathAlphabet{\mathrm}{boldsf}{OT1}{jkp\kp@fligm\kp@stylem}{b}{n}
-		
+
 			\DeclareSymbolFontAlphabet{\mathupright}{operators}
 			\let\mathup\mathupright
-			
+
 			\ifkp@sfmath
 			  \DeclareMathAlphabet{\mathbf}{OT1}{jkpss\kp@fligm\kp@stylem}{b}{n}
 				\SetMathAlphabet{\mathbf}{bold}{OT1}{jkpss\kp@fligm\kp@stylem}{b}{n}
@@ -382,7 +382,7 @@
 				\SetMathAlphabet{\mathbf}{boldrm}{OT1}{jkp\kp@famillem\kp@fligm\kp@stylem}{b}{n}
 				\SetMathAlphabet{\mathbf}{sf}{OT1}{jkpss\kp@fligm\kp@stylem}{b}{n}
 				\SetMathAlphabet{\mathbf}{boldsf}{OT1}{jkpss\kp@fligm\kp@stylem}{b}{n}
-			      
+
 			\ifkp@sfmath
 			  \DeclareMathAlphabet{\mathit}{OT1}{jkpss\kp@fligm\kp@stylem}{m}{it}
 				  \SetMathAlphabet{\mathit}{bold}{OT1}{jkpss\kp@fligm\kp@stylem}{b}{it}
@@ -419,7 +419,7 @@
       \ifkp@sfmath
 			  \DeclareSymbolFont{letters}{OML}{jkpss\kp@stylemi}{m}{it}
 				\SetSymbolFont{letters}{bold}{OML}{jkpss\kp@stylemi}{bx}{it}
-			\else	
+			\else
 			  \DeclareSymbolFont{letters}{OML}{jkp\kp@famillem\kp@stylemi\kp@widerm}{m}{it}
 				\SetSymbolFont{letters}{bold}{OML}{jkp\kp@famillem\kp@stylemi\kp@widerm}{bx}{it}
 			\fi
@@ -434,10 +434,10 @@
       \ifkp@sfmath
 		    \DeclareSymbolFont{lettersA}{U}{jkpssmia}{m}{it}
 			  \SetSymbolFont{lettersA}{bold}{U}{jkpssmia}{bx}{it}
-			\else	
+			\else
 		    \DeclareSymbolFont{lettersA}{U}{jkp\kp@famillem mia\kp@widerm}{m}{it}
 			  \SetSymbolFont{lettersA}{bold}{U}{jkp\kp@famillem mia\kp@widerm}{bx}{it}
-			\fi	
+			\fi
 			\SetSymbolFont{lettersA}{rm}{U}{jkp\kp@famillem mia\kp@widerm}{m}{it}
 			\SetSymbolFont{lettersA}{boldrm}{U}{jkp\kp@famillem mia\kp@widerm}{bx}{it}
 			\SetSymbolFont{lettersA}{sf}{U}{jkpssmia}{m}{it}
@@ -461,7 +461,7 @@
 			\SetSymbolFont{symbols}{sf}{OMS}{jkp}{m}{n}
 			\SetSymbolFont{symbols}{boldsf}{OMS}{jkp}{bx}{n}
 			\DeclareFontSubstitution{OMS}{jkp\kp@famillem\kp@widerm}{m}{n}
-			
+
 \ifkp@amsmath{
 		\renewcommand{\AmSfont}{%
 			\usefont{OMS}{jkp\kp@famillem\kp@widerm}{\if\@xp\@car\f@series\@nil bb\else m\fi}{n}}}\fi
@@ -486,14 +486,14 @@
 \ifkp@rmmathbb
     \ifkp@sfmath
 		  \DeclareSymbolFont{AMSb}{U}{jkpsyb}{m}{n}% rmmathbb, sfmath
-		  \SetSymbolFont{AMSb}{bold}{U}{jkpsyb}{bx}{n}			
+		  \SetSymbolFont{AMSb}{bold}{U}{jkpsyb}{bx}{n}
 			\SetSymbolFont{AMSb}{rm}{U}{jkp\kp@famillem syb\kp@widerm}{m}{n}
 			\SetSymbolFont{AMSb}{boldrm}{U}{jkp\kp@famillem syb\kp@widerm}{bx}{n}
 			\SetSymbolFont{AMSb}{sf}{U}{jkpsyb}{m}{n}
 			\SetSymbolFont{AMSb}{boldsf}{U}{jkpsyb}{bx}{n}
 		\else
 		  \DeclareSymbolFont{AMSb}{U}{jkp\kp@famillem syb\kp@widerm}{m}{n}% rmmathbb
-		  \SetSymbolFont{AMSb}{bold}{U}{jkp\kp@famillem syb\kp@widerm}{bx}{n}			
+		  \SetSymbolFont{AMSb}{bold}{U}{jkp\kp@famillem syb\kp@widerm}{bx}{n}
 			\SetSymbolFont{AMSb}{rm}{U}{jkp\kp@famillem syb\kp@widerm}{m}{n}
 			\SetSymbolFont{AMSb}{boldrm}{U}{jkp\kp@famillem syb\kp@widerm}{bx}{n}
 			\SetSymbolFont{AMSb}{sf}{U}{jkpsyb}{m}{n}
@@ -503,14 +503,14 @@
 	\ifkp@sfmathbb
     \ifkp@sfmath
 		  \DeclareSymbolFont{AMSb}{U}{jkpsssyb}{m}{n}% sfmathbb, sfmath
-		  \SetSymbolFont{AMSb}{bold}{U}{jkpsssyb}{bx}{n}			
+		  \SetSymbolFont{AMSb}{bold}{U}{jkpsssyb}{bx}{n}
 			\SetSymbolFont{AMSb}{rm}{U}{jkpss\kp@famillem syb\kp@widerm}{m}{n}
 			\SetSymbolFont{AMSb}{boldrm}{U}{jkpss\kp@famillem syb\kp@widerm}{bx}{n}
 			\SetSymbolFont{AMSb}{sf}{U}{jkpsssyb}{m}{n}
 			\SetSymbolFont{AMSb}{boldsf}{U}{jkpsssyb}{bx}{n}
 	  \else
 		  \DeclareSymbolFont{AMSb}{U}{jkpss\kp@famillem syb\kp@widerm}{m}{n}% sfmathbb
-		  \SetSymbolFont{AMSb}{bold}{U}{jkpss\kp@famillem syb\kp@widerm}{bx}{n}			
+		  \SetSymbolFont{AMSb}{bold}{U}{jkpss\kp@famillem syb\kp@widerm}{bx}{n}
 			\SetSymbolFont{AMSb}{rm}{U}{jkpss\kp@famillem syb\kp@widerm}{m}{n}
 			\SetSymbolFont{AMSb}{boldrm}{U}{jkpss\kp@famillem syb\kp@widerm}{bx}{n}
 			\SetSymbolFont{AMSb}{sf}{U}{jkpsssyb}{m}{n}
@@ -519,21 +519,21 @@
 	\else
     \ifkp@sfmath
 		  \DeclareSymbolFont{AMSb}{U}{jkpsssyb}{m}{n}% sfmath
-			\SetSymbolFont{AMSb}{bold}{U}{jkpsssyb}{bx}{n}			
+			\SetSymbolFont{AMSb}{bold}{U}{jkpsssyb}{bx}{n}
 			\SetSymbolFont{AMSb}{rm}{U}{jkp\kp@famillem syb\kp@widerm}{m}{n}
 			\SetSymbolFont{AMSb}{boldrm}{U}{jkp\kp@famillem syb\kp@widerm}{bx}{n}
 			\SetSymbolFont{AMSb}{sf}{U}{jkpsssyb}{m}{n}
 			\SetSymbolFont{AMSb}{boldsf}{U}{jkpsssyb}{bx}{n}
 		\else
 		  \DeclareSymbolFont{AMSb}{U}{jkp\kp@famillem syb\kp@widerm}{m}{n}% default
-			\SetSymbolFont{AMSb}{bold}{U}{jkp\kp@famillem syb\kp@widerm}{bx}{n}			
+			\SetSymbolFont{AMSb}{bold}{U}{jkp\kp@famillem syb\kp@widerm}{bx}{n}
 			\SetSymbolFont{AMSb}{rm}{U}{jkp\kp@famillem syb\kp@widerm}{m}{n}
 			\SetSymbolFont{AMSb}{boldrm}{U}{jkp\kp@famillem syb\kp@widerm}{bx}{n}
 			\SetSymbolFont{AMSb}{sf}{U}{jkpsssyb}{m}{n}
 			\SetSymbolFont{AMSb}{boldsf}{U}{jkpsssyb}{bx}{n}
 		\fi
 	\fi
-\fi	
+\fi
 
 		\DeclareFontSubstitution{U}{jkp\kp@famillem syb\kp@widerm}{m}{n}
 		\DeclareSymbolFontAlphabet{\mathbb}{AMSb}
@@ -674,7 +674,7 @@
 
 % \pounds classic bug in math mode
 
-\let\oldpounds\pounds%   
+\let\oldpounds\pounds%
 \def\pounds{%
 	\relax\ifmmode\kppounds%
 		\else\oldpounds\fi}
@@ -682,7 +682,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Math Italic (jkpmi) Definition %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
+
 \ifkp@partialup\re@DeclareMathSymbol{\partial}{\mathord}{letters}{128}\fi
 \re@DeclareMathSymbol{\partialup}{\mathord}{letters}{128}
 \re@DeclareMathSymbol{\partialsl}{\mathord}{letters}{64}
@@ -695,7 +695,7 @@
    \let\circledtimes\otimes
    \let\circledslash\oslash
    \let\circleddot\odot
-   
+
 \ifkp@oldReIm
 	\re@DeclareMathSymbol{\Re}{\mathord}{lettersA}{82}
 	\re@DeclareMathSymbol{\Im}{\mathord}{lettersA}{73}
@@ -1220,7 +1220,7 @@
 % Relative reference
 
 \ifkp@upgrk % lowercase
-		
+
 	\re@DeclareMathSymbol{\alpha}{\mathord}{lettersA}{11}
 	\re@DeclareMathSymbol{\beta}{\mathord}{lettersA}{12}
 	\re@DeclareMathSymbol{\gamma}{\mathord}{lettersA}{13}
@@ -1282,7 +1282,7 @@
 	\re@DeclareMathSymbol{\othervarphi}{\mathord}{letters}{39}
 
 \else
-	
+
 	\re@DeclareMathSymbol{\alpha}{\mathord}{letters}{11}
 	\re@DeclareMathSymbol{\beta}{\mathord}{letters}{12}
 	\re@DeclareMathSymbol{\gamma}{\mathord}{letters}{13}
@@ -1342,7 +1342,7 @@
 	\re@DeclareMathSymbol{\othervarrho}{\mathord}{lettersA}{37}
 	\re@DeclareMathSymbol{\othervarsigma}{\mathord}{lettersA}{38}
 	\re@DeclareMathSymbol{\othervarphi}{\mathord}{lettersA}{39}
-	
+
 \fi
 
 \let\othervarkappa\varkappa
@@ -1361,7 +1361,7 @@
 	\re@DeclareMathSymbol{\Phi}{\mathord}{letters}{8}
 	\re@DeclareMathSymbol{\Psi}{\mathord}{letters}{9}
 	\re@DeclareMathSymbol{\Omega}{\mathord}{letters}{10}
-	
+
 	\re@DeclareMathSymbol{\otherGamma}{\mathord}{lettersA}{00}
 	\re@DeclareMathSymbol{\otherDelta}{\mathord}{lettersA}{01}
 	\re@DeclareMathSymbol{\otherTheta}{\mathord}{lettersA}{02}
@@ -1372,8 +1372,8 @@
 	\re@DeclareMathSymbol{\otherUpsilon}{\mathord}{lettersA}{07}
 	\re@DeclareMathSymbol{\otherPhi}{\mathord}{lettersA}{08}
 	\re@DeclareMathSymbol{\otherPsi}{\mathord}{lettersA}{09}
-	\re@DeclareMathSymbol{\otherOmega}{\mathord}{lettersA}{10}	
-	
+	\re@DeclareMathSymbol{\otherOmega}{\mathord}{lettersA}{10}
+
 	\re@DeclareMathSymbol{\varGamma}{\mathord}{lettersA}{00}
 	\re@DeclareMathSymbol{\varDelta}{\mathord}{lettersA}{01}
 	\re@DeclareMathSymbol{\varTheta}{\mathord}{lettersA}{02}
@@ -1384,10 +1384,10 @@
 	\re@DeclareMathSymbol{\varUpsilon}{\mathord}{lettersA}{07}
 	\re@DeclareMathSymbol{\varPhi}{\mathord}{lettersA}{08}
 	\re@DeclareMathSymbol{\varPsi}{\mathord}{lettersA}{09}
-	\re@DeclareMathSymbol{\varOmega}{\mathord}{lettersA}{10}	
+	\re@DeclareMathSymbol{\varOmega}{\mathord}{lettersA}{10}
 
 \else
-	
+
 	\re@DeclareMathSymbol{\Gamma}{\mathalpha}{lettersA}{00}
 	\re@DeclareMathSymbol{\Delta}{\mathalpha}{lettersA}{01}
 	\re@DeclareMathSymbol{\Theta}{\mathalpha}{lettersA}{02}
@@ -1423,7 +1423,7 @@
 	\re@DeclareMathSymbol{\varPhi}{\mathord}{letters}{8}
 	\re@DeclareMathSymbol{\varPsi}{\mathord}{letters}{9}
 	\re@DeclareMathSymbol{\varOmega}{\mathord}{letters}{10}
-	
+
 \fi
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1437,7 +1437,7 @@
 
 \newcommand{\widering}[1]{\overset{\smash{\vbox to .2ex{%
    \hbox{$\mathring{}$}}}}{\wideparen{#1}}}
-   
+
 \renewcommand{\int}{\intop\kp@ilimits}
 \renewcommand{\oint}{\ointop\kp@ilimits}
 
@@ -1484,8 +1484,8 @@
 \re@DeclareMathSymbol{\oiintop}{\mathop}{largesymbolsA}{\narrowiints8}
    \def\oiint{\oiintop\kp@ilimits}
 
-\def\narrowiints{\ifkp@narrowiints1\else0\fi}   
-   
+\def\narrowiints{\ifkp@narrowiints1\else0\fi}
+
 \re@DeclareMathSymbol{\ointctrclockwiseop}{\mathop}{largesymbolsA}{10}
    \def\ointctrclockwise{\ointctrclockwiseop\kp@ilimits}
 \re@DeclareMathSymbol{\ointclockwiseop}{\mathop}{largesymbolsA}{12}
@@ -1620,7 +1620,7 @@
 
 \let\kp@ula\underleftarrow
 \def\underleftarrow#1{\kp@ula{\,#1}\,}
-     
+
 %%%
 \fi %%% End of no-math option
 %%%
@@ -1676,5 +1676,3 @@
 \fi
 
 \endinput
-    
-    

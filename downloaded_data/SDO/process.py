@@ -4,6 +4,7 @@ def open_fit_files_in_data():
     Prints basic header and data details.
     """
     import os
+
     from astropy.io import fits
 
     # 1) Change "@data" to "data" if your folder name is valid

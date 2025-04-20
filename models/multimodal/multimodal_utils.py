@@ -4,10 +4,20 @@ for the SolarKnowledge model.
 """
 
 import os
-import numpy as np
+
 import h5py
+import numpy as np
 import pandas as pd
-from utils import load_data, get_class_num, data_transform, series_len, start_feature, n_features, mask_value
+
+from utils import (
+    data_transform,
+    get_class_num,
+    load_data,
+    mask_value,
+    n_features,
+    series_len,
+    start_feature,
+)
 
 
 def get_multimodal_data(time_window, flare_class, is_training=True):
@@ -33,7 +43,9 @@ def get_multimodal_data(time_window, flare_class, is_training=True):
         Labels (0 for negative, 1 for positive)
     """
     # Determine file paths
-    data_type = "testing_data" if is_training else "testing_data"  # Adjust as needed
+    data_type = (
+        "testing_data" if is_training else "testing_data"
+    )  # Adjust as needed
     csv_file = f"Nature_data/{data_type}_{flare_class}_{time_window}.csv"
     h5_file = f"Nature_data/multimodal_data_{flare_class}_{time_window}.h5"
 
@@ -50,16 +62,16 @@ def get_multimodal_data(time_window, flare_class, is_training=True):
         series_len=series_len,
         start_feature=start_feature,
         n_features=n_features,
-        mask_value=mask_value
+        mask_value=mask_value,
     )
 
     # Convert labels
     y_all = np.array([get_class_num(c) for c in y_all])
 
     # Load aligned images from H5 file
-    with h5py.File(h5_file, 'r') as hf:
-        images = hf['images'][:]
-        indices = hf['indices'][:]
+    with h5py.File(h5_file, "r") as hf:
+        images = hf["images"][:]
+        indices = hf["indices"][:]
 
     # Filter SHARP parameters to match available images
     X_params = X_params_all[indices]

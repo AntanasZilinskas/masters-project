@@ -35,4 +35,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: nightly-metrics
-        path: reports/nightly_*.json 
+        path: reports/nightly_*.json
