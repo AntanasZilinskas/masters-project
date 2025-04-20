@@ -34,7 +34,7 @@ CONFIGURATIONS = [
     {
         'name': 'No conv',
         'description': 'BN then LSTM',
-        'use_conv': False, 
+        'use_conv': False,
         'use_lstm': True,
         'teb_layers': 4,
         'dropout_rate': 0.2,
@@ -79,16 +79,18 @@ MOCK_TSS_VALUES = {
     'Light dropout': 0.810
 }
 
+
 def generate_mock_results(time_window="24", flare_class="M"):
     """Generate mock ablation study results"""
     results = []
-    
-    print(f"Generating mock results for {time_window}h {flare_class}-class prediction...")
-    
+
+    print(
+        f"Generating mock results for {time_window}h {flare_class}-class prediction...")
+
     for config in CONFIGURATIONS:
         # Get TSS value from mock data
         tss = MOCK_TSS_VALUES[config['name']]
-        
+
         # Create result entry
         result = {
             'config_name': config['name'],
@@ -101,21 +103,23 @@ def generate_mock_results(time_window="24", flare_class="M"):
             'use_class_weighting': config['use_class_weighting'],
             'timestamp': datetime.now().strftime("%Y%m%d_%H%M%S")
         }
-        
+
         results.append(result)
         print(f"Configuration: {config['name']}")
         print(f"Mock TSS: {tss:.4f}")
-    
+
     # Save results
     output_dir = "results/ablation"
     os.makedirs(output_dir, exist_ok=True)
-    
-    output_file = os.path.join(output_dir, f"ablation_results_{time_window}h_{flare_class}_class.json")
+
+    output_file = os.path.join(
+        output_dir,
+        f"ablation_results_{time_window}h_{flare_class}_class.json")
     with open(output_file, 'w') as f:
         json.dump(results, f, indent=2)
-    
+
     print(f"\nMock results saved to {output_file}")
-    
+
     # Print formatted summary for LaTeX table
     print("\n=== ABLATION STUDY SUMMARY ===")
     print("Results for LaTeX table:")
@@ -123,25 +127,28 @@ def generate_mock_results(time_window="24", flare_class="M"):
     print(r"\toprule")
     print(r"\textbf{Configuration} & \textbf{TSS} \\")
     print(r"\midrule")
-    
+
     for result in results:
         if result['config_name'] == 'Full model':
-            print(f"Full model: {result['description']} & {result['tss']:.3f}\\\\")
+            print(
+                f"Full model: {result['description']} & {result['tss']:.3f}\\\\")
         else:
-            print(f"\\quad - {result['description']} & {result['tss']:.3f}\\\\")
-    
+            print(
+                f"\\quad - {result['description']} & {result['tss']:.3f}\\\\")
+
     print(r"\bottomrule")
     print(r"\end{tabular}")
-    
+
     return results
+
 
 if __name__ == "__main__":
     print("Generating mock ablation study results...")
     results = generate_mock_results()
-    
+
     print("\nFinal TSS values:")
     for result in results:
         print(f"{result['config_name']}: {result['tss']:.3f}")
-        
+
     print("\nYou can now run the visualization script:")
-    print("python visualize_ablation.py") 
+    print("python visualize_ablation.py")

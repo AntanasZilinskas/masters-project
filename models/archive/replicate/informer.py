@@ -24,8 +24,9 @@ if not os.path.exists(DATA_PATH):
     try:
         import gdown
     except ImportError:
-        raise ImportError("gdown is required to download the dataset. Please add it to your requirements.txt.")
-    
+        raise ImportError(
+            "gdown is required to download the dataset. Please add it to your requirements.txt.")
+
     # The file ID extracted from the provided Google Drive link:
     # https://drive.google.com/file/d/16aedfZ_bGy7_3se2Hce34MYhvcm3r6yC/view?usp=share_link
     file_id = "16aedfZ_bGy7_3se2Hce34MYhvcm3r6yC"
@@ -36,6 +37,8 @@ if not os.path.exists(DATA_PATH):
 #######################################################################
 # 1) DEVICE SELECTION (MPS/CUDA/CPU)
 #######################################################################
+
+
 def select_device():
     if torch.backends.mps.is_available():
         return torch.device("mps")
@@ -47,11 +50,14 @@ def select_device():
 #######################################################################
 # 2) DATASET (For NetCDF files)
 #######################################################################
+
+
 class GOESDataset(Dataset):
     """
     Loads GOES netCDF files containing 'avg1m_g13' in the filename,
     merges them, and creates sliding windows (lookback -> forecast).
     """
+
     def __init__(self,
                  data_dir,
                  lookback_len=72,      # default: 3 days
@@ -82,9 +88,11 @@ class GOESDataset(Dataset):
             print(f"[DEBUG] After max_files={max_files}, truncated list:")
             pprint.pprint(all_files)
 
-        logging.info(f"Found {len(all_files)} netCDF files in '{data_dir}' with 'avg1m_g13'")
+        logging.info(
+            f"Found {len(all_files)} netCDF files in '{data_dir}' with 'avg1m_g13'")
         if len(all_files) == 0:
-            raise FileNotFoundError(f"No .nc files matching '*avg1m_g13*.nc' in {data_dir}")
+            raise FileNotFoundError(
+                f"No .nc files matching '*avg1m_g13*.nc' in {data_dir}")
 
         # ----------------------------------------------------------------------
         # 2) Load flux data (debugging each file)
@@ -103,19 +111,23 @@ class GOESDataset(Dataset):
                     flux_var = 'a_flux'
                 else:
                     ds.close()
-                    logging.warning(f"No recognized flux variable in {fpath}, skipping.")
+                    logging.warning(
+                        f"No recognized flux variable in {fpath}, skipping.")
                     continue
 
                 flux_vals = ds[flux_var].values
                 ds.close()
                 flux_list.append(flux_vals)
-                print(f"[DEBUG] Loaded {len(flux_vals)} timesteps from {fpath} (var='{flux_var}')")
+                print(
+                    f"[DEBUG] Loaded {len(flux_vals)} timesteps from {fpath} (var='{flux_var}')")
             except Exception as err:
-                logging.warning(f"Could not load {fpath}, skipping. Error: {err}")
+                logging.warning(
+                    f"Could not load {fpath}, skipping. Error: {err}")
                 continue
 
         if not flux_list:
-            raise ValueError("No valid flux data found in selected netCDF files.")
+            raise ValueError(
+                "No valid flux data found in selected netCDF files.")
 
         all_flux = np.concatenate(flux_list, axis=0)
         # Do NOT replace NaNs; we want to disregard samples containing null values.
@@ -134,7 +146,8 @@ class GOESDataset(Dataset):
             logging.info(f"Training portion: {len(self.data)} samples")
         else:
             self.data = self.data[split_index:]
-            logging.info(f"Validation/Testing portion: {len(self.data)} samples")
+            logging.info(
+                f"Validation/Testing portion: {len(self.data)} samples")
 
         # ----------------------------------------------------------------------
         # 4) Build sliding-window indices (+1 fix)
@@ -146,8 +159,10 @@ class GOESDataset(Dataset):
 
         logging.info(f"Total sliding-window samples: {len(self.indices)}")
         window_length = self.lookback_len + self.forecast_len
-        valid_indices = [i for i in self.indices if not np.isnan(self.data[i:i+window_length]).any()]
-        logging.info(f"Filtered sliding-window samples (without NaN): {len(valid_indices)} out of {len(self.indices)}")
+        valid_indices = [i for i in self.indices if not np.isnan(
+            self.data[i:i + window_length]).any()]
+        logging.info(
+            f"Filtered sliding-window samples (without NaN): {len(valid_indices)} out of {len(self.indices)}")
         self.indices = valid_indices
 
         # ----------------------------------------------------------------------
@@ -173,11 +188,14 @@ class GOESDataset(Dataset):
 #######################################################################
 # 2B) DATASET (Using the precombined Parquet file)
 #######################################################################
+
+
 class GOESParquetDataset(Dataset):
     """
     Loads the precombined Parquet file that contains minute-level 'flux' data
     or aggregated data and builds sliding windows for forecasting.
     """
+
     def __init__(self,
                  parquet_file,
                  lookback_len=72,
@@ -189,14 +207,15 @@ class GOESParquetDataset(Dataset):
         super().__init__()
         df = pd.read_parquet(parquet_file)
         if 'time' not in df.columns or 'flux' not in df.columns:
-            raise ValueError("Parquet file must contain 'time' and 'flux' columns.")
+            raise ValueError(
+                "Parquet file must contain 'time' and 'flux' columns.")
         df['time'] = pd.to_datetime(df['time'])
         df.sort_values('time', inplace=True)
-        
+
         if aggregation_freq is not None:
             df.set_index('time', inplace=True)
             df = df.resample(aggregation_freq).mean().reset_index()
-        
+
         self.data = df['flux'].values.astype(np.float32)
         self.data = np.clip(self.data, a_min=-0.999, a_max=None)
         self.data = np.log1p(self.data)
@@ -213,17 +232,22 @@ class GOESParquetDataset(Dataset):
         split_index = int(total_steps * train_split)
         if train:
             self.data = self.data[:split_index]
-            logging.info(f"[ParquetDataset] Training portion: {len(self.data)} samples")
+            logging.info(
+                f"[ParquetDataset] Training portion: {len(self.data)} samples")
         else:
             self.data = self.data[split_index:]
-            logging.info(f"[ParquetDataset] Validation/Testing portion: {len(self.data)} samples")
+            logging.info(
+                f"[ParquetDataset] Validation/Testing portion: {len(self.data)} samples")
 
         max_start = len(self.data) - self.lookback_len - self.forecast_len
         self.indices = list(range(max_start + 1 if max_start >= 0 else 0))
-        logging.info(f"[ParquetDataset] Total sliding-window samples: {len(self.indices)}")
+        logging.info(
+            f"[ParquetDataset] Total sliding-window samples: {len(self.indices)}")
         window_length = self.lookback_len + self.forecast_len
-        valid_indices = [i for i in self.indices if not np.isnan(self.data[i:i+window_length]).any()]
-        logging.info(f"[ParquetDataset] Filtered sliding-window samples (without NaN): {len(valid_indices)} out of {len(self.indices)}")
+        valid_indices = [i for i in self.indices if not np.isnan(
+            self.data[i:i + window_length]).any()]
+        logging.info(
+            f"[ParquetDataset] Filtered sliding-window samples (without NaN): {len(valid_indices)} out of {len(self.indices)}")
         self.indices = valid_indices
 
         # Standard-scale the data and store normalization parameters
@@ -249,11 +273,14 @@ class GOESParquetDataset(Dataset):
 #######################################################################
 # 3) FOURIER ATTENTION (ALTERNATIVE TO STANDARD SELF-ATTENTION)
 #######################################################################
+
+
 class FourierAttention(nn.Module):
     """
     A simple Fourier-based attention module that applies a Fourier transform
     (along the sequence dimension) to mix long-range dependencies.
     """
+
     def __init__(self):
         super().__init__()
 
@@ -266,11 +293,14 @@ class FourierAttention(nn.Module):
 #######################################################################
 # 3) INFORMER MODEL (MINIMAL VERSION) WITH FOURIER-BASED ATTENTION OPTION
 #######################################################################
+
+
 class TokenEmbedding(nn.Module):
     """
     Embeds the input sequence from (batch_size, 1, seq_len) into (batch_size, d_model, seq_len)
     using a convolution; uses zero padding.
     """
+
     def __init__(self, c_in, d_model):
         super().__init__()
         self.tokenConv = nn.Conv1d(
@@ -285,15 +315,18 @@ class TokenEmbedding(nn.Module):
         out = self.tokenConv(x)
         return out
 
+
 class PositionalEmbedding(nn.Module):
     """
     Fixed positional encoding for up to max_len positions.
     """
+
     def __init__(self, d_model, max_len=10000):
         super().__init__()
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model))
+        div_term = torch.exp(torch.arange(
+            0, d_model, 2).float() * (-np.log(10000.0) / d_model))
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0)  # [1, max_len, d_model]
@@ -307,6 +340,7 @@ class PositionalEmbedding(nn.Module):
         seq_len = x.size(1)
         return self.pe[:, :seq_len, :]
 
+
 class EncoderLayer(nn.Module):
     def __init__(self, d_model, n_heads, d_ff, dropout=0.1, use_fourier=False):
         super().__init__()
@@ -314,7 +348,8 @@ class EncoderLayer(nn.Module):
         if self.use_fourier:
             self.attention = FourierAttention()
         else:
-            self.slf_attn = nn.MultiheadAttention(d_model, n_heads, dropout=dropout, batch_first=False)
+            self.slf_attn = nn.MultiheadAttention(
+                d_model, n_heads, dropout=dropout, batch_first=False)
         self.linear1 = nn.Linear(d_model, d_ff)
         self.linear2 = nn.Linear(d_ff, d_model)
         self.dropout = nn.Dropout(dropout)
@@ -334,8 +369,16 @@ class EncoderLayer(nn.Module):
         x = self.norm2(x)
         return x
 
+
 class InformerEncoder(nn.Module):
-    def __init__(self, d_model, n_heads, d_ff, num_layers, dropout=0.1, use_fourier=False):
+    def __init__(
+            self,
+            d_model,
+            n_heads,
+            d_ff,
+            num_layers,
+            dropout=0.1,
+            use_fourier=False):
         super().__init__()
         self.layers = nn.ModuleList([
             EncoderLayer(d_model, n_heads, d_ff, dropout=dropout, use_fourier=use_fourier)
@@ -347,6 +390,7 @@ class InformerEncoder(nn.Module):
             x = layer(x)
         return x
 
+
 class DecoderLayer(nn.Module):
     def __init__(self, d_model, n_heads, d_ff, dropout=0.1, use_fourier=False):
         super().__init__()
@@ -354,8 +398,10 @@ class DecoderLayer(nn.Module):
         if self.use_fourier:
             self.attention = FourierAttention()
         else:
-            self.slf_attn = nn.MultiheadAttention(d_model, n_heads, dropout=dropout, batch_first=False)
-        self.cross_attn = nn.MultiheadAttention(d_model, n_heads, dropout=dropout, batch_first=False)
+            self.slf_attn = nn.MultiheadAttention(
+                d_model, n_heads, dropout=dropout, batch_first=False)
+        self.cross_attn = nn.MultiheadAttention(
+            d_model, n_heads, dropout=dropout, batch_first=False)
         self.linear1 = nn.Linear(d_model, d_ff)
         self.linear2 = nn.Linear(d_ff, d_model)
         self.dropout = nn.Dropout(dropout)
@@ -380,23 +426,33 @@ class DecoderLayer(nn.Module):
         x = self.norm3(x)
         return x
 
+
 class InformerDecoder(nn.Module):
-    def __init__(self, d_model, n_heads, d_ff, num_layers, dropout=0.1, use_fourier=False):
+    def __init__(
+            self,
+            d_model,
+            n_heads,
+            d_ff,
+            num_layers,
+            dropout=0.1,
+            use_fourier=False):
         super().__init__()
         self.layers = nn.ModuleList([
             DecoderLayer(d_model, n_heads, d_ff, dropout=dropout, use_fourier=use_fourier)
             for _ in range(num_layers)
         ])
-    
+
     def forward(self, x, enc_out, tgt_mask=None):
         for layer in self.layers:
             x = layer(x, enc_out, tgt_mask=tgt_mask)
         return x
 
+
 class Informer(nn.Module):
     """
     Minimal Informer-like structure for univariate time-series forecasting.
     """
+
     def __init__(self,
                  d_model=256,
                  n_heads=16,
@@ -420,9 +476,21 @@ class Informer(nn.Module):
                                     stride=4)
         self.pos_embedding = PositionalEmbedding(d_model=d_model)
 
-        self.encoder = InformerEncoder(d_model, n_heads, d_ff, enc_layers, dropout, use_fourier=fourier_attention)
-        self.decoder = InformerDecoder(d_model, n_heads, d_ff, dec_layers, dropout, use_fourier=fourier_attention)
-        
+        self.encoder = InformerEncoder(
+            d_model,
+            n_heads,
+            d_ff,
+            enc_layers,
+            dropout,
+            use_fourier=fourier_attention)
+        self.decoder = InformerDecoder(
+            d_model,
+            n_heads,
+            d_ff,
+            dec_layers,
+            dropout,
+            use_fourier=fourier_attention)
+
         self.bridge = nn.Linear(d_model, d_model)
         self.proj = nn.Linear(d_model, 1)
 
@@ -433,15 +501,21 @@ class Informer(nn.Module):
         # Encoder: embed, downsample, add positional encoding.
         enc_in = src.unsqueeze(1)  # [batch_size, 1, src_len]
         enc_in = self.token_embedding(enc_in)  # [batch_size, d_model, src_len]
-        enc_in = self.downsample(enc_in)  # [batch_size, d_model, reduced_src_len]
-        enc_in = enc_in.permute(2, 0, 1)  # [reduced_src_len, batch_size, d_model]
+        # [batch_size, d_model, reduced_src_len]
+        enc_in = self.downsample(enc_in)
+        # [reduced_src_len, batch_size, d_model]
+        enc_in = enc_in.permute(2, 0, 1)
 
-        enc_in_pe = enc_in.permute(1, 0, 2)  # [batch_size, reduced_src_len, d_model]
+        # [batch_size, reduced_src_len, d_model]
+        enc_in_pe = enc_in.permute(1, 0, 2)
         enc_in_pe = enc_in_pe + self.pos_embedding(enc_in_pe)
-        enc_in = enc_in_pe.permute(1, 0, 2)  # [reduced_src_len, batch_size, d_model]
+        # [reduced_src_len, batch_size, d_model]
+        enc_in = enc_in_pe.permute(1, 0, 2)
 
-        enc_out = self.encoder(enc_in)  # [reduced_src_len, batch_size, d_model]
-        bridge_out = self.bridge(enc_out[-1]).unsqueeze(0)  # [1, batch_size, d_model]
+        # [reduced_src_len, batch_size, d_model]
+        enc_out = self.encoder(enc_in)
+        # [1, batch_size, d_model]
+        bridge_out = self.bridge(enc_out[-1]).unsqueeze(0)
 
         # Decoder: embed target and add positional encoding.
         dec_in = tgt.unsqueeze(1)  # [batch_size, 1, tgt_len]
@@ -463,6 +537,7 @@ class Informer(nn.Module):
         dec_out = dec_out.permute(1, 0, 2).squeeze(-1)
         return dec_out
 
+
 def generate_square_subsequent_mask(sz: int) -> torch.Tensor:
     """
     Generate a causal mask for the decoder so positions cannot attend
@@ -475,6 +550,8 @@ def generate_square_subsequent_mask(sz: int) -> torch.Tensor:
 #######################################################################
 # 4) TRAINING
 #######################################################################
+
+
 def train_informer(data_source,
                    lookback_len=24,
                    forecast_len=12,
@@ -548,13 +625,17 @@ def train_informer(data_source,
             max_files=max_files
         )
 
-    if max_train_samples is not None and max_train_samples < len(train_dataset.indices):
+    if max_train_samples is not None and max_train_samples < len(
+            train_dataset.indices):
         train_dataset.indices = train_dataset.indices[:max_train_samples]
-        logging.info(f"Truncating train dataset to {max_train_samples} samples.")
+        logging.info(
+            f"Truncating train dataset to {max_train_samples} samples.")
 
-    if max_val_samples is not None and max_val_samples < len(val_dataset.indices):
+    if max_val_samples is not None and max_val_samples < len(
+            val_dataset.indices):
         val_dataset.indices = val_dataset.indices[:max_val_samples]
-        logging.info(f"Truncating validation dataset to {max_val_samples} samples.")
+        logging.info(
+            f"Truncating validation dataset to {max_val_samples} samples.")
 
     logging.info(f"Final train samples: {len(train_dataset.indices)}")
     logging.info(f"Final validation samples: {len(val_dataset.indices)}")
@@ -582,11 +663,15 @@ def train_informer(data_source,
     all_x = np.concatenate(all_x)
     print("Min value in training samples:", np.min(all_x))
     print("Max value in training samples:", np.max(all_x))
-    print("Any NaN in training samples?", np.isnan(all_x).any(), np.isnan(all_x).sum())
+    print(
+        "Any NaN in training samples?",
+        np.isnan(all_x).any(),
+        np.isnan(all_x).sum())
     print("Any Inf in training samples?", np.isinf(all_x).any())
     train_mean = np.nanmean(all_x)
     train_std = np.nanstd(all_x)
-    np.save(os.path.join(run_dir, "scaling_params.npy"), {"mean": train_mean, "std": train_std})
+    np.save(os.path.join(run_dir, "scaling_params.npy"),
+            {"mean": train_mean, "std": train_std})
 
     # Build the model with increased complexity
     model = Informer(
@@ -617,9 +702,10 @@ def train_informer(data_source,
             for batch_idx, (x, y) in enumerate(tepoch):
                 x, y = x.to(device), y.to(device)
                 batch_size_curr = x.size(0)
-                
+
                 teacher_forcing_ratio = np.exp(-epoch / (epochs / 5))
-                if torch.rand(batch_size_curr).mean().item() < teacher_forcing_ratio:
+                if torch.rand(batch_size_curr).mean(
+                ).item() < teacher_forcing_ratio:
                     dec_input = y
                 else:
                     forecast_steps = y.shape[1]
@@ -627,7 +713,8 @@ def train_informer(data_source,
                     temperature = 0.7
                     for t in range(forecast_steps - 1):
                         current_length = dec_input.shape[1]
-                        dummy = torch.zeros(batch_size_curr, current_length + 1, device=device)
+                        dummy = torch.zeros(
+                            batch_size_curr, current_length + 1, device=device)
                         dummy[:, :current_length] = dec_input
                         with torch.no_grad():
                             pred_full = model(x, dummy)
@@ -635,7 +722,7 @@ def train_informer(data_source,
                         noise = torch.randn_like(pred_next) * temperature
                         pred_next = pred_next + noise
                         dec_input = torch.cat([dec_input, pred_next], dim=1)
-                
+
                 pred = model(x, dec_input)
                 loss = criterion(pred, y)
                 optimizer.zero_grad()
@@ -648,19 +735,26 @@ def train_informer(data_source,
 
         avg_train_loss = total_loss / max(len(train_loader), 1)
         train_losses.append(avg_train_loss)
-        val_mse = evaluate_informer(model, val_loader, device=device, criterion=criterion)
+        val_mse = evaluate_informer(
+            model,
+            val_loader,
+            device=device,
+            criterion=criterion)
         val_losses.append(val_mse)
-        logging.info(f"[Epoch {epoch}] Train Loss: {avg_train_loss:.6f}, Val MSE: {val_mse:.6f}")
+        logging.info(
+            f"[Epoch {epoch}] Train Loss: {avg_train_loss:.6f}, Val MSE: {val_mse:.6f}")
 
         if val_mse < best_val_loss:
             best_val_loss = val_mse
             patience_counter = 0
             best_model_path = os.path.join(run_dir, "best_model.pth")
             torch.save(model.state_dict(), best_model_path)
-            logging.info(f"New best model saved (Val MSE: {best_val_loss:.6f}) at {best_model_path}.")
+            logging.info(
+                f"New best model saved (Val MSE: {best_val_loss:.6f}) at {best_model_path}.")
         else:
             patience_counter += 1
-            logging.info(f"Val MSE did not improve. Patience: {patience_counter}/{early_stopping_patience}")
+            logging.info(
+                f"Val MSE did not improve. Patience: {patience_counter}/{early_stopping_patience}")
 
         if epoch % checkpoint_every == 0:
             checkpoint_path = os.path.join(run_dir, f"epoch_{epoch}_model.pth")
@@ -673,36 +767,38 @@ def train_informer(data_source,
 
     final_model_path = os.path.join(run_dir, "final_model.pth")
     metadata = {
-         "epochs_trained": epoch,
-         "lookback_len": lookback_len,
-         "forecast_len": forecast_len,
-         "batch_size": batch_size,
-         "learning_rate": lr,
-         "final_train_loss": train_losses[-1] if train_losses else None,
-         "final_val_loss": val_losses[-1] if val_losses else None,
-         "run_directory": run_dir,
-         "timestamp": datetime.datetime.now().isoformat(),
-         "model_kwargs": {
-              "d_model": d_model,
-              "n_heads": n_heads,
-              "d_ff": d_ff,
-              "enc_layers": enc_layers,
-              "dec_layers": dec_layers,
-              "dropout": dropout,
-              "lookback_len": lookback_len,
-              "forecast_len": forecast_len,
-              "fourier_attention": fourier_attention
-         }
+        "epochs_trained": epoch,
+        "lookback_len": lookback_len,
+        "forecast_len": forecast_len,
+        "batch_size": batch_size,
+        "learning_rate": lr,
+        "final_train_loss": train_losses[-1] if train_losses else None,
+        "final_val_loss": val_losses[-1] if val_losses else None,
+        "run_directory": run_dir,
+        "timestamp": datetime.datetime.now().isoformat(),
+        "model_kwargs": {
+            "d_model": d_model,
+            "n_heads": n_heads,
+            "d_ff": d_ff,
+            "enc_layers": enc_layers,
+            "dec_layers": dec_layers,
+            "dropout": dropout,
+            "lookback_len": lookback_len,
+            "forecast_len": forecast_len,
+            "fourier_attention": fourier_attention
+        }
     }
 
     model_package = {
-         "state_dict": model.state_dict(),
-         "metadata": metadata
+        "state_dict": model.state_dict(),
+        "metadata": metadata
     }
 
     torch.save(model_package, final_model_path)
-    logging.info(f"Final model package with metadata saved to {final_model_path}")
+    logging.info(
+        f"Final model package with metadata saved to {final_model_path}")
     return model, train_losses, val_losses
+
 
 def evaluate_informer(model, data_loader, device="cpu", criterion=None):
     """
@@ -724,6 +820,8 @@ def evaluate_informer(model, data_loader, device="cpu", criterion=None):
 #######################################################################
 # SOLAR CYCLE ANALYSIS
 #######################################################################
+
+
 def analyze_solar_cycle_patterns(model, data_loader, device="cpu"):
     """
     Preliminary analysis of solar cycle patterns using FFT-based methods.
@@ -738,31 +836,34 @@ def analyze_solar_cycle_patterns(model, data_loader, device="cpu"):
             pred = model(x, dummy)
             predictions.append(pred.cpu().numpy())
             ground_truth.append(y.cpu().numpy())
-    
+
     predictions = np.concatenate(predictions, axis=0)
     ground_truth = np.concatenate(ground_truth, axis=0)
-    
+
     plt.figure(figsize=(12, 5))
     plt.plot(predictions, label="Predictions")
     plt.plot(ground_truth, label="Ground Truth", alpha=0.7)
     plt.title("Forecast vs Ground Truth")
     plt.legend()
     plt.show()
-    
+
     fft_vals = np.abs(np.fft.fft(predictions.flatten()))
     freq = np.fft.fftfreq(len(fft_vals), d=1)
     plt.figure(figsize=(12, 5))
-    plt.plot(freq[:len(freq)//2], fft_vals[:len(fft_vals)//2])
+    plt.plot(freq[:len(freq) // 2], fft_vals[:len(fft_vals) // 2])
     plt.title("FFT Spectrum of Predictions")
     plt.xlabel("Frequency")
     plt.ylabel("Magnitude")
     plt.show()
-    
-    logging.info("Solar cycle analysis complete. Review the FFT spectrum for dominant periodicities.")
+
+    logging.info(
+        "Solar cycle analysis complete. Review the FFT spectrum for dominant periodicities.")
 
 #######################################################################
 # PRETRAINING
 #######################################################################
+
+
 def pretrain_informer(data_source,
                       lookback_len=72,
                       forecast_len=24,
@@ -803,30 +904,96 @@ def pretrain_informer(data_source,
         print(f"Pretraining Epoch {epoch}: Loss {loss.item()}")
     return model
 
+
 #######################################################################
 # MAIN
 #######################################################################
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train the Informer model with increased complexity on cloud GPUs.")
-    parser.add_argument('--train', action='store_true', help="If set, run training.")
-    parser.add_argument('--epochs', type=int, default=10, help="Number of training epochs.")
-    parser.add_argument('--batch_size', type=int, default=16, help="Batch size.")
-    parser.add_argument('--lr', type=float, default=1e-6, help="Learning rate.")
-    parser.add_argument('--lookback_len', type=int, default=72, help="Lookback length (in hours or aggregated units).")
-    parser.add_argument('--forecast_len', type=int, default=2, help="Forecast length (in hours).")
-    parser.add_argument('--parquet_file', type=str, default=None, help="Path to the Parquet file for training.")
-    parser.add_argument('--data_dir', type=str, default=None, help="Directory for netCDF files (if parquet_file is not provided).")
-    parser.add_argument('--max_train_samples', type=int, default=50000, help="Max training samples to use.")
-    parser.add_argument('--max_val_samples', type=int, default=10000, help="Max validation samples to use.")
-    parser.add_argument('--fourier_attention', action='store_true', help="Enable Fourier-based attention.")
+    parser = argparse.ArgumentParser(
+        description="Train the Informer model with increased complexity on cloud GPUs.")
+    parser.add_argument(
+        '--train',
+        action='store_true',
+        help="If set, run training.")
+    parser.add_argument('--epochs', type=int, default=10,
+                        help="Number of training epochs.")
+    parser.add_argument(
+        '--batch_size',
+        type=int,
+        default=16,
+        help="Batch size.")
+    parser.add_argument(
+        '--lr',
+        type=float,
+        default=1e-6,
+        help="Learning rate.")
+    parser.add_argument(
+        '--lookback_len',
+        type=int,
+        default=72,
+        help="Lookback length (in hours or aggregated units).")
+    parser.add_argument(
+        '--forecast_len',
+        type=int,
+        default=2,
+        help="Forecast length (in hours).")
+    parser.add_argument(
+        '--parquet_file',
+        type=str,
+        default=None,
+        help="Path to the Parquet file for training.")
+    parser.add_argument(
+        '--data_dir',
+        type=str,
+        default=None,
+        help="Directory for netCDF files (if parquet_file is not provided).")
+    parser.add_argument(
+        '--max_train_samples',
+        type=int,
+        default=50000,
+        help="Max training samples to use.")
+    parser.add_argument(
+        '--max_val_samples',
+        type=int,
+        default=10000,
+        help="Max validation samples to use.")
+    parser.add_argument(
+        '--fourier_attention',
+        action='store_true',
+        help="Enable Fourier-based attention.")
     # New hyperparameters for model complexity
-    parser.add_argument('--d_model', type=int, default=256, help="Model dimensionality.")
-    parser.add_argument('--n_heads', type=int, default=16, help="Number of attention heads.")
-    parser.add_argument('--d_ff', type=int, default=512, help="Feed-forward network dimension.")
-    parser.add_argument('--enc_layers', type=int, default=6, help="Number of encoder layers.")
-    parser.add_argument('--dec_layers', type=int, default=4, help="Number of decoder layers.")
-    parser.add_argument('--dropout', type=float, default=0.1, help="Dropout rate.")
-    parser.add_argument('--model_save_path', type=str, default="informer-archive.pth", help="Path to save the final model package.")
+    parser.add_argument(
+        '--d_model',
+        type=int,
+        default=256,
+        help="Model dimensionality.")
+    parser.add_argument('--n_heads', type=int, default=16,
+                        help="Number of attention heads.")
+    parser.add_argument(
+        '--d_ff',
+        type=int,
+        default=512,
+        help="Feed-forward network dimension.")
+    parser.add_argument(
+        '--enc_layers',
+        type=int,
+        default=6,
+        help="Number of encoder layers.")
+    parser.add_argument(
+        '--dec_layers',
+        type=int,
+        default=4,
+        help="Number of decoder layers.")
+    parser.add_argument(
+        '--dropout',
+        type=float,
+        default=0.1,
+        help="Dropout rate.")
+    parser.add_argument(
+        '--model_save_path',
+        type=str,
+        default="informer-archive.pth",
+        help="Path to save the final model package.")
     args = parser.parse_args()
 
     if args.train:

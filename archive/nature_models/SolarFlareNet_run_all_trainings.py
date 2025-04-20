@@ -22,7 +22,7 @@ This script runs all the training for flare class: C, M, M5, and time window: 24
 '''
 
 from SolarKnowledge_model import SolarKnowledge
-for time_window in [24,48,72]:
+for time_window in [24, 48, 72]:
     for flare_class in ['C', 'M', 'M5']:
         train(str(time_window), flare_class)
-        log('===========================================================\n\n',verbose=True)
+        log('===========================================================\n\n', verbose=True)

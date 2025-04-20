@@ -28,5 +28,6 @@ def open_fit_files_in_data():
                 #     print("Data shape:", hdul[0].data.shape)
                 print("---")
 
+
 if __name__ == "__main__":
     open_fit_files_in_data()
