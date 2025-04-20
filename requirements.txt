@@ -4,7 +4,7 @@ tensorflow-estimator==2.13.0
 numpy==1.24.3
 pandas==2.2.3
 matplotlib==3.10.0
-scikit-learn==1.6.0
+scikit-learn==1.6.1
 astropy==6.1.7
 sunpy==6.0.4
 torch==2.6.0
