@@ -1,5 +1,5 @@
-"""
-Simple test to verify that all modules can be imported.
+"""Simple test to verify that all modules can be imported.
+
 This is a basic sanity check for CI.
 """
 
@@ -18,16 +18,16 @@ def test_solar_knowledge_imports():
 
 def test_core_dependencies():
     """Test that core dependencies can be imported."""
-    import numpy
-    import tensorflow
+    import numpy  # noqa: F401
+    import tensorflow  # noqa: F401
 
     # Optional imports - these will be skipped if not available
     try:
-        import torch
+        import torch  # noqa: F401
     except ImportError:
         print("PyTorch not available - skipping test")
 
     try:
-        import matplotlib
+        import matplotlib  # noqa: F401
     except ImportError:
         print("Matplotlib not available - skipping test")
