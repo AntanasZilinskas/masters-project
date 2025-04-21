@@ -19,6 +19,10 @@ def train(time_window, flare_class, auto_increment=True):
     X, y_raw, original_df = get_training_data(time_window, flare_class, return_df=True)
     
     # Handle different label formats - could be strings ('N'/'P') or integers (0/1)
+    # First ensure y_raw is a numpy array
+    if isinstance(y_raw, list):
+        y_raw = np.array(y_raw)
+        
     if y_raw.dtype == np.int64 or y_raw.dtype == np.int32 or y_raw.dtype == np.float64 or y_raw.dtype == np.float32:
         # Labels are already numerical
         print("Using numerical labels directly (0=negative, 1=positive)")
