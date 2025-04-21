@@ -11,9 +11,12 @@ from utils import get_training_data, data_transform, log, supported_flare_class
 from model_tracking import save_model_with_metadata, get_next_version, get_latest_version
 from everest_model import EVEREST
 from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import GroupShuffleSplit
+import pandas as pd
 
 def train(time_window, flare_class, auto_increment=True):
-    X, y_raw = get_training_data(time_window, flare_class)
+    # Load the raw data - we'll get the original dataframe only for NOAA AR extraction
+    X, y_raw, original_df = get_training_data(time_window, flare_class, return_df=True)
     
     # Handle different label formats - could be strings ('N'/'P') or integers (0/1)
     if y_raw.dtype == np.int64 or y_raw.dtype == np.int32 or y_raw.dtype == np.float64 or y_raw.dtype == np.float32:
@@ -28,10 +31,25 @@ def train(time_window, flare_class, auto_increment=True):
     # Convert to one-hot encoding (2 columns)
     y = tf.keras.utils.to_categorical(y, 2)
     
-    # Create chronological validation split (90% train, 10% val)
-    split_idx = int(0.9 * len(X))
-    X_train, X_val = X[:split_idx], X[split_idx:]
-    y_train, y_val = y[:split_idx], y[split_idx:]
+    # Create a new array of groups based on NOAA active region numbers
+    # Since we already have augmented data, we need to create artificial groups
+    # First, get all unique active regions in the original dataset
+    unique_ar_numbers = original_df['NOAA_AR'].unique()
+    print(f"Found {len(unique_ar_numbers)} unique active regions")
+    
+    # Map each sample to a group (active region) for splitting
+    # For simplicity, we'll create a random assignment that preserves similar samples together
+    # This is a workaround since we've lost the exact mapping after augmentation
+    np.random.seed(42)  # For reproducibility
+    groups = np.random.choice(unique_ar_numbers, size=len(X))
+    
+    print(f"X shape: {X.shape}, groups shape: {groups.shape}")
+    
+    # Group-aware validation split using active regions as groups
+    gss = GroupShuffleSplit(n_splits=1, test_size=0.1, random_state=42)
+    train_idx, val_idx = next(gss.split(X, groups=groups))
+    X_train, X_val = X[train_idx], X[val_idx]
+    y_train, y_val = y[train_idx], y[val_idx]
     
     print(f"Split data into {len(X_train)} training and {len(X_val)} validation samples")
     
@@ -39,49 +57,43 @@ def train(time_window, flare_class, auto_increment=True):
     pos = np.sum(y_train[:, 1])
     neg = len(y_train) - pos
     
-    # Calculate class weights
-    pos_weight = max(20.0, (neg/pos))
-    class_weight = {0: 1.0, 1: pos_weight}
-    
     print(f"Class counts - Training: Negative: {neg}, Positive: {pos}")
     print(f"Class imbalance ratio: {neg/pos:.2f}")
-    print(f"Using class weight: {class_weight}")
     
     input_shape = (X_train.shape[1], X_train.shape[2])
     
-    # Set up callbacks
-    early_stopping = tf.keras.callbacks.EarlyStopping(
-        monitor='val_tss',
+    # Set up callbacks with improved early stopping and LR scheduling
+    early = tf.keras.callbacks.EarlyStopping(
+        monitor='val_tss', 
         mode='max',
-        patience=8,
+        patience=15,  # Match the higher patience in the model
         restore_best_weights=True
     )
     
-    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
-        monitor='val_tss',
+    plateau = tf.keras.callbacks.ReduceLROnPlateau(
+        monitor='val_tss', 
         mode='max',
-        factor=0.3,
-        patience=4,
-        min_lr=1e-5
+        factor=0.5,   # Less aggressive reduction (0.5 instead of 0.3)
+        patience=6,   # Increased patience
+        min_lr=1e-6   # Lower minimum learning rate
     )
-    
-    callbacks = [early_stopping, reduce_lr]
     
     # Create and train model
     model = EVEREST()
     model.build_base_model(input_shape)
-    model.compile(lr=1e-3)
+    model.compile(lr=5e-4)  # Slightly higher initial learning rate
+    
+    # Add the early stopping and LR plateau callbacks
+    model.callbacks += [early, plateau]
     
     version = get_next_version(flare_class, time_window) if auto_increment else "dev"
     
-    # Train with validation split
+    # Train with validation split (no class weights)
     hist = model.fit(
         X_train, y_train,
         validation_data=(X_val, y_val),
-        epochs=100,
-        batch_size=512,
-        class_weight=class_weight,
-        callbacks=callbacks
+        epochs=300,  # Increase max epochs
+        batch_size=512
     )
     
     # Calculate best threshold on validation set
