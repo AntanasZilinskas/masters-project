@@ -1,0 +1,47 @@
+{
+  "version": "1.8",
+  "timestamp": "2025-04-21T19:11:06.142350",
+  "description": "EVEREST (Extreme‑Value/Evidential Retentive Event Sequence Transformer) model for M5+ flare prediction. This model employs linear attention mechanism to handle long sequences, multi-scale CNN stem for feature extraction, and double-dropout regularization for improved generalization.",
+  "flare_class": "M5",
+  "time_window": "24",
+  "hyperparameters": {
+    "linear_attention": true,
+    "multi_scale_cnn": true,
+    "hybrid_loss": true,
+    "dropout_rate": 0.2,
+    "embed_dim": 128,
+    "num_heads": 4,
+    "ff_dim": 256,
+    "double_dropout": true,
+    "double_dropout_rate": 0.3
+  },
+  "performance": {
+    "final_loss": 0.16385599970817566,
+    "final_val_loss": 0.1668115258216858,
+    "final_prec": 0.754045307636261,
+    "final_val_prec": 0.675000011920929,
+    "final_rec": 0.6246649026870728,
+    "final_val_rec": 0.6279069781303406,
+    "final_tss": 0.6228957176208496,
+    "final_val_tss": 0.6251480579376221,
+    "val_best_tss": 0.6714474671140445,
+    "val_best_thr": 0.49999999999999994
+  },
+  "git_info": {
+    "commit": "843091b146f58d38e0976c9ffc022a14f8427b6d",
+    "branch": "EVEREST"
+  },
+  "architecture": {
+    "name": "SolarKnowledge",
+    "input_shape": [
+      10,
+      9
+    ],
+    "num_params": 877890,
+    "precision": "<Policy \"float32\">",
+    "model_type": "EVEREST",
+    "blocks": 6,
+    "attention_type": "linear-performer",
+    "notes": "Uses optimized hybrid loss (0.8*BCE + 0.2*TSS) for direct TSS optimization"
+  }
+}

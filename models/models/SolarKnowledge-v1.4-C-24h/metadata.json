@@ -1,0 +1,44 @@
+{
+  "version": "1.4",
+  "timestamp": "2025-04-22T00:59:03.817067",
+  "description": "EVEREST (Extreme‑Value/Evidential Retentive Event Sequence Transformer) model for solar flare prediction. Features linear attention for O(L) complexity, multi-scale CNN stem, and calibrated uncertainty with MC dropout.",
+  "flare_class": "C",
+  "time_window": "24",
+  "hyperparameters": {
+    "linear_attention": true,
+    "multi_scale_cnn": true,
+    "focal_loss": true,
+    "dropout_rate": 0.2,
+    "embed_dim": 128,
+    "num_heads": 4,
+    "ff_dim": 256
+  },
+  "performance": {
+    "final_loss": 0.04338807985186577,
+    "final_val_loss": 0.05723462626338005,
+    "final_prec": 0.991749107837677,
+    "final_val_prec": 0.9892956018447876,
+    "final_rec": 0.9924314618110657,
+    "final_val_rec": 0.9889540672302246,
+    "final_tss": 0.9750485420227051,
+    "final_val_tss": 0.9658713340759277,
+    "val_best_tss": 0.9716802063180909,
+    "val_best_thr": 0.9
+  },
+  "git_info": {
+    "commit": "26348bff70c036607c1e5b4fe274bb380eba9875",
+    "branch": "EVEREST"
+  },
+  "architecture": {
+    "name": "SolarKnowledge",
+    "input_shape": [
+      10,
+      9
+    ],
+    "num_params": 877890,
+    "precision": "<Policy \"float32\">",
+    "model_type": "EVEREST",
+    "blocks": 6,
+    "attention_type": "linear-performer"
+  }
+}
