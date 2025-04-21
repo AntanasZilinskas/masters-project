@@ -108,7 +108,7 @@ class Performer(layers.Layer):
             shape=[self.key_dim, self.num_random_features],
             initializer=tf.keras.initializers.GlorotNormal(),
             trainable=False,
-            dtype='float32'  # Explicitly set to float32 to avoid mixed precision issues
+            dtype='float32'  # Explicitly set to float32 
         )
         super(Performer, self).build(input_shape)
     
@@ -155,6 +155,11 @@ class Performer(layers.Layer):
         k_reshaped = tf.reshape(k, [-1, tf.shape(k)[2], self.key_dim])
         v_reshaped = tf.reshape(v, [-1, tf.shape(v)[2], self.key_dim])
         
+        # Make sure all tensors have the same dtype
+        q_reshaped = tf.cast(q_reshaped, tf.float32)
+        k_reshaped = tf.cast(k_reshaped, tf.float32)
+        v_reshaped = tf.cast(v_reshaped, tf.float32)
+        
         # Apply kernel feature maps
         q_prime = softmax_kernel_transformation(
             q_reshaped, True, self.projection_matrix)
@@ -171,7 +176,7 @@ class Performer(layers.Layer):
         
         # Normalize by sum of weights with epsilon for numerical stability
         # Fix: Using tf.reduce_sum(k_prime, axis=1) to sum over the sequence dimension as per eq. 7 in Performer paper
-        epsilon = tf.cast(1e-6, x_dtype)
+        epsilon = tf.cast(1e-6, q_prime.dtype)
         k_sum = tf.reduce_sum(k_prime, axis=1)  # Sum over sequence dimension
         normalization = tf.einsum('bnf,bf->bn', q_prime, k_sum) + epsilon
         qkv = qkv / normalization[:, :, tf.newaxis]
@@ -180,6 +185,9 @@ class Performer(layers.Layer):
         output = tf.reshape(qkv, [batch_size, self.num_heads, -1, self.key_dim])
         output = tf.transpose(output, [0, 2, 1, 3])  # [batch, seq_len, num_heads, key_dim]
         output = tf.reshape(output, [batch_size, -1, self.total_key_dim])
+        
+        # Cast back to original dtype before final projection
+        output = tf.cast(output, x_dtype)
         
         # Final projection and dropout to match input dimensions
         output = self.output_dense(output)

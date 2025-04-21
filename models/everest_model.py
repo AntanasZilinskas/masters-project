@@ -116,53 +116,16 @@ class EVEREST:
         x = layers.Dense(128, activation=tf.keras.activations.gelu,
                          kernel_regularizer=regularizers.l1_l2(1e-5, 1e-4))(x)
         x = layers.Dropout(dropout)(x)
-        out = layers.Dense(1, activation="linear",
+        out = layers.Dense(2, activation="softmax",
                            activity_regularizer=regularizers.l2(1e-5))(x)
         self.model = models.Model(inp, out)
         return self.model
     # ---------------------------------------------------------------------
-    def compile(self, lr: float = 1e-3, alpha: float = 0.25, gamma: float = 1.5):
-        # Use a lower gamma (1.5) for better stability with extreme imbalance
-        
-        # Custom focal loss implementation that works properly with scalar alpha
-        def binary_focal_loss(y_true, y_pred):
-            """
-            Binary focal loss with support for scalar alpha value.
-            y_true: target values (0 or 1)
-            y_pred: predicted logit values (before sigmoid)
-            """
-            # Cast for mixed precision compatibility
-            y_true = tf.cast(y_true, dtype=y_pred.dtype)
-            alpha_t = tf.cast(alpha, dtype=y_pred.dtype)
-            gamma_t = tf.cast(gamma, dtype=y_pred.dtype)
-            
-            # Get sigmoid predictions
-            sigmoid_p = tf.nn.sigmoid(y_pred)
-            
-            # Calculate p_t - probability of correct class
-            p_t = (y_true * sigmoid_p) + ((1 - y_true) * (1 - sigmoid_p))
-            
-            # Calculate alpha_t - weight factor for class imbalance
-            alpha_factor = y_true * alpha_t + (1 - y_true) * (1 - alpha_t)
-            
-            # Calculate modulating factor
-            modulating_factor = tf.pow(1.0 - p_t, gamma_t)
-            
-            # Calculate BCE with logits for numerical stability
-            bce = tf.nn.sigmoid_cross_entropy_with_logits(labels=y_true, logits=y_pred)
-            
-            # Combine all factors
-            focal_loss = alpha_factor * modulating_factor * bce
-            
-            # Return mean loss
-            return tf.reduce_mean(focal_loss)
-        
-        print(f"Using custom binary focal loss with alpha={alpha:.4f}, gamma={gamma}")
-        
-        # Use more meaningful metrics for imbalanced classification
+    def compile(self, lr: float = 1e-3):
+        # Use standard categorical cross-entropy
         self.model.compile(
             optimizer=tf.keras.optimizers.legacy.Adam(lr),
-            loss=binary_focal_loss,
+            loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False),
             metrics=[
                 tf.keras.metrics.Precision(name="prec"),
                 tf.keras.metrics.Recall(name="rec"),
@@ -171,20 +134,17 @@ class EVEREST:
         )
     # ---------------------------------------------------------------------
     def fit(self, X, y, validation_data=None, epochs: int = 100, batch_size: int = 512,
-            class_weight=None):
-        early_stopping = tf.keras.callbacks.EarlyStopping(
-            monitor="tss", 
-            patience=10,
-            mode="max",
-            restore_best_weights=True
+            class_weight=None, callbacks=None):
+        """Simple wrapper around model.fit that passes all parameters through."""
+        return self.model.fit(
+            X, y, 
+            validation_data=validation_data,
+            epochs=epochs, 
+            batch_size=batch_size,
+            class_weight=class_weight,
+            callbacks=callbacks or self.callbacks, 
+            verbose=2
         )
-        
-        self.callbacks = [cb for cb in self.callbacks if not isinstance(cb, tf.keras.callbacks.EarlyStopping)]
-        self.callbacks.append(early_stopping)
-        
-        return self.model.fit(X, y, epochs=epochs, batch_size=batch_size,
-                              validation_data=validation_data,
-                              callbacks=self.callbacks, verbose=2)
     # ---------------------------------------------------------------------
     def mc_predict(self, X, n_passes: int = 20, batch_size: int = 1024):
         """
@@ -196,18 +156,15 @@ class EVEREST:
             batch_size: Size of batches for prediction
             
         Returns:
-            mean_preds: Mean probability predictions across all passes
-            std_preds: Standard deviation of probabilities (uncertainty)
+            mean_preds: Mean predictions across all passes
+            std_preds: Standard deviation of predictions (uncertainty)
         """
         # Process in batches if needed
         if len(X) <= batch_size:
             # For small inputs, process all at once
             preds = []
             for _ in range(n_passes):
-                # Get logits and convert to probabilities
-                logits = self.model(X, training=True).numpy()
-                probs = 1.0 / (1.0 + np.exp(-logits))  # sigmoid
-                preds.append(probs)
+                preds.append(self.model(X, training=True).numpy())
             all_preds = np.stack(preds, 0)
         else:
             # Process in batches to avoid memory issues
@@ -219,10 +176,7 @@ class EVEREST:
                 # Run multiple passes for this batch
                 pass_preds = []
                 for _ in range(n_passes):
-                    # Get logits and convert to probabilities
-                    logits = self.model(batch_data, training=True).numpy()
-                    probs = 1.0 / (1.0 + np.exp(-logits))  # sigmoid
-                    pass_preds.append(probs)
+                    pass_preds.append(self.model(batch_data, training=True).numpy())
                 # Stack along the pass dimension first (axis=0)
                 batch_preds.append(np.stack(pass_preds, 0))
             
@@ -231,6 +185,16 @@ class EVEREST:
         
         # Calculate mean and standard deviation across passes
         return all_preds.mean(0), all_preds.std(0)
+        
+    def predict_proba(self, X, batch_size=1024, mc_passes=None):
+        """
+        Returns P(class=1) for each sample.
+        If mc_passes is None → deterministic; else MC‑dropout mean.
+        """
+        if mc_passes is None:
+            return self.model.predict(X, batch_size=batch_size, verbose=0)[:,1]
+        mean, _ = self.mc_predict(X, n_passes=mc_passes, batch_size=batch_size)
+        return mean[:,1]
     # ---------------------------------------------------------------------
     # weight I/O identical to SolarKnowledge
     def _dir(self, flare_class, w_dir):
