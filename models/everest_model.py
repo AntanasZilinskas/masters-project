@@ -22,6 +22,7 @@ import warnings, os, json, shutil, numpy as np, tensorflow as tf
 from datetime import datetime
 from tensorflow.keras import layers, models, regularizers
 from tensorflow.keras.callbacks import EarlyStopping
+import tensorflow_addons as tfa
 
 # Import our custom Performer implementation instead of performer_keras
 from performer_custom import Performer
@@ -29,8 +30,8 @@ from performer_custom import Performer
 # Set random seed for reproducibility
 tf.keras.utils.set_random_seed(42)
 
-# Mixed precision on Apple Silicon / GPU
-tf.keras.mixed_precision.set_global_policy("mixed_float16")
+# Mixed precision on Apple Silicon / GPU - disabled due to possible numerical instability
+# tf.keras.mixed_precision.set_global_policy("mixed_float16")
 print("Mixed precision policy:", tf.keras.mixed_precision.global_policy())
 
 # GPU memory growth
@@ -81,51 +82,19 @@ class PerformerBlock(layers.Layer):
         return self.norm2(x + self.drop2(h2, training=training))
 
 # ---------------------------------------------------------------------------
-# Custom Focal Loss for one-hot encoded labels
-# ---------------------------------------------------------------------------
-class CategoricalFocalLoss(tf.keras.losses.Loss):
-    def __init__(self, alpha=0.25, gamma=2.0, from_logits=False, **kwargs):
-        super().__init__(**kwargs)
-        self.alpha = alpha
-        self.gamma = gamma
-        self.from_logits = from_logits
-        
-    def call(self, y_true, y_pred):
-        # Convert from one-hot to sparse if needed (for our binary case)
-        if tf.shape(y_true)[-1] == 2:  # One-hot encoded with 2 classes
-            # Get the target label (0 or 1)
-            y_true_sparse = tf.argmax(y_true, axis=-1)
-            # For binary, we only care about positive class probability
-            y_pred_pos = y_pred[:, 1]
-            
-            # Compute binary focal loss
-            # First convert target to float
-            y_true_float = tf.cast(y_true_sparse, dtype=tf.float32)
-            
-            # Apply focal weights: alpha * (1-p)^gamma for positives, (1-alpha) * p^gamma for negatives
-            p_t = tf.where(tf.equal(y_true_float, 1.0), y_pred_pos, 1.0 - y_pred_pos)
-            alpha_factor = tf.where(tf.equal(y_true_float, 1.0), 
-                                    self.alpha * tf.ones_like(y_true_float),
-                                    (1.0 - self.alpha) * tf.ones_like(y_true_float))
-            focal_weight = alpha_factor * tf.pow(1.0 - p_t, self.gamma)
-            
-            # Calculate losses for each sample
-            losses = -focal_weight * tf.math.log(tf.clip_by_value(p_t, 1e-8, 1.0))
-            
-            # Return mean loss
-            return tf.reduce_mean(losses)
-        else:
-            # Fall back to categorical_crossentropy for multi-class
-            return tf.keras.losses.categorical_crossentropy(y_true, y_pred, from_logits=self.from_logits)
-
-# ---------------------------------------------------------------------------
 # EVEREST model (SHARP‑only)
 # ---------------------------------------------------------------------------
 class EVEREST:
     model_name = "EVEREST"
     def __init__(self, early_stopping_patience: int = 5):
-        self.callbacks = [EarlyStopping(monitor="loss", patience=early_stopping_patience,
-                                        restore_best_weights=True)]
+        # Add high-precision logging callback to show more decimal places
+        from tensorflow.keras.callbacks import LambdaCallback
+        fmt_callback = LambdaCallback(
+            on_epoch_end=lambda epoch, logs: print(
+                f"— prec={logs.get('prec', 0):.4f}  rec={logs.get('rec', 0):.4f}  tss={logs.get('tss', 0):.4f}"
+            )
+        )
+        self.callbacks = [fmt_callback]
         self.model = None
     # ---------------------------------------------------------------------
     def build_base_model(self, input_shape: tuple,
@@ -147,41 +116,74 @@ class EVEREST:
         x = layers.Dense(128, activation=tf.keras.activations.gelu,
                          kernel_regularizer=regularizers.l1_l2(1e-5, 1e-4))(x)
         x = layers.Dropout(dropout)(x)
-        out = layers.Dense(num_classes, activation="softmax",
+        out = layers.Dense(1, activation="linear",
                            activity_regularizer=regularizers.l2(1e-5))(x)
         self.model = models.Model(inp, out)
         return self.model
     # ---------------------------------------------------------------------
-    def compile(self, lr: float = 1e-4, alpha: float = 0.25, gamma: float = 2.0):
-        from tensorflow.keras.metrics import Accuracy
-
-        # Try to use our custom focal loss, or fall back to standard loss if needed
-        try:
-            # Use our custom implementation that properly handles one-hot labels
-            loss = CategoricalFocalLoss(alpha=alpha, gamma=gamma)
-            print("Using custom CategoricalFocalLoss")
-        except Exception as e:
-            # Fall back to categorical crossentropy
-            loss = tf.keras.losses.CategoricalCrossentropy()
-            print(f"Error setting up focal loss: {e}, using standard Categorical Crossentropy loss")
+    def compile(self, lr: float = 1e-3, alpha: float = 0.25, gamma: float = 1.5):
+        # Use a lower gamma (1.5) for better stability with extreme imbalance
         
-        self.model.compile(optimizer=tf.keras.optimizers.Adam(lr),
-                           loss=loss,
-                           metrics=[Accuracy(name="acc"), TrueSkillStatisticMetric()])
+        # Custom focal loss implementation that works properly with scalar alpha
+        def binary_focal_loss(y_true, y_pred):
+            """
+            Binary focal loss with support for scalar alpha value.
+            y_true: target values (0 or 1)
+            y_pred: predicted logit values (before sigmoid)
+            """
+            # Cast for mixed precision compatibility
+            y_true = tf.cast(y_true, dtype=y_pred.dtype)
+            alpha_t = tf.cast(alpha, dtype=y_pred.dtype)
+            gamma_t = tf.cast(gamma, dtype=y_pred.dtype)
+            
+            # Get sigmoid predictions
+            sigmoid_p = tf.nn.sigmoid(y_pred)
+            
+            # Calculate p_t - probability of correct class
+            p_t = (y_true * sigmoid_p) + ((1 - y_true) * (1 - sigmoid_p))
+            
+            # Calculate alpha_t - weight factor for class imbalance
+            alpha_factor = y_true * alpha_t + (1 - y_true) * (1 - alpha_t)
+            
+            # Calculate modulating factor
+            modulating_factor = tf.pow(1.0 - p_t, gamma_t)
+            
+            # Calculate BCE with logits for numerical stability
+            bce = tf.nn.sigmoid_cross_entropy_with_logits(labels=y_true, logits=y_pred)
+            
+            # Combine all factors
+            focal_loss = alpha_factor * modulating_factor * bce
+            
+            # Return mean loss
+            return tf.reduce_mean(focal_loss)
+        
+        print(f"Using custom binary focal loss with alpha={alpha:.4f}, gamma={gamma}")
+        
+        # Use more meaningful metrics for imbalanced classification
+        self.model.compile(
+            optimizer=tf.keras.optimizers.legacy.Adam(lr),
+            loss=binary_focal_loss,
+            metrics=[
+                tf.keras.metrics.Precision(name="prec"),
+                tf.keras.metrics.Recall(name="rec"),
+                TrueSkillStatisticMetric()
+            ]
+        )
     # ---------------------------------------------------------------------
     def fit(self, X, y, validation_data=None, epochs: int = 100, batch_size: int = 512,
             class_weight=None):
-        if class_weight is None:
-            # Calculate class weight with safeguard against missing class
-            class_counts = np.sum(y, 0)
-            pos = max(1, class_counts[1])  # Ensure non-zero denominator
-            weight = {0: 1.0, 1: max(5, len(y)/pos)}
-        else:
-            weight = class_weight
-            
+        early_stopping = tf.keras.callbacks.EarlyStopping(
+            monitor="tss", 
+            patience=10,
+            mode="max",
+            restore_best_weights=True
+        )
+        
+        self.callbacks = [cb for cb in self.callbacks if not isinstance(cb, tf.keras.callbacks.EarlyStopping)]
+        self.callbacks.append(early_stopping)
+        
         return self.model.fit(X, y, epochs=epochs, batch_size=batch_size,
                               validation_data=validation_data,
-                              class_weight=weight,
                               callbacks=self.callbacks, verbose=2)
     # ---------------------------------------------------------------------
     def mc_predict(self, X, n_passes: int = 20, batch_size: int = 1024):
@@ -194,15 +196,18 @@ class EVEREST:
             batch_size: Size of batches for prediction
             
         Returns:
-            mean_preds: Mean predictions across all passes
-            std_preds: Standard deviation of predictions (uncertainty)
+            mean_preds: Mean probability predictions across all passes
+            std_preds: Standard deviation of probabilities (uncertainty)
         """
         # Process in batches if needed
         if len(X) <= batch_size:
             # For small inputs, process all at once
             preds = []
             for _ in range(n_passes):
-                preds.append(self.model(X, training=True).numpy())
+                # Get logits and convert to probabilities
+                logits = self.model(X, training=True).numpy()
+                probs = 1.0 / (1.0 + np.exp(-logits))  # sigmoid
+                preds.append(probs)
             all_preds = np.stack(preds, 0)
         else:
             # Process in batches to avoid memory issues
@@ -214,7 +219,10 @@ class EVEREST:
                 # Run multiple passes for this batch
                 pass_preds = []
                 for _ in range(n_passes):
-                    pass_preds.append(self.model(batch_data, training=True).numpy())
+                    # Get logits and convert to probabilities
+                    logits = self.model(batch_data, training=True).numpy()
+                    probs = 1.0 / (1.0 + np.exp(-logits))  # sigmoid
+                    pass_preds.append(probs)
                 # Stack along the pass dimension first (axis=0)
                 batch_preds.append(np.stack(pass_preds, 0))
             
@@ -243,7 +251,7 @@ class EVEREST:
         self.model.load_weights(os.path.join(path, "model_weights.weights.h5"))
 
 # ---------------------------------------------------------------------------
-# True Skill Statistic metric (unchanged)
+# True Skill Statistic metric (updated for binary scalar labels)
 # ---------------------------------------------------------------------------
 class TrueSkillStatisticMetric(tf.keras.metrics.Metric):
     def __init__(self, name="tss", **kw):
@@ -253,12 +261,17 @@ class TrueSkillStatisticMetric(tf.keras.metrics.Metric):
         self.fp = self.add_weight("fp", initializer="zeros")
         self.fn = self.add_weight("fn", initializer="zeros")
     def update_state(self, y_true, y_pred, sample_weight=None):
-        yt = tf.cast(tf.argmax(y_true, 1), tf.bool)
-        yp = tf.cast(tf.argmax(y_pred, 1), tf.bool)
-        self.tp.assign_add(tf.reduce_sum(tf.cast(tf.logical_and( yt,  yp), tf.float32)))
-        self.tn.assign_add(tf.reduce_sum(tf.cast(tf.logical_and(~yt, ~yp), tf.float32)))
-        self.fp.assign_add(tf.reduce_sum(tf.cast(tf.logical_and(~yt,  yp), tf.float32)))
-        self.fn.assign_add(tf.reduce_sum(tf.cast(tf.logical_and( yt, ~yp), tf.float32)))
+        # Convert y_true to boolean (it's already binary 0/1)
+        y_true_bool = tf.cast(y_true, tf.bool)
+        
+        # Convert predictions (logits) to binary predictions using sigmoid
+        y_pred_prob = tf.nn.sigmoid(y_pred)
+        y_pred_bool = tf.cast(y_pred_prob > 0.5, tf.bool)
+        
+        self.tp.assign_add(tf.reduce_sum(tf.cast(tf.logical_and(y_true_bool, y_pred_bool), tf.float32)))
+        self.tn.assign_add(tf.reduce_sum(tf.cast(tf.logical_and(tf.logical_not(y_true_bool), tf.logical_not(y_pred_bool)), tf.float32)))
+        self.fp.assign_add(tf.reduce_sum(tf.cast(tf.logical_and(tf.logical_not(y_true_bool), y_pred_bool), tf.float32)))
+        self.fn.assign_add(tf.reduce_sum(tf.cast(tf.logical_and(y_true_bool, tf.logical_not(y_pred_bool)), tf.float32)))
     def result(self):
         sens = self.tp / (self.tp + self.fn + tf.keras.backend.epsilon())
         spec = self.tn / (self.tn + self.fp + tf.keras.backend.epsilon())
