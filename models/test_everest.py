@@ -12,6 +12,7 @@ import json
 from sklearn.metrics import confusion_matrix
 from utils import get_testing_data
 from model_tracking import load_model  # Add import for load_model
+import os
 
 def test_everest_model():
     print("Testing EVEREST model with custom Performer implementation...")
@@ -117,12 +118,28 @@ def test(time_window, flare_class, version=None, checkpoint_path=None, savefile=
     # Load model
     model, metadata, version = load_model(checkpoint_path, version, flare_class, time_window)
     
-    # Get the threshold from metadata if available (or default to 0.5)
-    threshold = metadata.get('val_best_thr', 0.5)
-    print(f"Using threshold: {threshold:.2f}")
+    # Get weight directory path for loading metadata
+    weight_dir = checkpoint_path or os.path.join("models", "EVEREST", str(flare_class), str(version))
     
-    # Get predictions
-    probs = model.predict_proba(X)
+    # Apply temperature scaling + threshold:
+    with open(os.path.join(weight_dir, "metadata.json")) as f:
+        meta = json.load(f)
+    
+    # Get temperature scaling and threshold values (or use defaults if not present)
+    T = meta.get('performance', {}).get('val_temp', 1.0)
+    threshold = meta.get('performance', {}).get('val_best_thr', 0.5)
+    
+    print(f"Using temperature scaling T={T:.2f} and threshold={threshold:.2f}")
+    
+    # Perform Monte-Carlo predictions with temperature scaling
+    logits, uncertainty = model.mc_predict(X, n_passes=30)
+    # Apply temperature scaling
+    logits = logits / T
+    
+    # Get probability of the positive class (flare)
+    probs = logits[:, 1]  # or tf.nn.softmax(logits, axis=1)[:, 1]
+    
+    # Apply threshold for classification
     y_pred = (probs > threshold).astype(int)
     
     # Compute confusion matrix
@@ -137,7 +154,7 @@ def test(time_window, flare_class, version=None, checkpoint_path=None, savefile=
     hss = 2 * (tp * tn - fn * fp) / ((tp + fn) * (fn + tn) + (tp + fp) * (fp + tn))
     
     # Print results
-    print(f"\nTest Results at threshold {threshold:.2f}:")
+    print(f"\nTest Results with temperature T={T:.2f} at threshold {threshold:.2f}:")
     print(f"Confusion Matrix: TN={tn}, FP={fp}, FN={fn}, TP={tp}")
     print(f"Accuracy: {accuracy:.4f}")
     print(f"Precision: {precision:.4f}")
@@ -155,6 +172,7 @@ def test(time_window, flare_class, version=None, checkpoint_path=None, savefile=
         'test_tss': float(tss),
         'test_hss': float(hss),
         'test_threshold': float(threshold),
+        'test_temperature': float(T),
         'test_tp': int(tp),
         'test_fp': int(fp),
         'test_tn': int(tn),

@@ -130,6 +130,7 @@ def load_data(datafile, flare_label, series_len, start_feature, n_features, mask
     df_values = df.values
     X = []
     y = []
+    sample_indices = []  # Keep track of which rows are preserved
     tmp = []
     for k in range(start_feature, start_feature + n_features):
         tmp.append(mask_value)
@@ -210,11 +211,14 @@ def load_data(datafile, flare_label, series_len, start_feature, n_features, mask
                 X.append(np.array(each_series_data).reshape(series_len, len(c_ls)).tolist())                
                 # X.append(np.array(each_series_data).reshape(series_len, n_features).tolist())
                 y.append(label)
+                sample_indices.append(idx)  # Record that this sample was kept
     X_arr = np.array(X)
     y_arr = np.array(y)
+    indices_arr = np.array(sample_indices)
 
     # log('data shape:',X_arr.shape)
-    return X_arr, y_arr,df
+    return X_arr, y_arr, df, indices_arr
+
 def data_transform(data):
     encoder = LabelEncoder()
     encoder.fit(data)
@@ -244,7 +248,7 @@ def add_gaussian_noise(flare_class,
     d_noise = gaussian_noise(noise_data, mu, std)
     train_data_for_noise[train_data_for_noise.columns[start_feature:n_features]]=d_noise
     
-    X_train_data1, y_train_data1,train_data_for_noise1 = load_data(datafile=None,
+    X_train_data1, y_train_data1, _, _ = load_data(datafile=None,
                                            flare_label=flare_class, series_len=series_len,
                                            start_feature=start_feature, n_features=n_features,
                                            mask_value=mask_value,data=train_data_for_noise)
@@ -252,7 +256,17 @@ def add_gaussian_noise(flare_class,
     X_train = X_train_data 
     y_train = y_train_data 
 
+    # Add positive time-jitter augmentation
+    aug_X, aug_y = [], []
+    for i, lab in enumerate(y_train_data):
+        if lab == 'P':  # Only augment positive (flare) samples
+            for shift in [-1, 1]:          # ±10‑min
+                rolled = np.roll(X_train_data[i], shift, axis=0)
+                rolled += np.random.normal(0, 0.02, rolled.shape)   # ~2 % noise
+                aug_X.append(rolled)
+                aug_y.append('P')
 
+    # Continue with existing augmentation
     n_index_r = [ i for i in range(len(y_train_data1)) if y_train_data1[i] != 'N']
     X=X_train_data.tolist()
     y=y_train_data.tolist()
@@ -260,10 +274,13 @@ def add_gaussian_noise(flare_class,
     X1=[X_train_data1[i] for i in n_index_r]
     y1=[y_train_data1[i] for i in n_index_r]
 
+    # Add the jittered positive samples
+    if len(aug_X) > 0:
+        X.extend(aug_X)
+        y.extend(aug_y)
     
     X.extend(X1) 
     y.extend(y1)
-
     
     y_train=[get_class_num(c) for c in y]
     
@@ -282,20 +299,34 @@ def get_all_data(time_window, flare_class, noise_enabled=True):
     file_name = 'Nature_data' + os.sep + 'data_' + flare_class + '_' + time_window + '.csv'
     return get_data(flare_class, file_name, noise_enabled=noise_enabled)
 
-def get_training_data(time_window, flare_class):
+def get_training_data(time_window, flare_class, return_df=False, return_indices=False):
     # Construct the full path to the training data CSV file.
-    # Adjust the file naming if needed (here we're using the same name as before).
     file_name = os.path.join(PROJECT_ROOT, "Nature_data", f"testing_data_{flare_class}_{time_window}.csv")
-    return get_data(flare_class, file_name, noise_enabled=True)
+    
+    if return_df:
+        if return_indices:
+            X, y, df, indices = get_data(flare_class, file_name, noise_enabled=True, return_df=True, return_indices=True)
+            return X, y, df, indices
+        else:
+            X, y, df = get_data(flare_class, file_name, noise_enabled=True, return_df=True)
+            return X, y, df
+    else:
+        return get_data(flare_class, file_name, noise_enabled=True)
 
-def get_testing_data(time_window, flare_class):
+def get_testing_data(time_window, flare_class, return_df=False, return_indices=False):
     # Construct the full path to the testing data CSV file.
     file_name = os.path.join(PROJECT_ROOT, "Nature_data", f"testing_data_{flare_class}_{time_window}.csv")
-    return get_data(flare_class, file_name, noise_enabled=False)
-
-def get_data(flare_class, datafile, noise_enabled=noise_enabled, verbose=True):
     
-    X_train_data, y_train_data,train_data_for_noise = load_data(datafile=datafile,
+    if return_df and return_indices:
+        return get_data(flare_class, file_name, noise_enabled=False, return_df=True, return_indices=True)
+    elif return_df:
+        return get_data(flare_class, file_name, noise_enabled=False, return_df=True)
+    else:
+        return get_data(flare_class, file_name, noise_enabled=False)
+
+def get_data(flare_class, datafile, noise_enabled=noise_enabled, verbose=True, return_df=False, return_indices=False):
+    
+    X_train_data, y_train_data, train_data_for_noise, sample_indices = load_data(datafile=datafile,
                                            flare_label=flare_class, series_len=series_len,
                                            start_feature=start_feature, n_features=n_features,
                                            mask_value=mask_value)
@@ -304,7 +335,7 @@ def get_data(flare_class, datafile, noise_enabled=noise_enabled, verbose=True):
     if verbose:
         log(flare_class, '--> Training: Positive:', len(y_train_data) - len(neg_train) , 'Negative:', len(neg_train))
     if flare_class in ['M','M5'] and noise_enabled:
-        X_train, y_train = add_gaussian_noise(flare_class, X_train_data,y_train_data,train_data_for_noise)
+        X_train, y_train = add_gaussian_noise(flare_class, X_train_data, y_train_data, train_data_for_noise)
         neg_train = [ t for t in y_train if t == 0 ]
         if verbose:
             log(flare_class, '--> With Noise Training: Positive:', len(y_train) - len(neg_train) , 'Negative:', len(neg_train))
@@ -312,9 +343,12 @@ def get_data(flare_class, datafile, noise_enabled=noise_enabled, verbose=True):
         y_train=[get_class_num(c) for c in y_train_data]
         X_train = X_train_data
 
-    
-    
-    return X_train, y_train
+    if return_df and return_indices:
+        return X_train, y_train, train_data_for_noise, sample_indices
+    elif return_df:
+        return X_train, y_train, train_data_for_noise
+    else:
+        return X_train, y_train
 
 def save_result(flare_class, time_window, y_true, y_pred,alg='SolarFlareNet', dir_name=None, file_name=None):
     y_pred_probs = [1-p[0] for p in y_pred ]

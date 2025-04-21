@@ -135,9 +135,10 @@ class PerformerBlock(layers.Layer):
         h2 = self.ffn(x, training=training)
         x = self.norm2(x + self.drop2(h2, training=training))
         
-        # Add double-drop
-        if training and tf.random.uniform([]) < 0.5:
-            x = tf.nn.dropout(x, rate=self.drop1.rate)   # second stochastic drop
+        # Add double-drop - increase probability to 70% for more aggressive regularization
+        if training and tf.random.uniform([]) < 0.7:
+            # Use a higher dropout rate for the second stochastic dropout
+            x = tf.nn.dropout(x, rate=min(self.drop1.rate * 1.5, 0.5))   # Increase dropout but cap at 0.5
             
         return x
 
@@ -146,7 +147,7 @@ class PerformerBlock(layers.Layer):
 # ---------------------------------------------------------------------------
 class EVEREST:
     model_name = "EVEREST"
-    def __init__(self, early_stopping_patience: int = 5):
+    def __init__(self, early_stopping_patience: int = 15):
         # Add high-precision logging callback to show more decimal places
         from tensorflow.keras.callbacks import LambdaCallback
         fmt_callback = LambdaCallback(
