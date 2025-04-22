@@ -208,6 +208,7 @@ class EVEREST:
             optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=lr),
             loss=mixed_loss,
             metrics=[
+                tf.keras.metrics.CategoricalAccuracy(name="accuracy"),
                 tf.keras.metrics.Precision(name="prec", class_id=1),
                 tf.keras.metrics.Recall(name="rec", class_id=1),
                 CategoricalTSSMetric(class_id=1)
