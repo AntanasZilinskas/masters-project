@@ -1,0 +1,35 @@
+{
+  "version": "1.4",
+  "timestamp": "2025-04-23T05:38:14.470302",
+  "description": "EVEREST SHARP\u2011only experiment",
+  "flare_class": "M5",
+  "time_window": "48",
+  "hyperparameters": {
+    "linear_attention": true
+  },
+  "performance": {
+    "final_loss": 0.07004247605800629,
+    "final_val_loss": 0.070387102663517,
+    "final_prec": 0.8713136911392212,
+    "final_val_prec": 0.8999999761581421,
+    "final_rec": 0.8904109597206116,
+    "final_val_rec": 0.8823529481887817,
+    "final_tss": 0.889557957649231,
+    "final_val_tss": 0.8815445899963379,
+    "val_best_tss": 0.9779673265814788,
+    "val_best_thr": 0.39999999999999997
+  },
+  "git_info": {
+    "commit": "ef8a9eab7c62c4aea6bd2ce6a66ed4c0b95fbe6e",
+    "branch": "EVEREST"
+  },
+  "architecture": {
+    "name": "SolarKnowledge",
+    "input_shape": [
+      10,
+      9
+    ],
+    "num_params": 877890,
+    "precision": "<Policy \"float32\">"
+  }
+}
