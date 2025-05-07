@@ -88,13 +88,16 @@ def save_model_with_metadata(model, metrics, hyperparams, history, version, flar
 
 def save_training_history(history, model_dir):
     """Save training history as CSV and generate learning curves plot."""
+    # Find minimum length across all history entries
+    min_epochs = min(len(value) for value in history.values()) if history else 0
+    
     # Save as CSV
     with open(os.path.join(model_dir, "training_history.csv"), "w", newline="") as f:
         writer = csv.writer(f)
         # Write header
         writer.writerow(["epoch"] + list(history.keys()))
-        # Write data
-        for epoch in range(len(next(iter(history.values())))):
+        # Write data - only up to the minimum length
+        for epoch in range(min_epochs):
             writer.writerow([epoch] + [history[k][epoch] for k in history.keys()])
     
     # Generate plot
@@ -103,9 +106,9 @@ def save_training_history(history, model_dir):
     # Plot loss
     plt.subplot(1, 2, 1)
     if "loss" in history:
-        plt.plot(history["loss"], label="Training Loss")
+        plt.plot(history["loss"][:min_epochs], label="Training Loss")
     if "val_loss" in history:
-        plt.plot(history["val_loss"], label="Validation Loss")
+        plt.plot(history["val_loss"][:min_epochs], label="Validation Loss")
     plt.title("Loss During Training")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
@@ -114,9 +117,9 @@ def save_training_history(history, model_dir):
     # Plot accuracy
     plt.subplot(1, 2, 2)
     if "accuracy" in history:
-        plt.plot(history["accuracy"], label="Training Accuracy")
+        plt.plot(history["accuracy"][:min_epochs], label="Training Accuracy")
     if "val_accuracy" in history:
-        plt.plot(history["val_accuracy"], label="Validation Accuracy")
+        plt.plot(history["val_accuracy"][:min_epochs], label="Validation Accuracy")
     plt.title("Accuracy During Training")
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
