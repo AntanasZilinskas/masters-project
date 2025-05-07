@@ -1,0 +1,33 @@
+{
+  "version": "1.0",
+  "timestamp": "2025-05-05T09:41:36.287243",
+  "description": "EVEREST-X enhanced with evidential uncertainty and EVT",
+  "flare_class": "C",
+  "time_window": "24",
+  "hyperparameters": {
+    "linear_attention": true,
+    "uses_evidential": true,
+    "uses_evt": true,
+    "uses_diffusion": true
+  },
+  "performance": {
+    "final_loss": 0.011166931129992008,
+    "final_val_loss": 2.3623733520507812,
+    "val_best_tss": 0.34664977850780865,
+    "val_best_thr": 0.95,
+    "val_temp": 0.44262418150901794
+  },
+  "git_info": {
+    "commit": "9ffb18319fccc3d4a68ec2ae5b445911fe102865",
+    "branch": "EVEREST"
+  },
+  "architecture": {
+    "name": "SolarKnowledge",
+    "input_shape": [
+      10,
+      9
+    ],
+    "num_params": 879305,
+    "precision": "<Policy \"float32\">"
+  }
+}
