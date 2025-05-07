@@ -28,3 +28,4 @@ master's writing/Master's Project Early Stage Gateway/main.pdf
 /nature_models/models/24/C/model_weights.weights.h5
 ~
 fix_conda_path.sh
+*.npz

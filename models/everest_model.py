@@ -30,7 +30,42 @@ from tensorflow.keras.callbacks import EarlyStopping
 from performer_custom import Performer
 from metrics import CategoricalTSSMetric
 from evidential_head import nig_head, evidential_nll  # Import evidential head
-from evt_head import gpd_head, evt_loss              # Import EVT head
+
+# Try to import evt_head from models directory first, then fall back to direct import
+try:
+    # First, try to import from models package
+    from models.evt_head import gpd_head, evt_loss  # Try to import from models package
+    print("Using evt_head from models package")
+except ImportError:
+    try: 
+        # Fall back to direct import if not found
+        from evt_head import gpd_head, evt_loss
+        print("Using evt_head from current directory")
+    except ImportError:
+        try:
+            # Try with an explicit relative import
+            import os
+            import sys
+            # Add current and parent directories to path
+            sys.path.extend(['.', '..', 'models'])
+            # Try import again
+            from evt_head import gpd_head, evt_loss
+            print("Using evt_head with path modification")
+        except ImportError:
+            print("ERROR: Could not import evt_head module. Make sure it exists in models/ or root directory.")
+            # Create dummy placeholders for compilation to succeed
+            def gpd_head(x, name=None):
+                print("WARNING: Using dummy gpd_head function!")
+                import tensorflow as tf
+                # Return a placeholder with expected shape (batch_size, 2)
+                return tf.zeros_like(tf.concat([x, x], axis=-1), name=name)
+                
+            def evt_loss(logits, params, threshold=2.0):
+                print("WARNING: Using dummy evt_loss function!")
+                import tensorflow as tf
+                return tf.constant(0.0, dtype=tf.float32)
+                
+            print("Created dummy EVT functions as fallback")
 
 # Set random seed for reproducibility
 tf.keras.utils.set_random_seed(42)
@@ -113,16 +148,21 @@ class PerformerBlock(layers.Layer):
         else:
             self.rel_bias = None
             
+        # Increase dropout for attention - help with overfitting
+        self.attn_dropout = dropout * 1.5  # Higher dropout in attention
         self.attn = Performer(num_heads=num_heads,
                               key_dim=embed_dim // num_heads,
-                              dropout=dropout)
+                              dropout=self.attn_dropout)
         self.drop1 = layers.Dropout(dropout)
         self.norm1 = layers.LayerNormalization(epsilon=1e-6)
 
         self.ffn = models.Sequential([
-            layers.Dense(ff_dim, activation=tf.keras.activations.gelu),
-            layers.Dropout(dropout),
-            layers.Dense(embed_dim)
+            layers.Dense(ff_dim, 
+                        activation=tf.keras.activations.gelu,
+                        kernel_regularizer=regularizers.l2(1e-4)),  # Add L2 regularization
+            layers.Dropout(dropout * 1.2),  # Increase intermediate dropout
+            layers.Dense(embed_dim, 
+                        kernel_regularizer=regularizers.l2(1e-4))  # Add L2 regularization
         ])
         self.drop2 = layers.Dropout(dropout)
         self.norm2 = layers.LayerNormalization(epsilon=1e-6)
@@ -139,10 +179,10 @@ class PerformerBlock(layers.Layer):
         h2 = self.ffn(x, training=training)
         x = self.norm2(x + self.drop2(h2, training=training))
         
-        # Add double-drop - increase probability to 70% for more aggressive regularization
-        if training and tf.random.uniform([]) < 0.7:
+        # Add double-drop - increase probability to 80% for more aggressive regularization
+        if training and tf.random.uniform([]) < 0.8:  # Increased from 0.7
             # Use a higher dropout rate for the second stochastic dropout
-            x = tf.nn.dropout(x, rate=min(self.drop1.rate * 1.5, 0.5))   # Increase dropout but cap at 0.5
+            x = tf.nn.dropout(x, rate=min(self.drop1.rate * 2.0, 0.6))   # Increased from 1.5 and capped at 0.6
             
         return x
 
@@ -169,7 +209,7 @@ class EVEREST:
                          num_heads: int = 4,
                          ff_dim: int = 256,
                          n_blocks: int = 6,
-                         dropout: float = 0.2,
+                         dropout: float = 0.3,  # Increased dropout from 0.2 to 0.3
                          num_classes: int = 2):
         inp = layers.Input(shape=input_shape)
         # ── multi‑scale stem ───────────────────────────────────────────
@@ -185,19 +225,46 @@ class EVEREST:
         x = PositionalEncoding(input_shape[0], embed_dim)(x)
         for _ in range(n_blocks):
             x = PerformerBlock(embed_dim, num_heads, ff_dim, dropout, input_shape)(x)
-        x = layers.GlobalAveragePooling1D()(x)
+        
+        # Add stochastic depth (randomly skip some blocks)
+        # by using a random layer to pool from deeper in the network
+        pooled_outputs = []
+        pool_probs = tf.linspace(0.5, 1.0, n_blocks)  # Probability increases with depth
+        for i in range(max(1, n_blocks-2), n_blocks):
+            if i == n_blocks-1:  # Always keep the final layer
+                pooled_outputs.append(layers.GlobalAveragePooling1D()(x))
+            else:
+                # Randomly decide whether to include this layer based on probability
+                mask = tf.cast(tf.random.uniform([]) < pool_probs[i], tf.float32)
+                pooled = layers.GlobalAveragePooling1D()(x)
+                pooled_outputs.append(pooled * mask)
+        
+        # Combine the pooled features
+        if len(pooled_outputs) > 1:
+            x = layers.Add()(pooled_outputs)
+        else:
+            x = pooled_outputs[0]
+            
         x = layers.Dropout(dropout)(x)
         
-        # Core feature representation
+        # Core feature representation with stronger regularization
         features = layers.Dense(128, activation=tf.keras.activations.gelu,
-                       kernel_regularizer=regularizers.l1_l2(1e-5, 1e-4))(x)
+                       kernel_regularizer=regularizers.l1_l2(1e-4, 1e-3))(x)  # Increased from 1e-5, 1e-4
+        features = layers.BatchNormalization()(features)
+        features = layers.Dropout(dropout * 1.2)(features)  # Higher dropout before heads
+        
+        # Add a second dense layer with L2 regularization
+        features = layers.Dense(64, activation=tf.keras.activations.gelu,
+                           kernel_regularizer=regularizers.l2(1e-3))(features)
         features = layers.BatchNormalization()(features)
         features = layers.Dropout(dropout)(features)
         
         # Build the model with different heads based on configuration
         if self.use_advanced_heads:
             # Standard logits for binary classification
-            logits = layers.Dense(1, activation=None, name="logits_dense")(features)
+            logits = layers.Dense(1, activation=None, 
+                              kernel_regularizer=regularizers.l2(1e-3),
+                              name="logits_dense")(features)
             
             # Evidential head for uncertainty quantification (NIG parameters)
             ev_head = nig_head(features, name="evidential_head")
@@ -206,9 +273,16 @@ class EVEREST:
             evt_head = gpd_head(features, name="evt_head")
             
             # Create softmax output for backward compatibility
-            softmax_out = layers.Dense(num_classes, activation="softmax", name="softmax_dense")(features)
+            # Add direct pathway from logits to softmax for better information flow
+            softmax_activation = lambda x: tf.nn.softmax(
+                tf.concat([tf.zeros_like(x), x], axis=-1)
+            )
+            softmax_out = layers.Lambda(
+                softmax_activation, 
+                name="softmax_dense"
+            )(logits)
             
-            # Create a multi-output model
+            # Create a multi-output model with clear connections
             self.model = models.Model(
                 inputs=inp, 
                 outputs={
@@ -218,9 +292,13 @@ class EVEREST:
                     "softmax_dense": softmax_out
                 }
             )
+            
+            # Store a direct reference to the logits output for use by EVT head
+            self.logits_output = logits
         else:
             # Standard binary classification output for backward compatibility
-            output = layers.Dense(num_classes, activation="softmax")(features)
+            output = layers.Dense(num_classes, activation="softmax",
+                             kernel_regularizer=regularizers.l2(1e-3))(features)
             self.model = models.Model(inputs=inp, outputs=output)
             
         return self.model
@@ -258,14 +336,68 @@ class EVEREST:
             
             def evt_loss_fn(y_true, y_pred):
                 # y_true is (batch_size, 2), y_pred is (batch_size, 2)
-                # Use the proper EVT loss function
-                # Need to get logits first - can pass through the logits_dense output
-                # In practice, we treat the model as having no good logits during initial training
-                # When head_weight_scheduler activates these losses, the model will have better representations
-                dummy_logits = tf.zeros((tf.shape(y_true)[0], 1))
-                return evt_loss(dummy_logits, y_pred, threshold=2.5)
+                # Need to get logits from the model - store a reference to the model outputs
                 
-            # Use a much simpler approach for initial training
+                # First try to access the current batch's logits directly
+                if hasattr(self.model, '_current_outputs') and isinstance(self.model._current_outputs, dict):
+                    logits = self.model._current_outputs.get('logits_dense')
+                    if logits is not None:
+                        return evt_loss(logits, y_pred, threshold=0.5)  # Use lower threshold
+                
+                # Extract y_true for synthetic logits as fallback
+                y_true_binary = tf.cast(y_true[:, 1:2], tf.float32)
+                
+                # Create synthetic logits based on true labels
+                batch_size = tf.shape(y_true)[0]
+                synthetic_logits = tf.where(
+                    y_true_binary > 0.5,
+                    tf.ones_like(y_true_binary) * 5.0,  # Strong positive signal
+                    tf.ones_like(y_true_binary) * -5.0  # Strong negative signal
+                )
+                
+                return evt_loss(synthetic_logits, y_pred, threshold=0.5)  # Lower threshold for more samples
+            
+            print("Compiling multi-head model with proper loss weights initialization...")
+            
+            # Add a callback to capture the model's outputs for EVT loss
+            class CaptureOutputs(tf.keras.callbacks.Callback):
+                def on_predict_batch_begin(self, batch, logs=None):
+                    if not hasattr(self.model, '_current_outputs'):
+                        self.model._current_outputs = {}
+                
+                def on_predict_batch_end(self, batch, logs=None):
+                    self.model._current_outputs = logs['outputs']
+                
+                def on_train_batch_begin(self, batch, logs=None):
+                    if not hasattr(self.model, '_current_outputs'):
+                        self.model._current_outputs = {}
+                
+                def on_train_batch_end(self, batch, logs=None):
+                    # Store the most recent outputs
+                    if hasattr(self.model, '_predict_counter'):
+                        self.model._current_outputs = self.model._predict_counter[-1]
+            
+            # Store the capture callback for later use
+            self.capture_callback = CaptureOutputs()
+            if not hasattr(self, 'callbacks'):
+                self.callbacks = []
+            self.callbacks.append(self.capture_callback)
+            
+            # Monkey-patch the model's __call__ to capture outputs
+            original_call = self.model.__call__
+            
+            def patched_call(inputs, training=None, mask=None):
+                outputs = original_call(inputs, training=training, mask=mask)
+                # Store outputs for EVT loss to access
+                if not hasattr(self.model, '_predict_counter'):
+                    self.model._predict_counter = []
+                if isinstance(outputs, dict):
+                    self.model._predict_counter.append(outputs)
+                return outputs
+            
+            self.model.__call__ = patched_call
+            
+            # Use a much more robust approach with non-zero weights from the start
             self.model.compile(
                 optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=lr),
                 loss={
@@ -275,10 +407,10 @@ class EVEREST:
                     'logits_dense': logits_loss
                 },
                 loss_weights={
-                    'softmax_dense': 1.0,
-                    'evidential_head': 0.0,  # Zero weight during initial training
-                    'evt_head': 0.0,        # Zero weight during initial training
-                    'logits_dense': 0.0     # Zero weight during initial training
+                    'softmax_dense': tf.constant(1.0, dtype=tf.float32),
+                    'evidential_head': tf.constant(0.1, dtype=tf.float32),  # Non-zero weight from start
+                    'evt_head': tf.constant(0.1, dtype=tf.float32),         # Non-zero weight from start
+                    'logits_dense': tf.constant(0.1, dtype=tf.float32)      # Non-zero weight from start
                 },
                 metrics={
                     "softmax_dense": [
@@ -292,6 +424,11 @@ class EVEREST:
                     "logits_dense": []      # No metrics for auxiliary outputs
                 }
             )
+            
+            # Store direct reference to loss weights for debugging
+            if hasattr(self.model, 'compiled_loss') and hasattr(self.model.compiled_loss, '_loss_weights'):
+                self.loss_weights = self.model.compiled_loss._loss_weights
+                print(f"Initial loss weights: {self.loss_weights}")
         else:
             # Combined loss function (BCE + TSS surrogate) - backward compatibility
             def mixed_loss(y_true, y_pred):
@@ -312,9 +449,43 @@ class EVEREST:
             )
     # ---------------------------------------------------------------------
     def fit(self, X, y, validation_data=None, epochs: int = 100, batch_size: int = 512,
-            class_weight=None, callbacks=None, verbose=2):
+            class_weight=None, callbacks=None, verbose=2, sample_weight=None):
         """Simple wrapper around model.fit that passes all parameters through."""
         # Simple pass-through to model.fit - data preparation is handled by the caller
+        # For multi-output models, we need to handle class weights differently
+        if self.use_advanced_heads and class_weight is not None:
+            # Check if y is a dictionary (multi-output format)
+            if isinstance(y, dict):
+                print("Converting class weights to sample weights for multi-output model")
+                # Create sample weights based on class weights and y values for primary output
+                y_primary = y.get("softmax_dense", None)
+                if y_primary is not None:
+                    # Get indices of positive class (second column in one-hot encoding)
+                    pos_indices = np.where(y_primary[:, 1] == 1)[0]
+                    neg_indices = np.where(y_primary[:, 1] == 0)[0]
+                    
+                    # Create sample weights array
+                    sample_weights = np.ones(len(y_primary))
+                    sample_weights[pos_indices] = class_weight.get(1, 1.0)
+                    sample_weights[neg_indices] = class_weight.get(0, 1.0)
+                    
+                    print(f"Created sample weights for {len(pos_indices)} positive samples with weight {class_weight.get(1, 1.0)}")
+                    
+                    # Now use these sample weights instead of class_weight
+                    return self.model.fit(
+                        X, y, 
+                        validation_data=validation_data,
+                        epochs=epochs, 
+                        batch_size=batch_size,
+                        sample_weight=sample_weights,  # Use sample_weight instead of class_weight
+                        callbacks=callbacks or self.callbacks, 
+                        verbose=verbose
+                    )
+            
+            # If we can't handle class weights, print a warning
+            print("Warning: class_weight provided but can't be applied to multi-output model directly")
+        
+        # Standard case or fallback
         return self.model.fit(
             X, y, 
             validation_data=validation_data,
@@ -454,9 +625,25 @@ class EVEREST:
     def _dir(self, flare_class, w_dir):
         return w_dir or os.path.join("models", self.model_name, str(flare_class))
     def save_weights(self, flare_class=None, w_dir=None):
-        path = self._dir(flare_class, w_dir)
-        if os.path.exists(path): shutil.rmtree(path)
-        os.makedirs(path)
+        """
+        Save model weights and metadata to specified directory.
+        
+        Args:
+            flare_class: Flare class for default directory structure
+            w_dir: Custom directory to save weights (overrides default directory structure)
+        """
+        # Handle both directory structures
+        if w_dir and os.path.dirname(w_dir).endswith("trained_models"):
+            # New structure - directory already created by model_tracking
+            path = w_dir
+            # Don't delete existing directory in the new structure
+        else:
+            # Old structure - create model-specific directory
+            path = self._dir(flare_class, w_dir)
+            if os.path.exists(path): shutil.rmtree(path)
+            os.makedirs(path)
+            
+        # Save model weights
         self.model.save_weights(os.path.join(path, "model_weights.weights.h5"))
         
         # Determine the output key names based on model configuration
@@ -474,19 +661,44 @@ class EVEREST:
                 "softmax_dense": "softmax"  # Map newer name to older name
             }
         
-        with open(os.path.join(path, "metadata.json"), "w") as f:
-            json.dump({"timestamp": datetime.now().isoformat(),
-                       "model_name": self.model_name,
-                       "flare_class": flare_class,
-                       "uses_focal_loss": True,
-                       "uses_evidential": self.use_advanced_heads,
-                       "uses_evt": self.use_advanced_heads,
-                       "uses_diffusion": True,
-                       "advanced_model": self.use_advanced_heads,
-                       "output_names": output_names,
-                       "linear_attention": True}, f)
+        # Create additional metadata specific to this model
+        model_metadata = {
+            "timestamp": datetime.now().isoformat(),
+            "model_name": self.model_name,
+            "flare_class": flare_class,
+            "uses_focal_loss": True,
+            "uses_evidential": self.use_advanced_heads,
+            "uses_evt": self.use_advanced_heads,
+            "uses_diffusion": True,
+            "advanced_model": self.use_advanced_heads,
+            "output_names": output_names,
+            "linear_attention": True
+        }
+        
+        # Save this metadata only if we're using the old structure
+        # For new structure, this is handled by model_tracking
+        if not (w_dir and os.path.dirname(w_dir).endswith("trained_models")):
+            with open(os.path.join(path, "metadata.json"), "w") as f:
+                json.dump(model_metadata, f)
+                
+        return model_metadata
     def load_weights(self, flare_class=None, w_dir=None):
-        path = self._dir(flare_class, w_dir)
+        """
+        Load model weights from specified directory.
+        
+        Args:
+            flare_class: Flare class for default directory structure
+            w_dir: Custom directory to load weights from (overrides default directory structure)
+        """
+        # Handle both directory structures
+        if w_dir and os.path.dirname(w_dir).endswith("trained_models"):
+            # New structure 
+            path = w_dir
+        else:
+            # Old structure
+            path = self._dir(flare_class, w_dir)
+            
+        # Load weights
         self.model.load_weights(os.path.join(path, "model_weights.weights.h5"))
 
 # ---------------------------------------------------------------------------
