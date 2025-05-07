@@ -301,7 +301,7 @@ def get_all_data(time_window, flare_class, noise_enabled=True):
 
 def get_training_data(time_window, flare_class, return_df=False, return_indices=False):
     # Construct the full path to the training data CSV file.
-    file_name = os.path.join(PROJECT_ROOT, "Nature_data", f"testing_data_{flare_class}_{time_window}.csv")
+    file_name = os.path.join(PROJECT_ROOT, "Nature_data", f"training_data_{flare_class}_{time_window}.csv")
     
     if return_df:
         if return_indices:

@@ -1,215 +1,217 @@
 """
-Custom Performer implementation for TensorFlow/Keras
+Performer implementation with FAVOR+ linear attention mechanism
+Based on "Rethinking Attention with Performers" (https://arxiv.org/abs/2009.14794)
 
-This is a standalone implementation of the Performer attention mechanism
-to replace the unavailable performer-keras package.
-
-Based on the Performer paper: 
-"Rethinking Attention with Performers" (https://arxiv.org/abs/2009.14794)
-
-This implementation provides a drop-in replacement for the Performer class
-that was previously imported from performer_keras.
+This module provides a drop-in replacement for standard attention with O(L) complexity 
+instead of O(L²), allowing for much longer sequence processing.
 """
 
 import tensorflow as tf
-from tensorflow.keras import layers
 import numpy as np
-import sys
+from tensorflow.keras import layers
+import math
 
-def softmax_kernel_transformation(data, is_query, projection_matrix=None, 
-                                  numerical_stabilizer=0.000001):
+def orthogonal_random_matrix(n_rows, n_cols, seed=None):
     """
-    Computes random features for the softmax kernel using the method in
-    "Rethinking Attention with Performers" (https://arxiv.org/abs/2009.14794).
-    
-    Args:
-        data: Input data tensor of the shape [batch_size, sequence_length, dim].
-        is_query: Indicates whether input data is a query or key/value.
-        projection_matrix: Random Gaussian matrix of shape [dim, num_features].
-        numerical_stabilizer: Small constant for numerical stability.
-    
-    Returns:
-        Transformed data tensor.
+    Creates a random orthogonal matrix for random projections.
     """
-    data_dtype = data.dtype
-    # Convert constants to the same dtype as the input tensor
-    data_normalizer = tf.cast(1.0 / (tf.math.sqrt(tf.math.sqrt(tf.cast(data.shape[-1], data_dtype)))), data_dtype)
-    
-    # Apply normalization with matching dtypes
-    data = data_normalizer * data
-    
-    # Positive random features for the softmax kernel
-    ratio = tf.cast(1.0 / tf.math.sqrt(tf.cast(projection_matrix.shape[0], data_dtype)), data_dtype)
-    
-    # Cast projection matrix to input data dtype for matmul
-    projection_matrix = tf.cast(projection_matrix, data_dtype)
-    
-    data_dash = tf.matmul(data, projection_matrix)
-    
-    diag_data = tf.math.square(data)
-    diag_data = tf.reduce_sum(diag_data, axis=-1, keepdims=True)
-    
-    # Ensure numerical_stabilizer matches the input dtype
-    numerical_stabilizer = tf.cast(numerical_stabilizer, data_dtype)
-    
-    # Compute different terms depending on whether it's a query or key/value
-    if is_query:
-        data_dash = ratio * (
-            tf.math.exp(data_dash - diag_data / 2.0) + numerical_stabilizer
+    random_state = np.random.RandomState(seed)
+    H = np.random.normal(0.0, 1.0, (n_rows, n_cols))
+    Q, R = np.linalg.qr(H)
+    return Q
+
+class RandomFourierFeatures(tf.keras.layers.Layer):
+    """
+    Approximates exp(-||x-y||^2/(2*sigma^2)) kernel using random features.
+    """
+    def __init__(self, output_dim, scale=1.0, seed=None, **kwargs):
+        super().__init__(**kwargs)
+        self.output_dim = output_dim
+        self.scale = scale
+        self.seed = seed
+
+    def build(self, input_shape):
+        input_dim = input_shape[-1]
+        kernel_shape = (input_dim, self.output_dim)
+        
+        # Create orthogonal random features
+        kernel_initializer = tf.keras.initializers.Orthogonal(gain=1.0, seed=self.seed)
+        self.kernel = self.add_weight(
+            name='kernel',
+            shape=kernel_shape,
+            initializer=kernel_initializer,
+            trainable=False
         )
-    else:
-        data_dash = ratio * (
-            tf.math.exp(data_dash - diag_data / 2.0) + numerical_stabilizer
+        
+        # Scaling factor
+        self.bias = self.add_weight(
+            name='bias',
+            shape=(self.output_dim,),
+            initializer=tf.keras.initializers.RandomUniform(
+                minval=0, maxval=2 * np.pi, seed=self.seed),
+            trainable=False
         )
+        
+        self.scale_factor = tf.sqrt(2.0 / tf.cast(self.output_dim, tf.float32))
+        
+    def call(self, inputs):
+        # Project inputs to random feature space
+        projection = tf.matmul(inputs * self.scale, self.kernel)
+        projection = projection + self.bias
+        
+        # Apply non-linearity
+        return tf.math.cos(projection) * self.scale_factor
+
+class FastSelfAttention(tf.keras.layers.Layer):
+    """
+    FAVOR+ self-attention mechanism with O(L) complexity.
+    """
+    def __init__(self, num_heads, key_dim, feature_dim=256, kernel_scale=1.0, 
+                 dropout=0.0, use_relu=False, causal=False, **kwargs):
+        super().__init__(**kwargs)
+        self.num_heads = num_heads
+        self.key_dim = key_dim
+        self.feature_dim = feature_dim
+        self.kernel_scale = kernel_scale
+        self.dropout_rate = dropout
+        self.use_relu = use_relu
+        self.causal = causal
+        
+        # Total dimension for all heads
+        self.total_key_dim = num_heads * key_dim
+        
+        # Normalize attention optionally with ReLU
+        self.normalization_factor = 1.0 / math.sqrt(self.key_dim)
+        
+    def build(self, input_shape):
+        # Input projections
+        self.query_projection = tf.keras.layers.Dense(self.total_key_dim)
+        self.key_projection = tf.keras.layers.Dense(self.total_key_dim)
+        self.value_projection = tf.keras.layers.Dense(self.total_key_dim)
+        self.output_projection = tf.keras.layers.Dense(input_shape[-1])
+        
+        # Random Fourier Features for approximation
+        self.rff = RandomFourierFeatures(
+            output_dim=self.feature_dim,
+            scale=self.kernel_scale,
+            seed=42
+        )
+        
+        # Dropout
+        self.dropout = tf.keras.layers.Dropout(self.dropout_rate)
+        
+    def _split_heads(self, x):
+        """Split the channels into multiple heads."""
+        batch_size = tf.shape(x)[0]
+        x = tf.reshape(x, (batch_size, -1, self.num_heads, self.key_dim))
+        return tf.transpose(x, perm=[0, 2, 1, 3])  # [B, H, L, K]
     
-    return data_dash
+    def _merge_heads(self, x):
+        """Merge the heads back to original shape."""
+        batch_size = tf.shape(x)[0]
+        x = tf.transpose(x, perm=[0, 2, 1, 3])  # [B, L, H, K]
+        return tf.reshape(x, (batch_size, -1, self.total_key_dim))
+    
+    def _normalize_kernel(self, x):
+        """Apply normalization function (softmax or ReLU-based)."""
+        if self.use_relu:
+            # ReLU-based normalization
+            return tf.nn.relu(x) * self.normalization_factor
+        else:
+            # Exponential-based (softmax-like) normalization
+            return tf.exp(x * self.normalization_factor)
+    
+    def call(self, inputs, mask=None, training=None, bias=None):
+        batch_size = tf.shape(inputs)[0]
+        seq_length = tf.shape(inputs)[1]
+        
+        # Project inputs to query, key, value
+        q = self.query_projection(inputs)  # [B, L, H*K]
+        k = self.key_projection(inputs)    # [B, L, H*K]
+        v = self.value_projection(inputs)  # [B, L, H*K]
+        
+        # Split to multiple heads
+        q = self._split_heads(q)  # [B, H, L, K]
+        k = self._split_heads(k)  # [B, H, L, K]
+        v = self._split_heads(v)  # [B, H, L, K]
+        
+        # Apply random feature maps
+        q_prime = self.rff(q * self.normalization_factor)  # [B, H, L, F]
+        k_prime = self.rff(k * self.normalization_factor)  # [B, H, L, F]
+        
+        if self.causal:
+            # For causal masking, we need to do things a bit differently
+            output = tf.zeros_like(v)
+            cumulative_k = tf.zeros_like(k_prime[:, :, 0:1, :])
+            cumulative_kv = tf.zeros_like(v[:, :, 0:1, :])
+            
+            for i in range(seq_length):
+                # Get current position
+                q_i = q_prime[:, :, i:i+1, :]  # [B, H, 1, F]
+                k_i = k_prime[:, :, i:i+1, :]  # [B, H, 1, F]
+                v_i = v[:, :, i:i+1, :]        # [B, H, 1, K]
+                
+                # Update cumulative tensors
+                cumulative_k += k_i
+                cumulative_kv += k_i * v_i
+                
+                # Compute attention output for position i
+                output_i = cumulative_kv / (cumulative_k + 1e-6)
+                
+                # Write to output
+                indices = tf.constant([[i]])
+                output = tf.tensor_scatter_nd_update(output, indices, output_i)
+        else:
+            # Non-causal attention with linear complexity
+            kv = tf.einsum('bhsf,bhsk->bhfk', k_prime, v)  # [B, H, F, K]
+            
+            # Denominator for normalization
+            k_sum = tf.reduce_sum(k_prime, axis=2, keepdims=True)  # [B, H, 1, F]
+            
+            # Compute attention
+            output = tf.einsum('bhsf,bhfk->bhsk', q_prime, kv)  # [B, H, S, K]
+            
+            # Normalize
+            output = output / (tf.einsum('bhsf,bhf->bhs', q_prime, k_sum[:, :, 0, :]) + 1e-6)[:, :, :, None]
+        
+        # Merge heads back
+        output = self._merge_heads(output)  # [B, S, H*K]
+        
+        # Apply dropout
+        output = self.dropout(output, training=training)
+        
+        # Project back to input dimension
+        output = self.output_projection(output)  # [B, S, D]
+        
+        return output
 
 class Performer(layers.Layer):
     """
-    Performer Layer for efficient attention computation.
-    
-    This layer implements the Performer attention mechanism with random feature
-    approximation for more efficient computation (linear complexity in sequence length).
+    Performer attention layer as a drop-in replacement for MultiHeadAttention.
     """
-    
-    def __init__(self, num_heads, key_dim, dropout=0.0, 
-                 num_random_features=256, **kwargs):
-        """
-        Initialize the Performer layer.
-        
-        Args:
-            num_heads: Number of attention heads.
-            key_dim: Size of each attention head.
-            dropout: Dropout probability.
-            num_random_features: Number of random features to use for approximation.
-        """
-        super(Performer, self).__init__(**kwargs)
+    def __init__(self, num_heads, key_dim, feature_dim=256, dropout=0.0, 
+                 causal=False, use_relu=False, **kwargs):
+        super().__init__(**kwargs)
         self.num_heads = num_heads
         self.key_dim = key_dim
-        self.dropout_rate = dropout
-        self.num_random_features = num_random_features
+        self.feature_dim = feature_dim
+        self.dropout = dropout
+        self.causal = causal
+        self.use_relu = use_relu
         
-        # Calculate total embedding dimension
-        self.total_key_dim = num_heads * key_dim
-        
-        # Initialize the projection layers
-        self.query_dense = layers.Dense(self.total_key_dim)
-        self.key_dense = layers.Dense(self.total_key_dim)
-        self.value_dense = layers.Dense(self.total_key_dim)
-        
-        # This ensures output matches the input dimension
-        self.output_dense = layers.Dense(self.total_key_dim)
-        self.dropout = layers.Dropout(dropout)
-    
     def build(self, input_shape):
-        """Create the projection matrix for random features on build."""
-        # Initialize in float32 explicitly to avoid mixed precision issues
-        self.projection_matrix = self.add_weight(
-            name="projection_matrix", 
-            shape=[self.key_dim, self.num_random_features],
-            initializer=tf.keras.initializers.GlorotNormal(),
-            trainable=False,
-            dtype='float32'  # Explicitly set to float32 
+        self.attention = FastSelfAttention(
+            num_heads=self.num_heads,
+            key_dim=self.key_dim,
+            feature_dim=self.feature_dim,
+            dropout=self.dropout,
+            causal=self.causal,
+            use_relu=self.use_relu
         )
-        super(Performer, self).build(input_shape)
-    
-    def call(self, queries, keys, training=False, bias=None):
-        """
-        Apply Performer attention mechanism.
         
-        For Performer, queries and keys are typically the same tensor.
-        
-        Args:
-            queries: Query tensor of shape [batch_size, seq_len, dim].
-            keys: Key tensor (same as queries for self-attention).
-            training: Whether in training mode (for dropout).
-            bias: Optional bias tensor to add to the attention scores.
+    def call(self, inputs, context=None, training=None, bias=None):
+        # For compatibility with MultiHeadAttention interface
+        if context is not None:
+            inputs = context
             
-        Returns:
-            Output tensor after applying attention.
-        """
-        # We're implementing self-attention, so queries and keys are the same
-        x = queries  # Assuming self-attention
-        # Get the dtype from inputs for consistent casting
-        x_dtype = x.dtype
-        
-        # Get input dimensions
-        batch_size = tf.shape(x)[0]
-        seq_len = tf.shape(x)[1]
-        
-        # Apply dense layers
-        q = self.query_dense(x)  # [batch_size, seq_len, num_heads * key_dim]
-        k = self.key_dense(x)    # [batch_size, seq_len, num_heads * key_dim]
-        v = self.value_dense(x)  # [batch_size, seq_len, num_heads * key_dim]
-        
-        # Reshape for multi-head attention
-        q = tf.reshape(q, [batch_size, -1, self.num_heads, self.key_dim])
-        k = tf.reshape(k, [batch_size, -1, self.num_heads, self.key_dim])
-        v = tf.reshape(v, [batch_size, -1, self.num_heads, self.key_dim])
-        
-        # Transpose to [batch_size, num_heads, seq_len, key_dim]
-        q = tf.transpose(q, [0, 2, 1, 3])
-        k = tf.transpose(k, [0, 2, 1, 3])
-        v = tf.transpose(v, [0, 2, 1, 3])
-        
-        # Reshape to [batch_size * num_heads, seq_len, key_dim]
-        q_reshaped = tf.reshape(q, [-1, tf.shape(q)[2], self.key_dim])
-        k_reshaped = tf.reshape(k, [-1, tf.shape(k)[2], self.key_dim])
-        v_reshaped = tf.reshape(v, [-1, tf.shape(v)[2], self.key_dim])
-        
-        # Make sure all tensors have the same dtype
-        q_reshaped = tf.cast(q_reshaped, tf.float32)
-        k_reshaped = tf.cast(k_reshaped, tf.float32)
-        v_reshaped = tf.cast(v_reshaped, tf.float32)
-        
-        # Apply kernel feature maps
-        q_prime = softmax_kernel_transformation(
-            q_reshaped, True, self.projection_matrix)
-        k_prime = softmax_kernel_transformation(
-            k_reshaped, False, self.projection_matrix)
-        
-        # Compute attention using the efficient kernelized method
-        
-        # First compute KV - weighted sum of values
-        kv = tf.einsum('bnf,bnd->bfd', k_prime, v_reshaped)  # [batch*heads, num_features, key_dim]
-        
-        # Compute the weighted sum by multiplying with q_prime
-        qkv = tf.einsum('bnf,bfd->bnd', q_prime, kv)  # [batch*heads, seq_len, key_dim]
-        
-        # Normalize by sum of weights with epsilon for numerical stability
-        # Fix: Using tf.reduce_sum(k_prime, axis=1) to sum over the sequence dimension as per eq. 7 in Performer paper
-        epsilon = tf.cast(1e-6, q_prime.dtype)
-        k_sum = tf.reduce_sum(k_prime, axis=1)  # Sum over sequence dimension
-        normalization = tf.einsum('bnf,bf->bn', q_prime, k_sum) + epsilon
-        qkv = qkv / normalization[:, :, tf.newaxis]
-        
-        # Reshape output back to original format
-        output = tf.reshape(qkv, [batch_size, self.num_heads, -1, self.key_dim])
-        
-        # Apply the relative position bias if provided - do this before transposing back
-        if bias is not None:
-            # Skip applying the bias in kernelized attention, as it's not directly compatible
-            # Instead we'll include a small note that this is a simplified approximation
-            tf.print("Note: Using simplified relative position bias in kernelized attention", output_stream=sys.stderr)
-        
-        output = tf.transpose(output, [0, 2, 1, 3])  # [batch, seq_len, num_heads, key_dim]
-        output = tf.reshape(output, [batch_size, -1, self.total_key_dim])
-        
-        # Cast back to original dtype before final projection
-        output = tf.cast(output, x_dtype)
-        
-        # Final projection and dropout to match input dimensions
-        output = self.output_dense(output)
-        output = self.dropout(output, training=training)
-        
-        return output
-    
-    def get_config(self):
-        config = super(Performer, self).get_config()
-        config.update({
-            "num_heads": self.num_heads,
-            "key_dim": self.key_dim,
-            "dropout": self.dropout_rate,
-            "num_random_features": self.num_random_features,
-        })
-        return config 
+        return self.attention(inputs, training=training, bias=bias) 
