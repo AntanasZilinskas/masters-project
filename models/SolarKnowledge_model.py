@@ -285,14 +285,34 @@ class SolarKnowledge:
 
         # Use focal loss for rare event prediction if specified
         if use_focal_loss:
-            # Focal loss helps focus more on hard examples (rare flares)
-            focal_loss = tfa.losses.SigmoidFocalCrossEntropy(
-                alpha=0.25,  # Up-weight the minority class
-                gamma=2.0,  # Focus on hard examples
-                from_logits=False,
-            )
-            loss = focal_loss
-            print("Using Focal Loss for rare event awareness")
+            # Use CategoricalFocalLoss which is compatible with softmax outputs and one-hot encoded labels
+            # Implementing focal loss manually for categorical crossentropy
+            def categorical_focal_loss(y_true, y_pred, gamma=2.0, alpha=0.25):
+                """
+                Focal loss for multi-class classification with one-hot encoded labels
+                """
+                # Standard categorical crossentropy
+                cross_entropy = tf.keras.losses.categorical_crossentropy(y_true, y_pred)
+                
+                # Get the predicted probability for the correct class
+                y_pred_softmax = tf.nn.softmax(y_pred, axis=-1)
+                p_t = tf.reduce_sum(y_true * y_pred_softmax, axis=-1)
+                
+                # Apply the focal term
+                focal_term = tf.pow(1 - p_t, gamma)
+                
+                # Apply class weights if using alpha
+                if alpha > 0:
+                    alpha_factor = y_true * alpha + (1 - y_true) * (1 - alpha)
+                    alpha_weight = tf.reduce_sum(alpha_factor, axis=-1)
+                    focal_loss = alpha_weight * focal_term * cross_entropy
+                else:
+                    focal_loss = focal_term * cross_entropy
+                
+                return focal_loss
+            
+            loss = categorical_focal_loss
+            print("Using Categorical Focal Loss for rare event awareness")
 
         # Add TSS to metrics
         if "tss" not in metrics and tss_metric not in metrics:

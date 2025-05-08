@@ -1,0 +1,45 @@
+{
+  "version": "1.2",
+  "timestamp": "2025-04-18T15:43:41.811549",
+  "description": "Retraining the best performing model using mixed precision",
+  "flare_class": "M5",
+  "time_window": "48",
+  "hyperparameters": {
+    "learning_rate": 0.0001,
+    "batch_size": 512,
+    "early_stopping_patience": 5,
+    "epochs": 200,
+    "num_transformer_blocks": 6,
+    "embed_dim": 128,
+    "num_heads": 4,
+    "ff_dim": 256,
+    "dropout_rate": 0.2,
+    "previous_version": "1.1"
+  },
+  "performance": {
+    "final_training_accuracy": 0.9963615536689758,
+    "final_training_loss": 0.041751302778720856,
+    "epochs_trained": 44
+  },
+  "git_info": {
+    "commit": "365e7dd00cfc559533d8e855b59b95138532eb9a",
+    "branch": "main"
+  },
+  "architecture": {
+    "name": "SolarKnowledge",
+    "input_shape": [
+      10,
+      9
+    ],
+    "num_params": 2000002,
+    "precision": "<DTypePolicy \"float32\">"
+  },
+  "test_results": {
+    "accuracy": 0.9970268542199489,
+    "precision": 0.3576388888888889,
+    "recall": 0.9903846153846154,
+    "f1_score": 0.5255102040816326,
+    "balanced_accuracy": 0.9937112650382793,
+    "TSS": 0.9874225300765587
+  }
+}
