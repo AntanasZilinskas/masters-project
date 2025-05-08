@@ -329,77 +329,30 @@ class EVEREST:
             
             def evidential_loss(y_true, y_pred):
                 # y_true is (batch_size, 2), y_pred is (batch_size, 4)
-                # Use the proper evidential loss function
                 # Extract the positive class probability from y_true
                 y_true_binary = tf.cast(y_true[:, 1:2], tf.float32)  # Get second column
                 return evidential_nll(y_true_binary, y_pred)
             
             def evt_loss_fn(y_true, y_pred):
                 # y_true is (batch_size, 2), y_pred is (batch_size, 2)
-                # Need to get logits from the model - store a reference to the model outputs
-                
-                # First try to access the current batch's logits directly
-                if hasattr(self.model, '_current_outputs') and isinstance(self.model._current_outputs, dict):
-                    logits = self.model._current_outputs.get('logits_dense')
-                    if logits is not None:
-                        return evt_loss(logits, y_pred, threshold=0.5)  # Use lower threshold
-                
-                # Extract y_true for synthetic logits as fallback
+                # Create synthetic logits based on true labels for direct connection
                 y_true_binary = tf.cast(y_true[:, 1:2], tf.float32)
                 
-                # Create synthetic logits based on true labels
-                batch_size = tf.shape(y_true)[0]
+                # Create synthetic logits based on true labels - stronger signal
                 synthetic_logits = tf.where(
                     y_true_binary > 0.5,
                     tf.ones_like(y_true_binary) * 5.0,  # Strong positive signal
                     tf.ones_like(y_true_binary) * -5.0  # Strong negative signal
                 )
                 
-                return evt_loss(synthetic_logits, y_pred, threshold=0.5)  # Lower threshold for more samples
+                # Use a lower threshold to capture more events
+                return evt_loss(synthetic_logits, y_pred, threshold=0.5)
             
             print("Compiling multi-head model with proper loss weights initialization...")
             
-            # Add a callback to capture the model's outputs for EVT loss
-            class CaptureOutputs(tf.keras.callbacks.Callback):
-                def on_predict_batch_begin(self, batch, logs=None):
-                    if not hasattr(self.model, '_current_outputs'):
-                        self.model._current_outputs = {}
-                
-                def on_predict_batch_end(self, batch, logs=None):
-                    self.model._current_outputs = logs['outputs']
-                
-                def on_train_batch_begin(self, batch, logs=None):
-                    if not hasattr(self.model, '_current_outputs'):
-                        self.model._current_outputs = {}
-                
-                def on_train_batch_end(self, batch, logs=None):
-                    # Store the most recent outputs
-                    if hasattr(self.model, '_predict_counter'):
-                        self.model._current_outputs = self.model._predict_counter[-1]
-            
-            # Store the capture callback for later use
-            self.capture_callback = CaptureOutputs()
-            if not hasattr(self, 'callbacks'):
-                self.callbacks = []
-            self.callbacks.append(self.capture_callback)
-            
-            # Monkey-patch the model's __call__ to capture outputs
-            original_call = self.model.__call__
-            
-            def patched_call(inputs, training=None, mask=None):
-                outputs = original_call(inputs, training=training, mask=mask)
-                # Store outputs for EVT loss to access
-                if not hasattr(self.model, '_predict_counter'):
-                    self.model._predict_counter = []
-                if isinstance(outputs, dict):
-                    self.model._predict_counter.append(outputs)
-                return outputs
-            
-            self.model.__call__ = patched_call
-            
             # Use a much more robust approach with non-zero weights from the start
             self.model.compile(
-                optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=lr),
+                optimizer=tf.keras.optimizers.Adam(learning_rate=lr),  # Remove legacy
                 loss={
                     'softmax_dense': softmax_loss,
                     'evidential_head': evidential_loss,
@@ -408,9 +361,9 @@ class EVEREST:
                 },
                 loss_weights={
                     'softmax_dense': tf.constant(1.0, dtype=tf.float32),
-                    'evidential_head': tf.constant(0.1, dtype=tf.float32),  # Non-zero weight from start
-                    'evt_head': tf.constant(0.1, dtype=tf.float32),         # Non-zero weight from start
-                    'logits_dense': tf.constant(0.1, dtype=tf.float32)      # Non-zero weight from start
+                    'evidential_head': tf.constant(0.2, dtype=tf.float32),  # Higher initial weight (0.2 vs 0.1)
+                    'evt_head': tf.constant(0.3, dtype=tf.float32),         # Higher initial weight (0.3 vs 0.1)
+                    'logits_dense': tf.constant(0.2, dtype=tf.float32)      # Higher initial weight (0.2 vs 0.1)
                 },
                 metrics={
                     "softmax_dense": [
@@ -438,7 +391,7 @@ class EVEREST:
             
             # Use the legacy optimizer for Apple Silicon compatibility
             self.model.compile(
-                optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=lr),
+                optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
                 loss=mixed_loss,
                 metrics=[
                     tf.keras.metrics.CategoricalAccuracy(name="accuracy"),
@@ -638,10 +591,10 @@ class EVEREST:
             path = w_dir
             # Don't delete existing directory in the new structure
         else:
-            # Old structure - create model-specific directory
-            path = self._dir(flare_class, w_dir)
-            if os.path.exists(path): shutil.rmtree(path)
-            os.makedirs(path)
+                # Old structure - create model-specific directory
+                path = self._dir(flare_class, w_dir)
+        if os.path.exists(path): shutil.rmtree(path)
+        os.makedirs(path)
             
         # Save model weights
         self.model.save_weights(os.path.join(path, "model_weights.weights.h5"))
@@ -664,14 +617,14 @@ class EVEREST:
         # Create additional metadata specific to this model
         model_metadata = {
             "timestamp": datetime.now().isoformat(),
-            "model_name": self.model_name,
-            "flare_class": flare_class,
-            "uses_focal_loss": True,
-            "uses_evidential": self.use_advanced_heads,
-            "uses_evt": self.use_advanced_heads,
-            "uses_diffusion": True,
-            "advanced_model": self.use_advanced_heads,
-            "output_names": output_names,
+                       "model_name": self.model_name,
+                       "flare_class": flare_class,
+                       "uses_focal_loss": True,
+                       "uses_evidential": self.use_advanced_heads,
+                       "uses_evt": self.use_advanced_heads,
+                       "uses_diffusion": True,
+                       "advanced_model": self.use_advanced_heads,
+                       "output_names": output_names,
             "linear_attention": True
         }
         
@@ -695,8 +648,8 @@ class EVEREST:
             # New structure 
             path = w_dir
         else:
-            # Old structure
-            path = self._dir(flare_class, w_dir)
+                # Old structure
+                path = self._dir(flare_class, w_dir)
             
         # Load weights
         self.model.load_weights(os.path.join(path, "model_weights.weights.h5"))

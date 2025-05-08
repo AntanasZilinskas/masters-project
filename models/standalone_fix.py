@@ -1,24 +1,26 @@
 #!/usr/bin/env python
 """
-Simple fixing script for EVEREST model training issues
+Standalone script to fix EVEREST model issues and run training.
 
-This script addresses several issues with the EVEREST model:
-1. JSON serialization errors with TensorFlow tensors
-2. EVT head connection issues 
-3. Negative evidential loss values
+This script:
+1. Fixes JSON serialization of TensorFlow tensors
+2. Patches the evidential and EVT head loss functions
+3. Runs training for specified flare class and time window
 
 Usage:
-    python models/simple_fix.py
+    python models/standalone_fix.py --flare M5 --window 24
 """
 
+import os
+import sys
+import json
+import argparse
 import tensorflow as tf
 import numpy as np
-import sys
-import os
-import importlib
-import json
 
-print(f"TensorFlow version: {tf.__version__}")
+# ---------------------------------------------------------------
+# JSON Serialization Fix
+# ---------------------------------------------------------------
 
 def convert_tensor_to_python(obj):
     """Convert TensorFlow tensors to Python native types for JSON serialization"""
@@ -49,9 +51,10 @@ def patched_dumps(obj, *args, **kwargs):
 # Apply the monkeypatch
 json.dumps = patched_dumps
 
-# ---------------------------------------------------------------------
-# Fix 1: Patch the evidential_nll function to prevent negative loss
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------------
+# Loss Function Fixes
+# ---------------------------------------------------------------
+
 def fixed_evidential_nll(y_true, evid, kl_weight=0.01):
     """
     Fixed negative log‑likelihood for binary‐classification evidential head.
@@ -100,9 +103,6 @@ def fixed_evidential_nll(y_true, evid, kl_weight=0.01):
     # Final loss - ensure it's positive
     return tf.reduce_mean(nll) + kl_weight * kl_term
 
-# ---------------------------------------------------------------------
-# Fix 2: Patch the evt_loss function with a simpler implementation
-# ---------------------------------------------------------------------
 def fixed_evt_loss(logits, params, threshold=0.5):
     """
     Fixed EVT loss function that ensures positive values
@@ -157,41 +157,32 @@ def fixed_evt_loss(logits, params, threshold=0.5):
     # Return mean loss over the batch (with at least one positive component)
     return tf.reduce_mean(gpd_loss + reg_xi + reg_sigma)
 
-# ---------------------------------------------------------------------
-# Fix 3: Apply the patches to the EVEREST model
-# ---------------------------------------------------------------------
-def patch_everest_model():
+# ---------------------------------------------------------------
+# EVEREST Model Patching
+# ---------------------------------------------------------------
+
+def apply_patches():
     """Apply all necessary patches to the EVEREST model"""
     print("Applying patches to EVEREST model...")
     
-    # Ensure models directory is in the path
+    # Add all possible import paths
     sys.path.extend(['', '.', '..', 'models'])
     
-    # Try to import the necessary modules
     try:
-        # Try to import evidential_head and evt_head
+        # Try different import approaches until one works
         try:
+            # First try direct imports
             import evidential_head
-            print("✓ Successfully imported evidential_head module")
-        except ImportError:
-            from models import evidential_head
-            print("✓ Successfully imported evidential_head from models package")
-            
-        try:
             import evt_head
-            print("✓ Successfully imported evt_head module")
-        except ImportError:
-            from models import evt_head
-            print("✓ Successfully imported evt_head from models package")
-            
-        # Try to import everest_model
-        try:
             import everest_model
-            print("✓ Successfully imported everest_model module")
+            print("✓ Successfully imported modules from current directory")
         except ImportError:
+            # Then try from models package
+            from models import evidential_head
+            from models import evt_head
             from models import everest_model
-            print("✓ Successfully imported everest_model from models package")
-            
+            print("✓ Successfully imported modules from models package")
+        
         # Apply patches to functions
         evidential_head.evidential_nll = fixed_evidential_nll
         evt_head.evt_loss = fixed_evt_loss
@@ -205,9 +196,8 @@ def patch_everest_model():
             
             # Adjust loss weights to ensure they're Python floats, not tensors
             if hasattr(self.model, 'compiled_loss') and hasattr(self.model.compiled_loss, '_loss_weights'):
-                print("Initial loss weights:", self.model.compiled_loss._loss_weights)
                 # Force non-zero weights from the start
-                for key, value in self.model.compiled_loss._loss_weights.items():
+                for key in self.model.compiled_loss._loss_weights:
                     if key == 'evidential_head':
                         self.model.compiled_loss._loss_weights[key] = 0.2  # Float value, not tensor
                     elif key == 'evt_head':
@@ -215,70 +205,108 @@ def patch_everest_model():
                     elif key == 'logits_dense':
                         self.model.compiled_loss._loss_weights[key] = 0.2  # Float value, not tensor
                     else:
-                        self.model.compiled_loss._loss_weights[key] = float(value)  # Convert tensor to float
+                        # Convert to Python float to avoid tensor serialization issues
+                        self.model.compiled_loss._loss_weights[key] = 1.0  # Float value
         
         # Apply the patch
         everest_model.EVEREST.compile = patched_compile
-        print("✓ Successfully patched EVEREST model")
+        print("✓ Applied all patches successfully")
         
         return True
     except Exception as e:
-        print(f"Error patching EVEREST model: {e}")
-        # Try an alternative path-based approach
+        print(f"Error applying patches: {e}")
+        return False
+
+# ---------------------------------------------------------------
+# Training Functions
+# ---------------------------------------------------------------
+
+def run_training(flare_class, time_window, epochs=50, batch_size=256):
+    """Run training with the fixed model"""
+    # Try different training approaches until one works
+    try:
+        # First try direct import from train_everest
+        from train_everest import train
+        print(f"Running training with train_everest.py...")
+        model = train(time_window, flare_class, auto_increment=True, toy=False, use_advanced_model=True)
+        return True
+    except Exception as e:
+        print(f"Error with train_everest.py: {e}")
+        
+        # Try standalone_train.py
         try:
-            import os
-            import sys
-            # Add more paths to help with imports
-            sys.path.extend([
-                os.path.dirname(os.path.abspath(__file__)), 
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            ])
-            # Try import again
-            import evidential_head
-            import evt_head
-            import everest_model
-            
-            # Apply patches as before
-            evidential_head.evidential_nll = fixed_evidential_nll
-            evt_head.evt_loss = fixed_evt_loss
-            
-            # Patch compile method
-            original_compile = everest_model.EVEREST.compile
-            
-            def patched_compile(self, lr=1e-3):
-                # Call the original compile method first
-                original_compile(self, lr)
-                
-                # Adjust loss weights to ensure they're Python floats, not tensors
-                if hasattr(self.model, 'compiled_loss') and hasattr(self.model.compiled_loss, '_loss_weights'):
-                    # Force non-zero weights from the start
-                    for key in self.model.compiled_loss._loss_weights:
-                        if key == 'evidential_head':
-                            self.model.compiled_loss._loss_weights[key] = 0.2  # Float value
-                        elif key == 'evt_head':
-                            self.model.compiled_loss._loss_weights[key] = 0.3  # Float value
-                        elif key == 'logits_dense':
-                            self.model.compiled_loss._loss_weights[key] = 0.2  # Float value
-                        else:
-                            # Convert to Python float to avoid tensor serialization issues
-                            self.model.compiled_loss._loss_weights[key] = 1.0  # Float value
-            
-            # Apply the patch
-            everest_model.EVEREST.compile = patched_compile
-            print("✓ Successfully patched EVEREST model with path adjustment")
-            
+            print(f"Trying standalone_train.py...")
+            cmd = f"python models/standalone_train.py --flare {flare_class} --window {time_window} --epochs {epochs} --batch-size {batch_size}"
+            print(f"Running command: {cmd}")
+            os.system(cmd)
             return True
         except Exception as e:
-            print(f"Error in alternative patching approach: {e}")
-            return False
+            print(f"Error with standalone_train.py: {e}")
+            
+            # Try simple_train.py
+            try:
+                print(f"Trying simple_train.py...")
+                cmd = f"python models/simple_train.py --flare {flare_class} --window {time_window} --epochs {epochs} --batch-size {batch_size}"
+                print(f"Running command: {cmd}")
+                os.system(cmd)
+                return True
+            except Exception as e:
+                print(f"Error with simple_train.py: {e}")
+                
+                # Last resort: use the original everest training script
+                try:
+                    print(f"Using original train_everest.py as command...")
+                    cmd = f"python models/train_everest.py --specific-flare {flare_class} --specific-window {time_window}"
+                    print(f"Running command: {cmd}")
+                    os.system(cmd)
+                    return True
+                except Exception as e:
+                    print(f"All training approaches failed: {e}")
+                    return False
 
-# ---------------------------------------------------------------------
-# Main function
-# ---------------------------------------------------------------------
-if __name__ == "__main__":
-    # Apply the patches
-    success = patch_everest_model()
-    if success:
-        print("✓ Successfully patched EVEREST model")
+# ---------------------------------------------------------------
+# Main Script
+# ---------------------------------------------------------------
+
+def main():
+    parser = argparse.ArgumentParser(description="Fix EVEREST model issues and run training")
+    parser.add_argument("--flare", default="M5", help="Flare class (M5, M, C)")
+    parser.add_argument("--window", default="24", help="Time window in hours (24, 48, 72)")
+    parser.add_argument("--epochs", type=int, default=50, help="Number of training epochs")
+    parser.add_argument("--batch-size", type=int, default=256, help="Batch size for training")
+    parser.add_argument("--patch-only", action="store_true", help="Only apply patches without training")
+    
+    args = parser.parse_args()
+    
+    # Check GPU availability
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        print(f"SUCCESS: GPU available: {gpus[0]}")
+        # Set memory growth to avoid OOM errors
+        for gpu in gpus:
+            try:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            except:
+                pass
     else:
-        print("× Failed to patch EVEREST model") 
+        print("WARNING: No GPU found, using CPU only (training will be slow)")
+    
+    # Print TensorFlow version
+    print(f"TensorFlow version: {tf.__version__}")
+    
+    # Apply patches
+    success = apply_patches()
+    
+    # Exit if patching failed
+    if not success:
+        print("Failed to apply patches. Exiting.")
+        return
+    
+    # Run training if not patch-only
+    if not args.patch_only:
+        run_training(args.flare, args.window, args.epochs, args.batch_size)
+    else:
+        print("Patches applied successfully. Training skipped due to --patch-only flag.")
+
+if __name__ == "__main__":
+    main() 

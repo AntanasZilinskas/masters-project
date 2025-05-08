@@ -99,7 +99,7 @@ class HeadWeightScheduler(tf.keras.callbacks.Callback):
                             if not tf.math.is_finite(self.loss_weights[output_name]):
                                 print(f"⚠️ Non-finite weight detected for {output_name}. Resetting.")
                                 self.loss_weights[output_name] = tf.constant(0.0, dtype=tf.float32)
-                                
+                            
                             # Set the weight in the weight dictionary
                             self.loss_weights[output_name] = new_weight
                             
@@ -196,7 +196,7 @@ class HeadWeightScheduler(tf.keras.callbacks.Callback):
             if evt_loss is None:
                 print("× No evt_loss function available")
                 return False
-                
+            
             # Define an improved EVT loss function that uses actual logits from the model
             def updated_evt_loss(y_true, evt_params):
                 # Print when this loss function is called
@@ -308,7 +308,7 @@ class HeadWeightScheduler(tf.keras.callbacks.Callback):
                             print(f"EVT patch called {self.counter} times")
                     else:
                         self.counter = 1
-                        
+                    
                     # Add EVT loss only if available
                     if isinstance(y_pred, dict) and 'evt_head' in y_pred and 'logits_dense' in y_pred:
                         evt_result = evt_loss(y_pred['logits_dense'], y_pred['evt_head'], threshold=2.0)
@@ -635,15 +635,15 @@ def train(time_window, flare_class, auto_increment=True, toy=False, use_advanced
                 print("Using advanced model WITHOUT class weights...")
                 
                 # Last attempt: Just run without any class weights
-                hist = model.fit(
-                    X_train, 
+            hist = model.fit(
+                X_train, 
                     y_train_dict,
                     validation_data=(X_val, y_val_dict),
                     epochs=200,
-                    batch_size=512,
-                    verbose=2,
+                batch_size=512,
+                verbose=2,
                     callbacks=model.callbacks
-                )
+            )
     else:
         # Standard model training - ensure float32 type
         X_train = np.asarray(X_train, dtype=np.float32)
