@@ -1,14 +1,16 @@
 """
  author: Antanas Zilinskas
 
+
  This script runs all training processes for flare class: C, M, M5 and time window: 24, 48, 72
- using the transformer-based SolarKnowledge model.
+ using the transformer-based SolarKnowledge model in PyTorch.
  Extended callbacks are added (EarlyStopping, ReduceLROnPlateau) to help the model converge further.
 
  Improvements:
  - Uses focal loss to handle class imbalance
  - Applies class weights based on flare class rarity
  - Enables Monte Carlo dropout for better uncertainty estimation
+ - Uses TensorFlow-compatible weight initialization for better convergence
 """
 
 import argparse
@@ -16,14 +18,14 @@ import os
 import warnings
 
 import numpy as np
-import tensorflow as tf
+import torch
 from model_tracking import (
     compare_models,
     get_latest_version,
     get_next_version,
     save_model_with_metadata,
 )
-from SolarKnowledge_model import SolarKnowledge
+from SolarKnowledge_model_pytorch import SolarKnowledge
 
 from utils import data_transform, get_training_data, log, supported_flare_class
 
@@ -67,9 +69,7 @@ def train(
     X_train, y_train = get_training_data(time_window, flare_class)
     y_train_tr = data_transform(y_train)
 
-    epochs = (
-        100  # extend the number of epochs to let the model converge further
-    )
+    epochs = 100  # extend the number of epochs to let the model converge further
     input_shape = (X_train.shape[1], X_train.shape[2])
 
     # Calculate class weights based on class distribution
@@ -105,7 +105,7 @@ def train(
     log(f"Class distribution: {class_counts}", verbose=True)
     log(f"Using class weights: {class_weight}", verbose=True)
 
-    # Create an instance of the SolarKnowledge transformer-based model.
+    # Create an instance of the SolarKnowledge transformer-based model
     # increased patience to allow more epochs before stopping
     model = SolarKnowledge(early_stopping_patience=5)
     model.build_base_model(input_shape)  # Build the model
@@ -113,14 +113,15 @@ def train(
     # Compile model with focal loss for better handling of imbalanced data
     model.compile(use_focal_loss=True)
 
-    # Add an additional ReduceLROnPlateau callback to lower the learning rate
-    # when training plateaus.
-    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
-        monitor="loss", factor=0.5, patience=3, verbose=1, min_lr=1e-6
+    # Set up learning rate scheduler - PyTorch equivalent of ReduceLROnPlateau
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        model.optimizer, 
+        mode='min', 
+        factor=0.5, 
+        patience=3, 
+        verbose=True, 
+        min_lr=1e-6
     )
-
-    # Combine existing callbacks with the learning rate scheduler
-    callbacks = model.callbacks + [reduce_lr]
 
     # Train the model and store the history
     log(
@@ -128,26 +129,31 @@ def train(
         verbose=True,
     )
 
-    history = model.model.fit(
+    # Custom fit method to use scheduler
+    def scheduler_step(loss):
+        scheduler.step(loss)
+
+    # Train the model, using the learning rate scheduler
+    history = model.fit(
         X_train,
         y_train_tr,
         epochs=epochs,
         verbose=2,
         batch_size=512,
-        callbacks=callbacks,
         class_weight=class_weight,
+        callbacks={'lr_scheduler': scheduler_step}  # Pass scheduler as callback
     )
 
     # Get performance metrics from training history
     metrics = {}
-    if history.history and "accuracy" in history.history:
-        metrics["final_training_accuracy"] = history.history["accuracy"][-1]
-        metrics["final_training_loss"] = history.history["loss"][-1]
-        metrics["epochs_trained"] = len(history.history["accuracy"])
+    if history and 'accuracy' in history:
+        metrics["final_training_accuracy"] = history['accuracy'][-1]
+        metrics["final_training_loss"] = history['loss'][-1]
+        metrics["epochs_trained"] = len(history['accuracy'])
 
         # Add TSS if available
-        if "tss" in history.history:
-            metrics["final_training_tss"] = history.history["tss"][-1]
+        if 'tss' in history and history['tss'] is not None:
+            metrics["final_training_tss"] = history['tss'][-1]
 
     # Create hyperparameters dictionary
     hyperparams = {
@@ -164,6 +170,11 @@ def train(
         "focal_loss_alpha": 0.25,
         "focal_loss_gamma": 2.0,
         "class_weights": class_weight,
+        "framework": "pytorch",
+        "weight_initialization": "tf_compatible",  # Using TensorFlow-compatible initialization
+        "gradient_clipping": True,
+        "max_grad_norm": 1.0,
+        "input_shape": input_shape,  # Add input shape for model metadata
     }
 
     # Include information about previous version in metadata if it exists
@@ -281,4 +292,4 @@ if __name__ == "__main__":
             flare_classes,
             [str(tw) for tw in time_windows],
         )
-        print(comparison)
+        print(comparison) 

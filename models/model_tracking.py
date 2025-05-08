@@ -15,6 +15,9 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import classification_report, confusion_matrix
+import glob
+import pandas as pd
+import torch
 
 
 def create_model_dir(version, flare_class, time_window):
@@ -72,19 +75,40 @@ def save_model_with_metadata(
     # Create model directory
     model_dir = create_model_dir(version, flare_class, time_window)
 
+    # Detect if it's a PyTorch or TensorFlow model
+    is_pytorch_model = hasattr(model, 'pytorch_model') or isinstance(model.model, torch.nn.Module)
+    
     # Save model weights
-    weights_path = os.path.join(model_dir, "model_weights.weights.h5")
-    model.model.save_weights(weights_path)
-
-    # Extract architecture details
-    architecture = {
-        "name": "SolarKnowledge",
-        "input_shape": model.model.input_shape[1:],
-        "num_params": model.model.count_params(),
-        "precision": str(model.model.dtype_policy)
-        if hasattr(model.model, "dtype_policy")
-        else "float32",
-    }
+    if is_pytorch_model:
+        weights_path = os.path.join(model_dir, "model_weights.pt")
+        if hasattr(model, 'save_weights'):
+            # Use the model's save_weights method if available
+            model.save_weights(flare_class=flare_class, w_dir=model_dir)
+        else:
+            # Fallback to direct PyTorch save
+            torch.save(model.model.state_dict(), weights_path)
+            
+        # Extract architecture details for PyTorch model
+        architecture = {
+            "name": "SolarKnowledge (PyTorch)",
+            "input_shape": hyperparams.get("input_shape", "unknown"),
+            "num_params": sum(p.numel() for p in model.model.parameters()),
+            "precision": str(next(model.model.parameters()).dtype),
+        }
+    else:
+        # Original TensorFlow saving logic
+        weights_path = os.path.join(model_dir, "model_weights.weights.h5")
+        model.model.save_weights(weights_path)
+        
+        # Extract architecture details for TensorFlow model
+        architecture = {
+            "name": "SolarKnowledge",
+            "input_shape": model.model.input_shape[1:],
+            "num_params": model.model.count_params(),
+            "precision": str(model.model.dtype_policy)
+            if hasattr(model.model, "dtype_policy")
+            else "float32",
+        }
 
     # Create metadata
     metadata = {
@@ -98,6 +122,7 @@ def save_model_with_metadata(
         "performance": metrics,
         "git_info": get_git_info(),
         "architecture": architecture,
+        "framework": "PyTorch" if is_pytorch_model else "TensorFlow",
     }
 
     # Save metadata
@@ -105,8 +130,13 @@ def save_model_with_metadata(
         json.dump(metadata, f, indent=2)
 
     # Save training history
-    if history and hasattr(history, "history"):
-        save_training_history(history.history, model_dir)
+    if history:
+        if is_pytorch_model:
+            # Save PyTorch history format (which might be a dict already)
+            save_training_history(history, model_dir)
+        elif hasattr(history, "history"):
+            # Save TensorFlow history format
+            save_training_history(history.history, model_dir)
 
     # Generate model card
     generate_model_card(metadata, metrics, model_dir)
@@ -396,113 +426,44 @@ def compare_models(versions, flare_classes, time_windows):
     return table
 
 
-def get_next_version(flare_class, time_window):
-    """
-    Determine the next available version number for a specific flare class and time window.
-
-    Args:
-        flare_class: Flare class (C, M, or M5)
-        time_window: Time window (24, 48, or 72)
-
-    Returns:
-        Next available version number as a string (e.g., "1.0")
-    """
-    try:
-        # Find all model directories matching the pattern
-        pattern = f"SolarKnowledge-v*-{flare_class}-{time_window}h"
-        matching_dirs = []
-
-        # Look through the models directory
-        for d in os.listdir("models"):
-            # Skip if not a directory
-            if not os.path.isdir(os.path.join("models", d)):
-                continue
-
-            # Check if the directory matches our pattern
-            if d.startswith("SolarKnowledge-v") and d.endswith(
-                f"-{flare_class}-{time_window}h"
-            ):
-                matching_dirs.append(d)
-
-        if not matching_dirs:
-            return "1.0"  # First version
-
-        # Extract version numbers from directory names
-        versions = []
-        for d in matching_dirs:
-            parts = d.split("-")
-            if len(parts) >= 2:
-                v = parts[1][1:]  # Remove 'v' prefix
-                try:
-                    # Parse version numbers
-                    if "." in v:
-                        major, minor = v.split(".")
-                        versions.append((int(major), int(minor)))
-                    else:
-                        versions.append((int(v), 0))
-                except ValueError:
-                    continue
-
-        if not versions:
-            return "1.0"  # Default if can't parse any versions
-
-        # Find the highest version
-        versions.sort(reverse=True)
-        highest_major, highest_minor = versions[0]
-
-        # Increment the minor version
-        new_minor = highest_minor + 1
-
-        # If minor version gets too high, increment major version
-        if new_minor >= 10:
-            return f"{highest_major + 1}.0"
-        else:
-            return f"{highest_major}.{new_minor}"
-    except Exception as e:
-        print(f"Error determining next version: {e}")
-        return "1.0"  # Default to 1.0 if anything goes wrong
-
-
 def get_latest_version(flare_class, time_window):
-    """
-    Get the latest available version for a specific flare class and time window.
-
-    Args:
-        flare_class: Flare class (C, M, or M5)
-        time_window: Time window (24, 48, or 72)
-
-    Returns:
-        Latest version number as a string (e.g., "1.0") or None if no models exist
-    """
-    next_version = get_next_version(flare_class, time_window)
-    if next_version == "1.0":
+    """Get latest version for a specific flare class and time window"""
+    pattern = f"SolarKnowledge-v*-{flare_class}-{time_window}h"
+    # Check for models directory
+    base_dir = "models"
+    if not os.path.exists(base_dir):
+        os.makedirs(base_dir)
+    # Pattern for model directories
+    if os.path.exists(os.path.join(base_dir, "models")):
+        base_dir = os.path.join(base_dir, "models")
+    pattern = os.path.join(base_dir, pattern)
+    # Find all directories matching the pattern
+    dirs = glob.glob(pattern)
+    if not dirs:
         return None
+    versions = []
+    for dir_path in dirs:
+        dir_name = os.path.basename(dir_path)
+        parts = dir_name.split("-")
+        if len(parts) >= 2 and parts[1].startswith("v"):
+            try:
+                version_str = parts[1][1:]  # Remove the 'v' prefix
+                version_num = float(version_str)
+                versions.append(version_num)
+            except ValueError:
+                continue
+    if not versions:
+        return None
+    # Return the highest version
+    return max(versions)
 
-    # Parse the next version to find the previous one
-    if "." in next_version:
-        major, minor = next_version.split(".")
-        minor = int(minor)
 
-        if minor > 0:
-            return f"{major}.{minor - 1}"
-        else:
-            # Check if previous major version exists
-            major = int(major)
-            if major > 1:
-                # Try to find the highest minor version of the previous major
-                # version
-                prev_major = str(major - 1)
-                for i in range(9, -1, -1):  # Check from 9 down to 0
-                    version = f"{prev_major}.{i}"
-                    if os.path.exists(
-                        f"models/SolarKnowledge-v{version}-{flare_class}-{time_window}h"
-                    ):
-                        return version
-
-                # If no minor version found, default to .0
-                return f"{prev_major}.0"
-
-    return "1.0"
+def get_next_version(flare_class, time_window):
+    """Get the next version number for a specific flare class and time window"""
+    latest_version = get_latest_version(flare_class, time_window)
+    if latest_version is None:
+        return 1.0
+    return latest_version + 0.1
 
 
 if __name__ == "__main__":
