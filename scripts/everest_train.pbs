@@ -1,0 +1,83 @@
+#!/bin/bash
+#PBS -l select=1:ncpus=8:mem=32gb:ngpus=1:gpu_type=RTX6000
+#PBS -l walltime=12:00:00
+#PBS -N everest_train
+#PBS -o ${PBS_O_WORKDIR}/logs/${PBS_JOBID}.out
+#PBS -e ${PBS_O_WORKDIR}/logs/${PBS_JOBID}.err
+#PBS -P hpc-rshorten
+set -euo pipefail
+
+# Get flare class and time window from environment variables or set defaults
+FLARE_CLASS=${FLARE_CLASS:-"M5"}
+TIME_WINDOW=${TIME_WINDOW:-"24"}
+
+# 1. Software -----------------------------------------------------------------
+module purge
+module load miniforge/3
+eval "$(~/miniforge3/bin/conda shell.bash hook)"
+conda activate everest_env
+
+# Debug commands to check environment
+echo "DEBUG: Python version and location"
+which python
+python --version
+echo "DEBUG: Checking for TensorFlow"
+python -c "import sys; print(sys.path)"
+python -c "import tensorflow as tf; print(f'TensorFlow version: {tf.__version__}')" || echo "TensorFlow import failed"
+echo "DEBUG: Conda environment packages"
+conda list | grep tensorflow
+
+# 2. Stage data to node-local SSD --------------------------------------------
+echo "Staging data to $TMPDIR ..."
+mkdir -p $TMPDIR/data $TMPDIR/Nature_data
+cp -r $HOME/projects/everest/data/* $TMPDIR/data/
+cp -r $HOME/projects/everest/Nature_data/* $TMPDIR/Nature_data/
+
+# Setup PYTHONPATH to find modules
+export PYTHONPATH=$HOME/projects/everest/src:$PYTHONPATH
+
+# 3. Run training -------------------------------------------------------------
+cd $TMPDIR
+# Create workspace structure similar to your local repo
+mkdir -p models/trained_models logs weights
+
+# Run the training script
+echo "Training EVEREST model for ${FLARE_CLASS} flares with ${TIME_WINDOW}h window..."
+
+# Use train_all_everest.py which is the script you normally use
+python $HOME/projects/everest/src/models/train_all_everest.py \
+       --flare ${FLARE_CLASS} \
+       --window ${TIME_WINDOW} \
+       --epochs 50 \
+       --batch-size 64
+
+# Alternative: If the above doesn't work, try train_complete_everest.py
+# Uncomment the following lines and comment out the previous python command if needed
+# python $HOME/projects/everest/src/models/train_complete_everest.py \
+#        --flare ${FLARE_CLASS} \
+#        --window ${TIME_WINDOW} \
+#        --epochs 50 \
+#        --batch-size 64
+
+# 4. Preserve outputs ---------------------------------------------------------
+# Create directories with the appropriate structure
+mkdir -p $HOME/projects/everest/models/trained_models/EVEREST-${FLARE_CLASS}-${TIME_WINDOW}h
+mkdir -p $HOME/projects/everest/results/${PBS_JOBID}/${FLARE_CLASS}-${TIME_WINDOW}h
+
+# Copy model files while preserving your current model structure
+if [ -d "models/trained_models" ]; then
+  cp -r models/trained_models/* $HOME/projects/everest/models/trained_models/
+  cp -r models/trained_models/* $HOME/projects/everest/results/${PBS_JOBID}/${FLARE_CLASS}-${TIME_WINDOW}h/
+elif [ -d "models" ]; then
+  # Fallback if the model is saved directly to the models directory
+  cp -r models/* $HOME/projects/everest/models/
+  cp -r models/* $HOME/projects/everest/results/${PBS_JOBID}/${FLARE_CLASS}-${TIME_WINDOW}h/
+fi
+
+# Copy logs and weights
+cp -r logs/* $HOME/projects/everest/logs/
+cp -r weights/* $HOME/projects/everest/weights/
+
+echo "Training completed for ${FLARE_CLASS} flares with ${TIME_WINDOW}h window."
+echo "Results saved to $HOME/projects/everest/models/trained_models/EVEREST-${FLARE_CLASS}-${TIME_WINDOW}h"
+echo "Backup saved to $HOME/projects/everest/results/${PBS_JOBID}/${FLARE_CLASS}-${TIME_WINDOW}h" 

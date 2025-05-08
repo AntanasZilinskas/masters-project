@@ -33,7 +33,7 @@ def get_git_info():
     }
     
     try:
-                # Check if git is installed and we're in a git repository
+            # Check if git is installed and we're in a git repository
         import subprocess
         
         # Get current commit hash
@@ -153,69 +153,20 @@ def save_training_history(history, model_dir):
     # Find minimum length across all history entries
     min_epochs = min(len(value) for value in history.values())
     
-    plt.figure(figsize=(12, 5))
-    # Save as CSV
-    try:
-        with open(os.path.join(model_dir, "training_history.csv"), "w", newline="") as f:
-            writer = csv.writer(f)
-            # Write header
-            writer.writerow(["epoch"] + list(history.keys()))
-            # Write data - only up to the minimum length
-            for epoch in range(min_epochs):
-                writer.writerow([epoch] + [history[k][epoch] for k in history.keys()])
-            print(f"Saved training history to {os.path.join(model_dir, 'training_history.csv')}")
-    except Exception as e:
-        print(f"Error saving training history CSV: {e}")
-    
-    # Generate plot
-    try:
         plt.figure(figsize=(12, 5))
-        
-        # Plot loss
-        plt.subplot(1, 2, 1)
-        for k in history.keys():
-            if "loss" in k.lower():
-                plt.plot(history[k][:min_epochs], label=k)
-        plt.title("Loss During Training")
-        plt.xlabel("Epoch")
-        plt.ylabel("Loss")
-        plt.legend()
-        
-        # Plot metrics (accuracy, tss, etc.)
-        plt.subplot(1, 2, 2)
-        for k in history.keys():
-            if any(metric in k.lower() for metric in ["acc", "tss", "prec", "rec"]):
-                plt.plot(history[k][:min_epochs], label=k)
-        plt.title("Metrics During Training")
-        plt.xlabel("Epoch")
-        plt.ylabel("Value")
-        plt.legend()
-        
-        plt.tight_layout()
-        plt.savefig(os.path.join(model_dir, "learning_curves.png"))
-        print(f"Saved learning curves to {os.path.join(model_dir, 'learning_curves.png')}")
-    except Exception as e:
-        print(f"Error generating learning curves: {e}")
-        
-    # Optionally generate model card
-    try:
-        # Load metadata.json
-        metadata_path = os.path.join(model_dir, "metadata.json")
-        if not os.path.exists(metadata_path):
-            print("No metadata.json found, skipping model card generation")
-            return
-            
-        with open(metadata_path, "r") as f:
-            metadata = json.load(f)
-        
-        # Get timestamp formatted
-        if "timestamp" in metadata:
-            try:
-                timestamp = datetime.fromisoformat(metadata["timestamp"]).strftime("%Y-%m-%d %H:%M")
-            except:
-                timestamp = metadata["timestamp"]
-        else:
-            timestamp = "Unknown"
+	# Save as CSV
+	try:
+		with open(os.path.join(model_dir, "training_history.csv"), "w", newline="") as f:
+			writer = csv.writer(f)
+			# Write header
+			writer.writerow(["epoch"] + list(history.keys()))
+			# Write data - only up to the minimum length
+			for epoch in range(min_epochs):
+				writer.writerow([epoch] + [history[k][epoch] for k in history.keys()])
+			print(f"Saved training history to {os.path.join(model_dir, "training_history.csv")}")
+	except Exception as e:
+		print(f"Error saving training history CSV: {e}")
+        timestamp = datetime.fromisoformat(metadata["timestamp"]).strftime("%Y-%m-%d %H:%M")
         
         # Get model name, flare class and time window
         model_name = metadata.get("model_name", "EVEREST")
@@ -241,55 +192,64 @@ def save_training_history(history, model_dir):
 
 ## Overview
 - **Created**: {timestamp}
-- **Flare Class**: {flare_class}
-- **Time Window**: {time_window}h
-- **Description**: {metadata.get('description', 'No description provided')}
+- **Type**: Solar flare prediction model
+- **Target**: {flare_class}-class flares
+- **Time Window**: {time_window} hours
+
+## Description
+{metadata.get('description', '')}
 
 ## Performance Metrics
 {metrics_text}
 
-## Architecture
+## Training Details
+- **Architecture**: {model_name} {'Transformer ' if 'SolarKnowledge' in model_name else ''}Model
 - **Parameters**: {num_params:,}
 - **Precision**: {precision}
-- **Input Shape**: {input_shape}
 """
         
         # Add hyperparameters section
-        model_card += """
-## Hyperparameters
-"""
+        model_card += "\n## Hyperparameters\n"
         for param, value in metadata.get('hyperparameters', {}).items():
             model_card += f"- **{param}**: {value}\n"
         
-        # Add plot if available
-        plot_path = os.path.join(model_dir, "learning_curves.png")
-        if os.path.exists(plot_path):
-            model_card += f"""
-## Training Curves
-![Learning Curves]({os.path.basename(plot_path)})
-"""
-        
-        # Add confusion matrix if available
-        cm_path = os.path.join(model_dir, "confusion_matrix.png")
-        if os.path.exists(cm_path):
-            model_card += f"""
-## Confusion Matrix
-![Confusion Matrix]({os.path.basename(cm_path)})
+        # Add version control info
+        git_info = metadata.get('git_info', {})
+        model_card += f"""
+## Version Control
+- **Git Commit**: {git_info.get('commit', 'unknown')}
+- **Git Branch**: {git_info.get('branch', 'unknown')}
+
+## Usage
+```python
+from {model_name.lower()}_model import {model_name}
+
+# Load the model
+model = {model_name}()
+model.load_model(
+    input_shape={input_shape}, 
+    flare_class="{flare_class}", 
+    w_dir="{os.path.basename(model_dir)}"
+)
+
+# Make predictions
+predictions = model.predict(X_test)
+```
 """
         
         # Write model card to file
-        with open(os.path.join(model_dir, "MODEL_CARD.md"), "w") as f:
+        with open(os.path.join(model_dir, "model_card.md"), "w") as f:
             f.write(model_card)
             
     except Exception as e:
         print(f"Error generating model card: {e}")
         # Create a simplified model card as fallback
-        simple_card = f"# {model_name} Model v{metadata.get('version', 'unknown')}\n\nCreated: {timestamp}\nFlare Class: {flare_class}\nTime Window: {time_window}h"
-        try:
-            with open(os.path.join(model_dir, "MODEL_CARD.md"), "w") as f:
-                f.write(simple_card)
-        except:
-            print("Could not write simplified model card")
+        simple_card = f"# {model_name} Model v{metadata.get('version', 'unknown')}\n\n"
+        simple_card += f"- **Flare Class**: {flare_class}\n"
+        simple_card += f"- **Time Window**: {time_window} hours\n"
+        
+        with open(os.path.join(model_dir, "model_card.md"), "w") as f:
+            f.write(simple_card)
 
 def load_model_metadata(version, flare_class, time_window):
     """Load metadata for a specific model version."""
@@ -437,7 +397,7 @@ def get_next_version(flare_class, time_window):
     """
     models_dir = "models/trained_models"
     try:
-                # Find all model directories matching the pattern
+            # Find all model directories matching the pattern
         pattern = f"SolarKnowledge-v*-{flare_class}-{time_window}h"
         matching_dirs = []
         
@@ -461,7 +421,7 @@ def get_next_version(flare_class, time_window):
             if len(parts) >= 2:
                 v = parts[1][1:]  # Remove 'v' prefix
                 try:
-                            # Parse version numbers
+                        # Parse version numbers
                     if "." in v:
                         major, minor = v.split(".")
                         versions.append((int(major), int(minor)))
@@ -527,45 +487,6 @@ def get_latest_version(flare_class, time_window):
                 return f"{prev_major}.0"
     
     return "1.0"
-
-def generate_model_comparison_table(models_data):
-    """
-    Generate a markdown table comparing different models.
-    
-    Args:
-        models_data: List of dictionaries containing model metadata
-    
-    Returns:
-        Markdown formatted table
-    """
-    # Define headers
-    headers = ["Model", "Version", "Flare", "Window", "TSS", "Precision", "Recall", "F1", "Description"]
-    
-    # Populate rows
-    rows = []
-    for model in models_data:
-        perf = model.get("performance", {})
-        row = [
-            model.get("model_name", "Unknown"),
-            model.get("version", ""),
-            model.get("flare_class", ""),
-            f"{model.get('time_window', '')}h",
-            f"{perf.get('test_tss', perf.get('val_tss', 0.0)):.4f}",
-            f"{perf.get('test_precision', perf.get('val_precision', 0.0)):.4f}",
-            f"{perf.get('test_recall', perf.get('val_recall', 0.0)):.4f}",
-            f"{perf.get('test_f1', perf.get('val_f1', 0.0)):.4f}",
-            model.get("description", "")[:30] + "..." if len(model.get("description", "")) > 30 else model.get("description", "")
-        ]
-        rows.append(row)
-    
-    # Create markdown table
-    table = " | ".join(headers) + "\n"
-    table += " | ".join(["---"] * len(headers)) + "\n"
-    
-    for row in rows:
-        table += " | ".join(str(cell) for cell in row) + "\n"
-    
-    return table
 
 if __name__ == "__main__":
     # Example usage

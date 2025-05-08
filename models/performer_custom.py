@@ -33,7 +33,7 @@ class RandomFourierFeatures(tf.keras.layers.Layer):
     def build(self, input_shape):
         input_dim = input_shape[-1]
         kernel_shape = (input_dim, self.output_dim)
-        
+    
         # Create orthogonal random features
         kernel_initializer = tf.keras.initializers.Orthogonal(gain=1.0, seed=self.seed)
         self.kernel = self.add_weight(
@@ -42,7 +42,7 @@ class RandomFourierFeatures(tf.keras.layers.Layer):
             initializer=kernel_initializer,
             trainable=False
         )
-        
+    
         # Scaling factor
         self.bias = self.add_weight(
             name='bias',
@@ -82,7 +82,7 @@ class FastSelfAttention(tf.keras.layers.Layer):
         
         # Normalize attention optionally with ReLU
         self.normalization_factor = 1.0 / math.sqrt(self.key_dim)
-        
+    
     def build(self, input_shape):
         # Input projections
         self.query_projection = tf.keras.layers.Dense(self.total_key_dim)
@@ -157,7 +157,7 @@ class FastSelfAttention(tf.keras.layers.Layer):
                 
                 # Compute attention output for position i
                 output_i = cumulative_kv / (cumulative_k + 1e-6)
-                
+        
                 # Write to output
                 indices = tf.constant([[i]])
                 output = tf.tensor_scatter_nd_update(output, indices, output_i)
@@ -184,7 +184,7 @@ class FastSelfAttention(tf.keras.layers.Layer):
         output = self.output_projection(output)  # [B, S, D]
         
         return output
-
+    
 class Performer(layers.Layer):
     """
     Performer attention layer as a drop-in replacement for MultiHeadAttention.

@@ -1,0 +1,43 @@
+#!/bin/bash
+#PBS -l select=1:ncpus=4:mem=16gb:ngpus=1:gpu_type=RTX6000
+#PBS -l walltime=00:10:00
+#PBS -N tf_test
+#PBS -o ${PBS_O_WORKDIR}/logs/${PBS_JOBID}.out
+#PBS -e ${PBS_O_WORKDIR}/logs/${PBS_JOBID}.err
+#PBS -P hpc-rshorten
+set -euo pipefail
+
+# Load modules
+module purge
+module load miniforge/3
+eval "$(~/miniforge3/bin/conda shell.bash hook)"
+
+# Show available conda environments
+echo "=== Available conda environments ==="
+conda env list
+
+# Try to activate environment
+echo "=== Activating everest_env ==="
+conda activate everest_env || echo "Failed to activate everest_env"
+
+# Show packages in the active environment
+echo "=== Packages in the active environment ==="
+conda list
+
+# Set up Python path
+export PYTHONPATH=$HOME/projects/everest/src:$PYTHONPATH
+echo "PYTHONPATH=$PYTHONPATH"
+
+# Run the test script
+echo "=== Running TensorFlow test ==="
+python $HOME/projects/everest/scripts/test_tensorflow.py
+
+# If the above fails, try installing TensorFlow
+if [ $? -ne 0 ]; then
+    echo "=== TensorFlow test failed, attempting to install ==="
+    conda install -c conda-forge tensorflow=2.13.0 cudatoolkit=11.8 -y
+    pip install tensorflow-addons
+    
+    echo "=== Running TensorFlow test after installation ==="
+    python $HOME/projects/everest/scripts/test_tensorflow.py
+fi 
