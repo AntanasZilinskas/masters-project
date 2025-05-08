@@ -1,5 +1,23 @@
 """
-PyTorch implementation by: Antanas Zilinskas
+ (c) Copyright 2023
+ All rights reserved
+ Programs written by Yasser Abduallah
+ Department of Computer Science
+ New Jersey Institute of Technology
+ University Heights, Newark, NJ 07102, USA
+
+ Permission to use, copy, modify, and distribute this
+ software and its documentation for any purpose and without
+ fee is hereby granted, provided that this copyright
+ notice appears in all copies. Programmer(s) makes no
+ representations about the suitability of this
+ software for any purpose.  It is provided "as is" without
+ express or implied warranty.
+
+ Alternative transformer-based model with improved capacity for time-series classification.
+ @author: Yasser Abduallah (modified)
+ 
+ PyTorch implementation by: Antanas Zilinskas
 """
 
 import json
@@ -37,6 +55,28 @@ else:
 if use_amp:
     from torch.cuda.amp import GradScaler, autocast
     scaler = GradScaler()
+
+# Import additional components for advanced optimizers and schedulers
+import math
+from torch.optim import AdamW
+from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts
+
+# Set random seed for reproducibility across PyTorch operations
+def set_seed(seed=42):
+    """Set random seed for reproducibility"""
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    # Set deterministic behavior
+    if hasattr(torch, 'set_deterministic'):
+        torch.set_deterministic(True)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+# Call set_seed to maintain consistency between runs
+set_seed(42)
 
 # -----------------------------
 # Custom TSS (True Skill Statistic) Metric
@@ -103,7 +143,7 @@ class PositionalEncoding(nn.Module):
         return x + self.pe[:, :seq_len, :]
 
 # -----------------------------
-# Improved Transformer Block
+# Improved Transformer Block with Batch Normalization and Residual Connections
 # -----------------------------
 class TransformerBlock(nn.Module):
     def __init__(self, embed_dim: int, num_heads: int, ff_dim: int, dropout_rate: float = 0.2):
@@ -112,12 +152,14 @@ class TransformerBlock(nn.Module):
         # Multi-head attention layer
         self.att = nn.MultiheadAttention(embed_dim, num_heads, dropout=dropout_rate, batch_first=True)
         
-        # Feed-forward network with GELU activation
+        # Feed-forward network with GELU activation and batch normalization
         self.ffn = nn.Sequential(
             nn.Linear(embed_dim, ff_dim),
+            nn.BatchNorm1d(ff_dim),  # Add batch normalization
             nn.GELU(),
             nn.Dropout(dropout_rate),
-            nn.Linear(ff_dim, embed_dim)
+            nn.Linear(ff_dim, embed_dim),
+            nn.BatchNorm1d(embed_dim)  # Add batch normalization
         )
         
         # Layer normalization and dropout
@@ -126,16 +168,27 @@ class TransformerBlock(nn.Module):
         self.dropout1 = nn.Dropout(dropout_rate)
         self.dropout2 = nn.Dropout(dropout_rate)
         
+        # Residual scaling factor
+        self.residual_scale = nn.Parameter(torch.ones(1))
+        
         # Initialize weights using TensorFlow-like initialization
         self._init_weights()
         
     def _init_weights(self):
-        # Use Xavier/Glorot uniform initialization for linear layers (like TensorFlow)
+        """Initialize weights using TensorFlow-like initialization (Glorot/Xavier uniform)"""
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight)
+                # TensorFlow Glorot/Xavier uniform initializer
+                fan_in, fan_out = nn.init._calculate_fan_in_and_fan_out(m.weight)
+                limit = np.sqrt(6. / (fan_in + fan_out))
+                nn.init.uniform_(m.weight, -limit, limit)
+                
+                # TensorFlow initializes biases to zeros by default
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.BatchNorm1d):
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
         
     def forward(self, x: torch.Tensor, training: bool = False) -> torch.Tensor:
         # Set dropout training mode
@@ -145,12 +198,18 @@ class TransformerBlock(nn.Module):
         # Multi-head attention with residual connection and layer norm
         attn_output, _ = self.att(x, x, x)
         attn_output = self.dropout1(attn_output)
-        out1 = self.layernorm1(x + attn_output)
+        out1 = self.layernorm1(x + self.residual_scale * attn_output)
         
         # Feed-forward network with residual connection and layer norm
-        ffn_output = self.ffn(out1)
+        # Handle batch norm dimensions (need to reshape for batch norm)
+        batch_size, seq_len, feat_dim = out1.size()
+        ffn_input = out1.reshape(-1, feat_dim)  # Reshape for batch norm
+        
+        ffn_output = self.ffn(ffn_input)
+        ffn_output = ffn_output.view(batch_size, seq_len, feat_dim)  # Reshape back
+        
         ffn_output = self.dropout2(ffn_output)
-        return self.layernorm2(out1 + ffn_output)
+        return self.layernorm2(out1 + self.residual_scale * ffn_output)
 
 # -----------------------------
 # Focal Loss Implementation (TensorFlow-compatible version)
@@ -180,25 +239,26 @@ class CategoricalFocalLoss(nn.Module):
         epsilon = 1e-7
         y_pred = torch.clamp(y_pred, epsilon, 1.0 - epsilon)
         
-        # Compute cross entropy (matching TensorFlow implementation)
-        ce_loss = -y_true * torch.log(y_pred)
+        # TensorFlow uses log(x + epsilon) for numerical stability
+        # Since PyTorch's log doesn't add epsilon by default, we need to clip first
+        # and then take the natural logarithm
+        ce_loss = -torch.sum(y_true * torch.log(y_pred), dim=1)
         
-        # Get probability of correct class
-        p_t = (y_true * y_pred).sum(dim=1)
+        # Get probability of true class for each sample
+        p_t = torch.sum(y_true * y_pred, dim=1)
         
-        # Compute focal term
-        focal_term = (1 - p_t) ** self.gamma
+        # Apply modulating factor with gamma
+        modulating_factor = torch.pow(1.0 - p_t, self.gamma)
         
-        # Apply alpha weighting (matching TensorFlow behavior)
+        # Apply alpha weighting if specified (matching TensorFlow's implementation)
         if self.alpha > 0:
-            alpha_factor = y_true * self.alpha + (1 - y_true) * (1 - self.alpha)
-            focal_term = focal_term.unsqueeze(1) * alpha_factor
+            alpha_weight = torch.sum(y_true * self.alpha + (1 - y_true) * (1 - self.alpha), dim=1)
+            focal_loss = alpha_weight * modulating_factor * ce_loss
         else:
-            focal_term = focal_term.unsqueeze(1)
-            
-        # Compute final loss
-        loss = (focal_term * ce_loss).sum(dim=1).mean()
-        return loss
+            focal_loss = modulating_factor * ce_loss
+        
+        # Return the mean loss over the batch
+        return torch.mean(focal_loss)
 
 # -----------------------------
 # Improved SolarKnowledge Model Class
@@ -207,10 +267,10 @@ class SolarKnowledgeModel(nn.Module):
     def __init__(
         self, 
         input_shape: Tuple[int, int], 
-        embed_dim: int = 128, 
-        num_heads: int = 4, 
-        ff_dim: int = 256, 
-        num_transformer_blocks: int = 6, 
+        embed_dim: int = 256,  # Increased from 128
+        num_heads: int = 8,    # Increased from 4
+        ff_dim: int = 512,     # Increased from 256
+        num_transformer_blocks: int = 8,  # Increased from 6
         dropout_rate: float = 0.2, 
         num_classes: int = 2
     ):
@@ -218,10 +278,12 @@ class SolarKnowledgeModel(nn.Module):
         
         # Save input dimensions
         self.timesteps, self.features = input_shape
+        self.input_shape = (None, self.timesteps, self.features)  # Mimic TensorFlow's batch-included shape
         
         # Project input features to embedding dimension
         self.embedding = nn.Linear(self.features, embed_dim)
         self.layernorm_input = nn.LayerNorm(embed_dim, eps=1e-6)
+        self.batch_norm_input = nn.BatchNorm1d(embed_dim)
         self.input_dropout = nn.Dropout(dropout_rate)
         
         # Positional encoding
@@ -236,10 +298,13 @@ class SolarKnowledgeModel(nn.Module):
         # Global average pooling
         self.global_avg_pool = nn.AdaptiveAvgPool1d(1)
         
-        # Classification head
+        # Classification head with batch normalization
         self.dropout1 = nn.Dropout(dropout_rate)
-        self.dense1 = nn.Linear(embed_dim, 128)
+        self.dense1 = nn.Linear(embed_dim, 256)  # Increased from 128
+        self.batch_norm1 = nn.BatchNorm1d(256)
         self.dropout2 = nn.Dropout(dropout_rate)
+        self.dense2 = nn.Linear(256, 128)  # Additional dense layer
+        self.batch_norm2 = nn.BatchNorm1d(128)
         self.classifier = nn.Linear(128, num_classes)
         
         # Regularization
@@ -250,12 +315,20 @@ class SolarKnowledgeModel(nn.Module):
         self._init_weights()
         
     def _init_weights(self):
-        """Initialize weights using TensorFlow-like initialization"""
+        """Initialize weights using TensorFlow-like initialization (Glorot/Xavier uniform)"""
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight)
+                # TensorFlow Glorot/Xavier uniform initializer
+                fan_in, fan_out = nn.init._calculate_fan_in_and_fan_out(m.weight)
+                limit = np.sqrt(6. / (fan_in + fan_out))
+                nn.init.uniform_(m.weight, -limit, limit)
+                
+                # TensorFlow initializes biases to zeros by default
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.BatchNorm1d):
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
         
     def _l1_l2_regularization(self):
         """Calculate L1 and L2 regularization loss"""
@@ -282,13 +355,25 @@ class SolarKnowledgeModel(nn.Module):
         """
         # Set all dropout layers to training mode if requested
         if training:
-            self.input_dropout.train()
-            self.dropout1.train()
-            self.dropout2.train()
+            self.train()
+        else:
+            self.eval()
+            # Keep dropout active for MC dropout if training flag is True
+            self.input_dropout.train(training)
+            self.dropout1.train(training)
+            self.dropout2.train(training)
+        
+        batch_size = x.size(0)
         
         # Project to embedding dimension
         x = self.embedding(x)
         x = self.layernorm_input(x)
+        
+        # Reshape for batch norm (batch_size, seq_len, features) -> (batch_size * seq_len, features)
+        x_reshaped = x.reshape(-1, x.size(-1))
+        x_reshaped = self.batch_norm_input(x_reshaped)
+        x = x_reshaped.reshape(batch_size, self.timesteps, -1)
+        
         x = self.input_dropout(x)
         
         # Add positional encoding
@@ -302,11 +387,16 @@ class SolarKnowledgeModel(nn.Module):
         x = x.transpose(1, 2)
         x = self.global_avg_pool(x).squeeze(-1)
         
-        # Apply dense layers with GELU activation
+        # Apply dense layers with GELU activation and batch normalization
         x = self.dropout1(x)
         x = self.dense1(x)
+        x = self.batch_norm1(x)
         x = F.gelu(x)
+        
         x = self.dropout2(x)
+        x = self.dense2(x)
+        x = self.batch_norm2(x)
+        x = F.gelu(x)
         
         # Final classification layer
         x = self.classifier(x)
@@ -321,7 +411,7 @@ class SolarKnowledge:
     """
     PyTorch implementation of the SolarKnowledge model with training and evaluation utilities
     """
-    def __init__(self, early_stopping_patience: int = 3):
+    def __init__(self, early_stopping_patience: int = 5):  # Increased from 3
         self.model_name = "SolarKnowledge"
         self.model = None
         self.early_stopping_patience = early_stopping_patience
@@ -331,10 +421,10 @@ class SolarKnowledge:
     def build_base_model(
         self,
         input_shape: Tuple[int, int],
-        embed_dim: int = 128,
-        num_heads: int = 4,
-        ff_dim: int = 256,
-        num_transformer_blocks: int = 6,
+        embed_dim: int = 256,  # Increased from 128
+        num_heads: int = 8,    # Increased from 4
+        ff_dim: int = 512,     # Increased from 256
+        num_transformer_blocks: int = 8,  # Increased from 6
         dropout_rate: float = 0.2,
         num_classes: int = 2,
     ):
@@ -378,7 +468,8 @@ class SolarKnowledge:
         self, 
         loss: str = "categorical_crossentropy", 
         metrics: List[str] = ["accuracy"], 
-        learning_rate: float = 1e-4, 
+        learning_rate: float = 5e-5,  # Reduced from 1e-4
+        weight_decay: float = 1e-4,   # Added weight decay
         use_focal_loss: bool = True
     ):
         """
@@ -388,17 +479,23 @@ class SolarKnowledge:
             loss: Loss function to use. If use_focal_loss is True, this will be overridden.
             metrics: List of metrics to track
             learning_rate: Learning rate for the optimizer
+            weight_decay: Weight decay for the AdamW optimizer
             use_focal_loss: Whether to use focal loss (better for imbalanced data)
         """
         if self.model is None:
             raise ValueError("Model is not built yet. Call build_base_model first.")
             
-        # Create optimizer with TensorFlow-like epsilon
-        self.optimizer = optim.Adam(
+        # Create AdamW optimizer with weight decay
+        self.optimizer = AdamW(
             self.model.parameters(), 
             lr=learning_rate,
-            eps=1e-7  # Match TensorFlow default epsilon
+            weight_decay=weight_decay,
+            eps=1e-7,  # Match TensorFlow default epsilon
+            betas=(0.9, 0.999)  # Adam beta parameters
         )
+        
+        # Store the learning rate for schedulers
+        self.learning_rate = learning_rate
         
         # Set loss function
         if use_focal_loss:
@@ -414,6 +511,33 @@ class SolarKnowledge:
         
         # Add TSS metric
         self.metrics["tss"] = TrueSkillStatisticMetric()
+        
+    def _create_scheduler(self, scheduler_type: str, **kwargs) -> object:
+        """Create a learning rate scheduler"""
+        if scheduler_type == "reduce_on_plateau":
+            return torch.optim.lr_scheduler.ReduceLROnPlateau(
+                self.optimizer,
+                mode=kwargs.get("mode", "min"),
+                factor=kwargs.get("factor", 0.2),  # More aggressive reduction (0.2 vs 0.5)
+                patience=kwargs.get("patience", 5),
+                verbose=kwargs.get("verbose", True),
+                min_lr=kwargs.get("min_lr", 1e-7)
+            )
+        elif scheduler_type == "cosine_annealing":
+            return CosineAnnealingLR(
+                self.optimizer,
+                T_max=kwargs.get("T_max", 10),  # Cycle length
+                eta_min=kwargs.get("min_lr", 1e-7)
+            )
+        elif scheduler_type == "cosine_with_restarts":
+            return CosineAnnealingWarmRestarts(
+                self.optimizer,
+                T_0=kwargs.get("T_0", 10),  # First cycle length
+                T_mult=kwargs.get("T_mult", 2),  # Cycle length multiplier
+                eta_min=kwargs.get("min_lr", 1e-7)
+            )
+        else:
+            raise ValueError(f"Unknown scheduler type: {scheduler_type}")
         
     def _prepare_batch(self, X: np.ndarray, y: Optional[np.ndarray] = None) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """Convert numpy arrays to PyTorch tensors and move them to the right device"""
@@ -545,11 +669,13 @@ class SolarKnowledge:
         y_train: np.ndarray,
         X_valid: Optional[np.ndarray] = None,
         y_valid: Optional[np.ndarray] = None,
-        epochs: int = 100,
+        epochs: int = 300,  # Increased from 100
         verbose: int = 2,
         batch_size: int = 512,
         class_weight: Optional[Dict[int, float]] = None,
         callbacks: Optional[Dict] = None,
+        scheduler_type: str = "cosine_with_restarts",  # Default to cosine with restarts
+        scheduler_params: Optional[Dict] = None,
     ):
         """
         Train the model with optional class weights for imbalanced data.
@@ -561,11 +687,28 @@ class SolarKnowledge:
             verbose: Verbosity level
             batch_size: Batch size for training
             class_weight: Optional dictionary mapping class indices to weights
-            callbacks: Optional dictionary of callbacks, e.g., {'lr_scheduler': callable}
+            callbacks: Optional dictionary of callbacks
+            scheduler_type: Type of learning rate scheduler to use
+            scheduler_params: Parameters for the scheduler
         """
         if self.model is None:
             raise ValueError("Model is not built. Call build_base_model first.")
             
+        # Create scheduler if not provided in callbacks
+        if callbacks is None:
+            callbacks = {}
+            
+        if 'lr_scheduler' not in callbacks and scheduler_type:
+            scheduler_params = scheduler_params or {}
+            scheduler = self._create_scheduler(scheduler_type, **scheduler_params)
+            
+            if scheduler_type == "reduce_on_plateau":
+                # ReduceLROnPlateau needs to be called with a metric value
+                callbacks['lr_scheduler'] = lambda val: scheduler.step(val)
+            else:
+                # Other schedulers are called every epoch
+                callbacks['lr_scheduler'] = lambda _: scheduler.step()
+        
         # Convert numpy arrays to PyTorch datasets
         train_dataset = TensorDataset(
             torch.tensor(X_train, dtype=torch.float32),
@@ -604,7 +747,8 @@ class SolarKnowledge:
         history = {
             'loss': [],
             'accuracy': [],
-            'tss': [] if "tss" in self.metrics else None
+            'tss': [] if "tss" in self.metrics else None,
+            'lr': []  # Track learning rate
         }
         
         # If class_weight is not provided but we want to handle rare events,
@@ -622,15 +766,21 @@ class SolarKnowledge:
             # Train for one epoch
             train_metrics = self._train_epoch(train_loader, class_weight)
             
+            # Get current learning rate
+            current_lr = self.optimizer.param_groups[0]['lr']
+            
             # Update history
             for key, value in train_metrics.items():
                 if key in history and history[key] is not None:
                     history[key].append(value)
-                    
+            
+            # Add learning rate to history
+            history['lr'].append(current_lr)
+            
             # Print metrics
             if verbose > 0:
                 metrics_str = " - ".join([f"{k}: {v:.4f}" for k, v in train_metrics.items()])
-                print(f"Training: {metrics_str}")
+                print(f"Training: {metrics_str} - lr: {current_lr:.6f}")
                 
             # Call learning rate scheduler if provided
             if callbacks and 'lr_scheduler' in callbacks:
@@ -924,7 +1074,7 @@ if __name__ == "__main__":
     # Example usage for debugging: build, compile, and show summary.
     # For example, input_shape is (timesteps, features) e.g., (100, 14)
     example_input_shape = (100, 14)
-    model_instance = SolarKnowledge(early_stopping_patience=3)
+    model_instance = SolarKnowledge(early_stopping_patience=5)
     model_instance.build_base_model(example_input_shape)
     model_instance.compile(use_focal_loss=True)
     model_instance.summary()
