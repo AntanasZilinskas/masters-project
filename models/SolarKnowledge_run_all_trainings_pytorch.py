@@ -1,6 +1,6 @@
 """
  author: Antanas Zilinskas
-
+ Based on work by Yasser Abduallah
 
  This script runs all training processes for flare class: C, M, M5 and time window: 24, 48, 72
  using the transformer-based SolarKnowledge model in PyTorch.
@@ -11,11 +11,14 @@
  - Applies class weights based on flare class rarity
  - Enables Monte Carlo dropout for better uncertainty estimation
  - Uses TensorFlow-compatible weight initialization for better convergence
+ - Enhanced with batch normalization, residual connections and AdamW optimizer
+ - Uses cosine annealing with warm restarts for better convergence
 """
 
 import argparse
 import os
 import warnings
+import random
 
 import numpy as np
 import torch
@@ -25,11 +28,17 @@ from model_tracking import (
     get_next_version,
     save_model_with_metadata,
 )
-from SolarKnowledge_model_pytorch import SolarKnowledge
+from SolarKnowledge_model_pytorch import SolarKnowledge, set_seed
 
 from utils import data_transform, get_training_data, log, supported_flare_class
 
 warnings.filterwarnings("ignore")
+
+# Set random seed for reproducibility
+RANDOM_SEED = 42
+set_seed(RANDOM_SEED)  # Use the set_seed function from the model file
+random.seed(RANDOM_SEED)
+np.random.seed(RANDOM_SEED)
 
 
 def train(
@@ -38,6 +47,18 @@ def train(
     version=None,
     description=None,
     auto_increment=True,
+    # Add custom parameter options for notebook integration
+    custom_model=None,
+    custom_hyperparams=None,
+    epochs=300,
+    scheduler_type="cosine_with_restarts",
+    scheduler_params=None,
+    batch_size=512,
+    learning_rate=5e-5,
+    embed_dim=256,
+    transformer_blocks=8,
+    use_batch_norm=True,
+    use_focal_loss=True,
 ):
     log(
         "Training is initiated for time window: "
@@ -69,7 +90,7 @@ def train(
     X_train, y_train = get_training_data(time_window, flare_class)
     y_train_tr = data_transform(y_train)
 
-    epochs = 100  # extend the number of epochs to let the model converge further
+    # Use provided epochs or default
     input_shape = (X_train.shape[1], X_train.shape[2])
 
     # Calculate class weights based on class distribution
@@ -105,23 +126,50 @@ def train(
     log(f"Class distribution: {class_counts}", verbose=True)
     log(f"Using class weights: {class_weight}", verbose=True)
 
-    # Create an instance of the SolarKnowledge transformer-based model
-    # increased patience to allow more epochs before stopping
-    model = SolarKnowledge(early_stopping_patience=5)
-    model.build_base_model(input_shape)  # Build the model
+    # Use custom model if provided, otherwise create a new one
+    if custom_model is not None:
+        model = custom_model
+    else:
+        # Create an instance of the SolarKnowledge transformer-based model
+        model = SolarKnowledge(early_stopping_patience=10)  # Increased patience
+        
+        # Build the model with provided parameters
+        model.build_base_model(
+            input_shape=input_shape,
+            embed_dim=embed_dim,
+            num_heads=8,
+            ff_dim=embed_dim * 2,  # typically 2x embed_dim
+            num_transformer_blocks=transformer_blocks,
+            dropout_rate=0.2,
+            num_classes=2
+        )
 
-    # Compile model with focal loss for better handling of imbalanced data
-    model.compile(use_focal_loss=True)
+        # Compile model with specified settings
+        model.compile(
+            use_focal_loss=use_focal_loss,
+            learning_rate=learning_rate,
+            weight_decay=1e-4
+        )
 
-    # Set up learning rate scheduler - PyTorch equivalent of ReduceLROnPlateau
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        model.optimizer, 
-        mode='min', 
-        factor=0.5, 
-        patience=3, 
-        verbose=True, 
-        min_lr=1e-6
-    )
+    # Configure scheduler parameters if not provided
+    if scheduler_params is None:
+        if scheduler_type == "cosine_with_restarts":
+            scheduler_params = {
+                "T_0": 10,        # Initial cycle length
+                "T_mult": 2,      # Cycle length multiplier
+                "min_lr": 1e-7    # Minimum learning rate
+            }
+        elif scheduler_type == "cosine_annealing":
+            scheduler_params = {
+                "T_max": 10,       # Cycle length
+                "min_lr": 1e-7     # Minimum learning rate
+            }
+        elif scheduler_type == "reduce_on_plateau":
+            scheduler_params = {
+                "factor": 0.2,     # Reduction factor
+                "patience": 5,     # Patience
+                "min_lr": 1e-7     # Minimum learning rate
+            }
 
     # Train the model and store the history
     log(
@@ -129,19 +177,16 @@ def train(
         verbose=True,
     )
 
-    # Custom fit method to use scheduler
-    def scheduler_step(loss):
-        scheduler.step(loss)
-
-    # Train the model, using the learning rate scheduler
+    # Train the model using the specified scheduler
     history = model.fit(
         X_train,
         y_train_tr,
         epochs=epochs,
         verbose=2,
-        batch_size=512,
+        batch_size=batch_size,
         class_weight=class_weight,
-        callbacks={'lr_scheduler': scheduler_step}  # Pass scheduler as callback
+        scheduler_type=scheduler_type,
+        scheduler_params=scheduler_params
     )
 
     # Get performance metrics from training history
@@ -155,27 +200,37 @@ def train(
         if 'tss' in history and history['tss'] is not None:
             metrics["final_training_tss"] = history['tss'][-1]
 
-    # Create hyperparameters dictionary
-    hyperparams = {
-        "learning_rate": 1e-4,
-        "batch_size": 512,
-        "early_stopping_patience": 5,
-        "epochs": epochs,
-        "num_transformer_blocks": 6,
-        "embed_dim": 128,
-        "num_heads": 4,
-        "ff_dim": 256,
-        "dropout_rate": 0.2,
-        "focal_loss": True,
-        "focal_loss_alpha": 0.25,
-        "focal_loss_gamma": 2.0,
-        "class_weights": class_weight,
-        "framework": "pytorch",
-        "weight_initialization": "tf_compatible",  # Using TensorFlow-compatible initialization
-        "gradient_clipping": True,
-        "max_grad_norm": 1.0,
-        "input_shape": input_shape,  # Add input shape for model metadata
-    }
+    # Use custom hyperparams if provided, otherwise create new ones
+    if custom_hyperparams is not None:
+        hyperparams = custom_hyperparams
+    else:
+        # Create hyperparameters dictionary
+        hyperparams = {
+            "learning_rate": learning_rate,
+            "weight_decay": 1e-4,
+            "batch_size": batch_size,
+            "early_stopping_patience": 10,
+            "epochs": epochs,
+            "num_transformer_blocks": transformer_blocks,
+            "embed_dim": embed_dim,
+            "num_heads": 8,
+            "ff_dim": embed_dim * 2,
+            "dropout_rate": 0.2,
+            "focal_loss": use_focal_loss,
+            "focal_loss_alpha": 0.25,
+            "focal_loss_gamma": 2.0,
+            "class_weights": class_weight,
+            "framework": "pytorch",
+            "weight_initialization": "tf_compatible",
+            "gradient_clipping": True,
+            "max_grad_norm": 1.0,
+            "input_shape": input_shape,
+            "scheduler": scheduler_type,
+            "scheduler_params": scheduler_params,
+            "use_batch_norm": use_batch_norm,
+            "optimizer": "AdamW",
+            "random_seed": RANDOM_SEED,
+        }
 
     # Include information about previous version in metadata if it exists
     if prev_version:
