@@ -658,7 +658,6 @@ class SolarKnowledge:
             mode='min',
             factor=0.5,
             patience=3,
-            verbose=True,
             min_lr=1e-6
         )
             
