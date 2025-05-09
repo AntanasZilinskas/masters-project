@@ -158,6 +158,7 @@ notebook = {
                 "    \"factor\": 0.5,          # Match TensorFlow (halves the learning rate)\n",
                 "    \"patience\": 3,          # Match TensorFlow (waits 3 epochs)\n",
                 "    \"min_lr\": 1e-6          # Match TensorFlow (minimum learning rate)\n",
+                "    # Note: TensorFlow accepts 'verbose' parameter but PyTorch does not\n",
                 "}\n",
                 "\n",
                 "# Display current settings\n",
