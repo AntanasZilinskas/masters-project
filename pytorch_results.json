@@ -24,8 +24,8 @@
             "test_samples": 42827,
             "positive_samples": 29058,
             "negative_samples": 13769,
-            "version": "3.000000000000001",
-            "test_date": "2025-05-09 04:17:53",
+            "version": "3.100000000000001",
+            "test_date": "2025-05-09 04:49:31",
             "used_monte_carlo_dropout": true,
             "mc_passes": 3,
             "framework": "pytorch"
