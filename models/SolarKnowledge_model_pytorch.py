@@ -60,7 +60,6 @@ if use_amp:
 import math
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts
-from torch.optim.swa_utils import AveragedModel, SWALR
 
 # Set random seed for reproducibility across PyTorch operations
 def set_seed(seed=42):
@@ -141,7 +140,7 @@ class PositionalEncoding(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Add positional encoding to the input tensor"""
         seq_len = x.size(1)
-        return x + self.pe[:, :seq_len, :]
+        return x + self.pe[:, :seq_len, :].type_as(x)
 
 # -----------------------------
 # Improved Transformer Block with Batch Normalization and Residual Connections
@@ -383,8 +382,12 @@ class SolarKnowledge:
         self.input_shape = None
         self.max_grad_norm = 1.0  # Gradient clipping norm
         self.gradient_accumulation_steps = 1  # No gradient accumulation - match TensorFlow
-        self.scheduler = None    # For batch-level schedulers like OneCycleLR
-        self.use_batch_scheduler = False   # Flag to enable per-batch scheduling
+        
+        # Initialize gradient scaler for mixed precision training
+        if use_amp and hasattr(torch.cuda, 'amp') and hasattr(torch.cuda.amp, 'GradScaler'):
+            self.scaler = GradScaler()
+        else:
+            self.scaler = None
         
     def build_base_model(
         self,
@@ -480,33 +483,6 @@ class SolarKnowledge:
         # Add TSS metric
         self.metrics["tss"] = TrueSkillStatisticMetric()
         
-    def _create_scheduler(self, scheduler_type: str, **kwargs) -> object:
-        """Create a learning rate scheduler"""
-        if scheduler_type == "reduce_on_plateau":
-            return torch.optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer,
-                mode=kwargs.get("mode", "min"),
-                factor=kwargs.get("factor", 0.2),  # More aggressive reduction (0.2 vs 0.5)
-                patience=kwargs.get("patience", 5),
-                verbose=kwargs.get("verbose", True),
-                min_lr=kwargs.get("min_lr", 1e-7)
-            )
-        elif scheduler_type == "cosine_annealing":
-            return CosineAnnealingLR(
-                self.optimizer,
-                T_max=kwargs.get("T_max", 10),  # Cycle length
-                eta_min=kwargs.get("min_lr", 1e-7)
-            )
-        elif scheduler_type == "cosine_with_restarts":
-            return CosineAnnealingWarmRestarts(
-                self.optimizer,
-                T_0=kwargs.get("T_0", 10),  # First cycle length
-                T_mult=kwargs.get("T_mult", 2),  # Cycle length multiplier
-                eta_min=kwargs.get("min_lr", 1e-7)
-            )
-        else:
-            raise ValueError(f"Unknown scheduler type: {scheduler_type}")
-        
     def _prepare_batch(self, X: np.ndarray, y: Optional[np.ndarray] = None) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """Convert numpy arrays to PyTorch tensors and move them to the right device"""
         X_tensor = torch.tensor(X, dtype=torch.float32).to(device)
@@ -563,6 +539,9 @@ class SolarKnowledge:
                 
                 loss = self.loss_fn(outputs, y_batch)
                 
+            # Add L1 + L2 regularization directly to the loss (matching TensorFlow)
+            loss += self.model._l1_l2_regularization()
+                
             # Scale loss for gradient accumulation
             loss = loss / self.gradient_accumulation_steps
             
@@ -589,10 +568,6 @@ class SolarKnowledge:
                     self.optimizer.step()
                     
                 self.optimizer.zero_grad()
-                
-                # Step learning rate scheduler if using batch-level scheduling
-                if self.use_batch_scheduler and self.scheduler is not None:
-                    self.scheduler.step()
             
             # Calculate metrics (unscaled)
             with torch.no_grad():
@@ -601,7 +576,16 @@ class SolarKnowledge:
                 
                 # Calculate additional metrics
                 for metric_name, metric_fn in self.metrics.items():
-                    metric_value = metric_fn(outputs, y_batch).item()
+                    if hasattr(metric_fn, 'update'):
+                        # For custom metrics like TSS that have an update method
+                        metric_fn.update(outputs, y_batch)
+                        # Will get the actual value at the end of epoch
+                        metric_value = 0.0
+                    else:
+                        # For simple function metrics like accuracy
+                        metric_value = metric_fn(outputs, y_batch)
+                        if isinstance(metric_value, torch.Tensor):
+                            metric_value = metric_value.item()
                     running_metric_sums[metric_name] += metric_value
                 
                 # Update progress bar
@@ -609,8 +593,13 @@ class SolarKnowledge:
                     'loss': running_loss / (num_batches + 1),
                 }
                 
-                for metric_name in self.metrics:
-                    progress_metrics[metric_name] = running_metric_sums[metric_name] / (num_batches + 1)
+                for metric_name, metric_fn in self.metrics.items():
+                    if hasattr(metric_fn, 'compute'):
+                        # For custom metrics like TSS
+                        progress_metrics[metric_name] = metric_fn.compute()
+                    else:
+                        # For simple metrics
+                        progress_metrics[metric_name] = running_metric_sums[metric_name] / (num_batches + 1)
                     
                 progress_bar.set_postfix(**progress_metrics)
                 
@@ -621,8 +610,13 @@ class SolarKnowledge:
             'loss': running_loss / num_batches
         }
         
-        for metric_name in self.metrics:
-            metrics[metric_name] = running_metric_sums[metric_name] / num_batches
+        for metric_name, metric_fn in self.metrics.items():
+            if hasattr(metric_fn, 'compute'):
+                # For custom metrics like TSS that have a compute method
+                metrics[metric_name] = metric_fn.compute()
+            else:
+                # For simple metrics, use the running average
+                metrics[metric_name] = running_metric_sums[metric_name] / num_batches
         
         return metrics
         
@@ -632,14 +626,11 @@ class SolarKnowledge:
         y_train: np.ndarray,
         X_valid: Optional[np.ndarray] = None,
         y_valid: Optional[np.ndarray] = None,
-        epochs: int = 300,  # Increased from 100
+        epochs: int = 100,
         verbose: int = 2,
         batch_size: int = 512,
         class_weight: Optional[Dict[int, float]] = None,
         callbacks: Optional[Dict] = None,
-        scheduler_type: str = "cosine_with_restarts",  # Default to cosine with restarts
-        scheduler_params: Optional[Dict] = None,
-        use_swa: bool = True,  # Enable stochastic weight averaging
     ):
         """
         Train the model with optional class weights for imbalanced data.
@@ -652,42 +643,14 @@ class SolarKnowledge:
             batch_size: Batch size for training
             class_weight: Optional dictionary mapping class indices to weights
             callbacks: Optional dictionary of callbacks
-            scheduler_type: Type of learning rate scheduler to use
-            scheduler_params: Parameters for the scheduler
-            use_swa: Whether to use stochastic weight averaging
         """
         if self.model is None:
             raise ValueError("Model is not built. Call build_base_model first.")
-            
-        # Default scheduler parameters for cosine with restarts
-        default_scheduler_params = {
-            "T_0": 5,  # First cycle length
-            "T_mult": 2,  # Cycle length multiplier 
-            "eta_min": 1e-7  # Minimum learning rate
-        }
-        
-        # Merge default with provided params
-        if scheduler_params is None:
-            scheduler_params = default_scheduler_params
-        else:
-            for key, value in default_scheduler_params.items():
-                if key not in scheduler_params:
-                    scheduler_params[key] = value
                     
-        # Create scheduler if not provided in callbacks
+        # Create a simple callback dictionary if not provided
         if callbacks is None:
             callbacks = {}
             
-        if 'lr_scheduler' not in callbacks and scheduler_type:
-            scheduler = self._create_scheduler(scheduler_type, **scheduler_params)
-            
-            if scheduler_type == "reduce_on_plateau":
-                # ReduceLROnPlateau needs to be called with a metric value
-                callbacks['lr_scheduler'] = lambda val: scheduler.step(val)
-            else:
-                # Other schedulers are called every epoch
-                callbacks['lr_scheduler'] = lambda _: scheduler.step()
-        
         # Convert numpy arrays to PyTorch datasets
         train_dataset = TensorDataset(
             torch.tensor(X_train, dtype=torch.float32),
@@ -737,17 +700,7 @@ class SolarKnowledge:
             class_weight = {0: 1.0, 1: 10.0}
             print(f"Using default class weights: {class_weight}")
             
-        # Initialize SWA model and scheduler if requested
-        swa_model = None
-        swa_scheduler = None
-        swa_start = int(epochs * 0.75)  # Start SWA at 75% of training
-        
-        if use_swa:
-            swa_model = AveragedModel(self.model)
-            swa_scheduler = SWALR(self.optimizer, anneal_strategy="cos", anneal_epochs=5, swa_lr=1e-4)
-            print(f"Using Stochastic Weight Averaging (SWA) starting at epoch {swa_start}")
-            
-        # Training loop
+        # Training loop - matching TensorFlow behavior
         for epoch in range(epochs):
             if verbose > 0:
                 print(f"\nEpoch {epoch+1}/{epochs}")
@@ -771,30 +724,18 @@ class SolarKnowledge:
                 metrics_str = " - ".join([f"{k}: {v:.4f}" for k, v in train_metrics.items()])
                 print(f"Training: {metrics_str} - lr: {current_lr:.6f}")
             
-            # SWA logic
-            if use_swa and epoch >= swa_start:
-                swa_model.update_parameters(self.model)
-                swa_scheduler.step()
-            # Call learning rate scheduler if provided
-            elif callbacks and 'lr_scheduler' in callbacks:
-                # Pass the loss to the scheduler
-                callbacks['lr_scheduler'](train_metrics['loss'])
-                
-            # Validate if validation data is provided
+            # Validate if validation data is provided (for monitoring only)
             if val_loader is not None:
                 val_metrics = self._evaluate(val_loader)
                 
                 if verbose > 0:
                     val_metrics_str = " - ".join([f"val_{k}: {v:.4f}" for k, v in val_metrics.items()])
                     print(f"Validation: {val_metrics_str}")
-                    
-                # Check for early stopping on validation loss
-                current_loss = val_metrics['loss']
-            else:
-                # Use training loss for early stopping if no validation data
-                current_loss = train_metrics['loss']
+            
+            # TensorFlow early stopping monitors training loss exactly like in Keras
+            current_loss = train_metrics['loss']
                 
-            # Check if this is the best model so far
+            # Check if this is the best model so far (based on training loss)
             if current_loss < best_loss:
                 best_loss = current_loss
                 patience_counter = 0
@@ -811,29 +752,8 @@ class SolarKnowledge:
                         print("Early stopping triggered")
                     break
                     
-        # Apply SWA batch normalization update if used
-        if use_swa and swa_model is not None:
-            # Update batch normalization statistics for the SWA model
-            print("Updating SWA batch normalization statistics...")
-            
-            # Create a DataLoader with batch norm batch size
-            bn_loader = DataLoader(
-                train_dataset,
-                batch_size=min(batch_size, 1024),  # Use smaller batch size for BN update
-                shuffle=False,
-                num_workers=0,
-                pin_memory=True if device.type != 'cpu' else False
-            )
-            
-            # Update batch statistics
-            torch.optim.swa_utils.update_bn(bn_loader, swa_model)
-            
-            # Replace the model with SWA model
-            print("Replacing model with SWA model")
-            self.model = swa_model.module  # Get the underlying module
-            
-        # Restore best model from regular training if SWA wasn't used
-        elif best_model_state is not None:
+        # Restore best model 
+        if best_model_state is not None:
             self.model.load_state_dict({k: v.to(device) for k, v in best_model_state.items()})
             
         return history
@@ -948,14 +868,19 @@ class SolarKnowledge:
         # List to store all predictions
         all_preds = []
         
+        # First set model to eval mode to handle BatchNorm layers correctly
+        self.model.eval()
+        
+        # Selectively enable dropout layers (matching TensorFlow behavior)
+        for module in self.model.modules():
+            if isinstance(module, nn.Dropout):
+                module.train(True)  # Only set dropout layers to training mode
+        
         # Perform multiple forward passes with dropout enabled
         for i in range(n_passes):
             if verbose > 0 and i % 5 == 0:
                 print(f"MC pass {i+1}/{n_passes}")
                 
-            # Enable dropout layers for inference
-            self.model.train()
-            
             # Disable gradient computation
             with torch.no_grad():
                 pass_preds = []
@@ -963,7 +888,7 @@ class SolarKnowledge:
                 for (inputs,) in test_loader:
                     inputs = inputs.to(device)
                     
-                    # Forward pass with dropout enabled (training=True)
+                    # Forward pass with dropout enabled
                     outputs = self.model(inputs, training=True)
                     pass_preds.append(outputs.cpu().numpy())
                     

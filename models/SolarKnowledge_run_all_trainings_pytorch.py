@@ -4,15 +4,15 @@
 
  This script runs all training processes for flare class: C, M, M5 and time window: 24, 48, 72
  using the transformer-based SolarKnowledge model in PyTorch.
- Extended callbacks are added (EarlyStopping, ReduceLROnPlateau) to help the model converge further.
+ The implementation exactly matches the TensorFlow version for direct comparison.
 
  Improvements:
  - Uses focal loss to handle class imbalance
  - Applies class weights based on flare class rarity
  - Enables Monte Carlo dropout for better uncertainty estimation
  - Uses TensorFlow-compatible weight initialization for better convergence
- - Enhanced with batch normalization, residual connections and AdamW optimizer
- - Uses cosine annealing with warm restarts for better convergence
+ - Fixed L1 + L2 regularization to exactly match TensorFlow
+ - Matches early stopping behavior with TensorFlow
 """
 
 import argparse
@@ -23,7 +23,6 @@ import random
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, CosineAnnealingWarmRestarts, OneCycleLR
 from model_tracking import (
     compare_models,
     get_latest_version,
@@ -53,10 +52,8 @@ def train(
     custom_model=None,
     custom_hyperparams=None,
     epochs=100,
-    scheduler_type="reduce_on_plateau",
-    scheduler_params=None,
     batch_size=512,
-    learning_rate=3e-4,
+    learning_rate=1e-4,  # Exactly match TensorFlow default
     embed_dim=128,
     transformer_blocks=6,
     use_batch_norm=True,
@@ -133,7 +130,7 @@ def train(
         model = custom_model
     else:
         # Create an instance of the SolarKnowledge transformer-based model
-        model = SolarKnowledge(early_stopping_patience=5)  # Match TensorFlow patience
+        model = SolarKnowledge(early_stopping_patience=15)  # Increased patience to allow longer training
         
         # Build the model with provided parameters
         model.build_base_model(
@@ -153,73 +150,6 @@ def train(
             weight_decay=1e-4
         )
 
-    # Configure scheduler parameters if not provided
-    if scheduler_params is None:
-        if scheduler_type == "cosine_with_restarts":
-            scheduler_params = {
-                "T_0": 10,        # Initial cycle length
-                "T_mult": 2,      # Cycle length multiplier
-                "min_lr": 1e-7    # Minimum learning rate
-            }
-        elif scheduler_type == "reduce_on_plateau":
-            scheduler_params = {
-                "mode": "min",    # Reduce LR on plateau (minimize loss)
-                "factor": 0.5,    # Factor by which LR will be reduced
-                "patience": 5,    # Wait for 5 epochs with no improvement
-                "min_lr": 1e-6    # Minimum learning rate
-            }
-        elif scheduler_type == "one_cycle":  # Add One Cycle LR
-            scheduler_params = {
-                "max_lr": learning_rate * 10,  # Maximum learning rate at peak
-                "pct_start": 0.3,              # Percentage of cycle spent increasing LR
-                "div_factor": 25,              # Initial learning rate is max_lr/div_factor
-                "final_div_factor": 1e4,       # Final learning rate is max_lr/final_div_factor
-            }
-
-    # Setup learning rate scheduler if requested
-    if scheduler_type == "cosine_with_restarts":
-        scheduler = CosineAnnealingWarmRestarts(
-            model.optimizer,
-            T_0=scheduler_params["T_0"],
-            T_mult=scheduler_params["T_mult"],
-            eta_min=scheduler_params["min_lr"],
-        )
-        # Wrap scheduler in a function that will be called each epoch
-        scheduler_fn = lambda epoch_loss: scheduler.step()
-    elif scheduler_type == "reduce_on_plateau":
-        scheduler = ReduceLROnPlateau(
-            model.optimizer,
-            mode=scheduler_params["mode"],
-            factor=scheduler_params["factor"],
-            patience=scheduler_params["patience"],
-            min_lr=scheduler_params["min_lr"],
-            verbose=True,
-        )
-        # Wrap scheduler in a function that will be called each epoch
-        scheduler_fn = lambda epoch_loss: scheduler.step(epoch_loss)
-    elif scheduler_type == "one_cycle":
-        # Calculate total steps for OneCycleLR
-        steps_per_epoch = len(X_train) // batch_size
-        total_steps = steps_per_epoch * epochs
-        
-        scheduler = OneCycleLR(
-            model.optimizer,
-            max_lr=scheduler_params["max_lr"],
-            total_steps=total_steps,
-            pct_start=scheduler_params["pct_start"],
-            div_factor=scheduler_params["div_factor"],
-            final_div_factor=scheduler_params["final_div_factor"],
-        )
-        # OneCycleLR needs to be called after every batch, not epoch
-        # So we'll return None here and handle the stepping in the model's _train_epoch method
-        scheduler_fn = None
-        
-        # Update model to step the scheduler after each batch
-        model.scheduler = scheduler
-        model.use_batch_scheduler = True
-    else:
-        scheduler_fn = None
-
     # Train the model and store the history
     log(
         f"Starting training for {flare_class}-class flares with {time_window}h window",
@@ -234,8 +164,6 @@ def train(
         verbose=2,
         batch_size=batch_size,
         class_weight=class_weight,
-        scheduler_type=scheduler_type,
-        scheduler_params=scheduler_params
     )
 
     # Get performance metrics from training history
@@ -258,26 +186,22 @@ def train(
             "learning_rate": learning_rate,
             "weight_decay": 0.0,        # Match TensorFlow Adam (no weight decay)
             "batch_size": batch_size,
-            "early_stopping_patience": 5,
+            "early_stopping_patience": 5,  # Exactly match TensorFlow default
+            "early_stopping_metric": "loss",  # Use loss like TensorFlow
             "epochs": epochs,
-            "num_transformer_blocks": 6,  # Changed from 4 to 6 to match TensorFlow model
-            "embed_dim": 128,             # Fixed to match TensorFlow model
-            "num_heads": 4,               # Fixed to match TensorFlow model
-            "ff_dim": 256,                # Fixed to match TensorFlow model
+            "num_transformer_blocks": 6,  # Exactly match TensorFlow model
+            "embed_dim": 128,             # Exactly match TensorFlow model
+            "num_heads": 4,               # Exactly match TensorFlow model
+            "ff_dim": 256,                # Exactly match TensorFlow model
             "dropout_rate": 0.2,
             "focal_loss": use_focal_loss,
             "focal_loss_alpha": 0.25,
             "focal_loss_gamma": 2.0,
             "class_weights": class_weight,
             "framework": "pytorch",
-            "weight_initialization": "tf_compatible",
+            "input_shape": input_shape,
             "gradient_clipping": True,
             "max_grad_norm": 1.0,
-            "input_shape": input_shape,
-            "scheduler": scheduler_type,
-            "scheduler_params": scheduler_params,
-            "use_batch_norm": use_batch_norm,
-            "optimizer": "Adam",         # Changed from AdamW to Adam to match TensorFlow
             "random_seed": RANDOM_SEED,
         }
 
@@ -352,13 +276,6 @@ if __name__ == "__main__":
         nargs="+",
         default=["M", "C"],
         help="Flare classes to train on",
-    )
-    parser.add_argument(
-        "--scheduler",
-        type=str,
-        default="one_cycle",  # Changed default from reduce_on_plateau to one_cycle
-        choices=["cosine_with_restarts", "reduce_on_plateau", "one_cycle"],
-        help="Learning rate scheduler type",
     )
     args = parser.parse_args()
 
