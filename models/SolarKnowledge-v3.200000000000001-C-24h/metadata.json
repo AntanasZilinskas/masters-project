@@ -1,0 +1,159 @@
+{
+    "version": 3.200000000000001,
+    "timestamp": "2025-05-09T05:09:29.152969",
+    "description": "Iteration on v3.100000000000001 model for C-class flares with 24h window",
+    "flare_class": "C",
+    "time_window": "24",
+    "hyperparameters": {
+        "learning_rate": 0.0001,
+        "weight_decay": 0.0,
+        "batch_size": 512,
+        "early_stopping_patience": 5,
+        "early_stopping_metric": "loss",
+        "lr_scheduler": {
+            "type": "ReduceLROnPlateau",
+            "monitor": "loss",
+            "factor": 0.5,
+            "patience": 3,
+            "min_lr": 1e-06
+        },
+        "epochs": 200,
+        "num_transformer_blocks": 6,
+        "embed_dim": 128,
+        "num_heads": 4,
+        "ff_dim": 256,
+        "dropout_rate": 0.2,
+        "focal_loss": true,
+        "focal_loss_alpha": 0.25,
+        "focal_loss_gamma": 2.0,
+        "class_weights": {
+            "0": 1.0,
+            "1": 0.4421536237869089
+        },
+        "framework": "pytorch",
+        "input_shape": [
+            10,
+            9
+        ],
+        "gradient_clipping": true,
+        "max_grad_norm": 1.0,
+        "random_seed": 42,
+        "regularization": {
+            "l1": 1e-05,
+            "l2": 0.0001
+        },
+        "previous_version": 3.100000000000001
+    },
+    "performance": {
+        "final_training_accuracy": 0.9844592951592945,
+        "final_training_loss": 0.20407002046704292,
+        "epochs_trained": 200,
+        "final_training_tss": 0.9339263262001394
+    },
+    "git_info": {
+        "commit": "0d417543755043ad4b5f92ed4b7a694473b593ed",
+        "branch": "pytorch-rewrite"
+    },
+    "architecture": {
+        "name": "SolarKnowledge (PyTorch)",
+        "input_shape": [
+            10,
+            9
+        ],
+        "num_params": 813186,
+        "precision": "torch.float32"
+    },
+    "framework": "PyTorch",
+    "test_results": {
+        "20250509050956": {
+            "accuracy": 0.7877,
+            "precision": 0.9415,
+            "recall": 0.7326,
+            "balanced_accuracy": 0.8183,
+            "TSS": 0.6366,
+            "sensitivity": 0.7326,
+            "specificity": 0.9039,
+            "mean_entropy": 0.5066718459129333,
+            "mean_uncertainty": 0.13855130970478058,
+            "mean_confidence": 0.7441414594650269,
+            "confusion_matrix": [
+                [
+                    12446,
+                    1323
+                ],
+                [
+                    7769,
+                    21289
+                ]
+            ],
+            "test_samples": 42827,
+            "positive_samples": 29058,
+            "negative_samples": 13769,
+            "version": "3.200000000000001",
+            "test_date": "2025-05-09 05:09:56",
+            "used_monte_carlo_dropout": true,
+            "mc_passes": 3,
+            "framework": "pytorch"
+        },
+        "20250509051138": {
+            "accuracy": 0.8871,
+            "precision": 0.9684,
+            "recall": 0.8617,
+            "balanced_accuracy": 0.9012,
+            "TSS": 0.8023,
+            "sensitivity": 0.8617,
+            "specificity": 0.9406,
+            "mean_entropy": 0.538996160030365,
+            "mean_uncertainty": 0.19141514599323273,
+            "mean_confidence": 0.7239683270454407,
+            "confusion_matrix": [
+                [
+                    12951,
+                    818
+                ],
+                [
+                    4018,
+                    25040
+                ]
+            ],
+            "test_samples": 42827,
+            "positive_samples": 29058,
+            "negative_samples": 13769,
+            "version": "3.200000000000001",
+            "test_date": "2025-05-09 05:11:38",
+            "used_monte_carlo_dropout": true,
+            "mc_passes": 30,
+            "framework": "pytorch"
+        }
+    },
+    "latest_test": {
+        "accuracy": 0.8871,
+        "precision": 0.9684,
+        "recall": 0.8617,
+        "balanced_accuracy": 0.9012,
+        "TSS": 0.8023,
+        "sensitivity": 0.8617,
+        "specificity": 0.9406,
+        "mean_entropy": 0.538996160030365,
+        "mean_uncertainty": 0.19141514599323273,
+        "mean_confidence": 0.7239683270454407,
+        "confusion_matrix": [
+            [
+                12951,
+                818
+            ],
+            [
+                4018,
+                25040
+            ]
+        ],
+        "test_samples": 42827,
+        "positive_samples": 29058,
+        "negative_samples": 13769,
+        "version": "3.200000000000001",
+        "test_date": "2025-05-09 05:11:38",
+        "used_monte_carlo_dropout": true,
+        "mc_passes": 30,
+        "framework": "pytorch"
+    }
+}

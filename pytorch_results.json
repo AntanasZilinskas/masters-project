@@ -1,33 +1,33 @@
 {
     "24": {
         "C": {
-            "accuracy": 0.8086,
-            "precision": 0.9479,
-            "recall": 0.7596,
-            "balanced_accuracy": 0.8357,
-            "TSS": 0.6715,
-            "sensitivity": 0.7596,
-            "specificity": 0.9119,
-            "mean_entropy": 0.512907087802887,
-            "mean_uncertainty": 0.13222026824951172,
-            "mean_confidence": 0.7399652600288391,
+            "accuracy": 0.8871,
+            "precision": 0.9684,
+            "recall": 0.8617,
+            "balanced_accuracy": 0.9012,
+            "TSS": 0.8023,
+            "sensitivity": 0.8617,
+            "specificity": 0.9406,
+            "mean_entropy": 0.538996160030365,
+            "mean_uncertainty": 0.19141514599323273,
+            "mean_confidence": 0.7239683270454407,
             "confusion_matrix": [
                 [
-                    12556,
-                    1213
+                    12951,
+                    818
                 ],
                 [
-                    6986,
-                    22072
+                    4018,
+                    25040
                 ]
             ],
             "test_samples": 42827,
             "positive_samples": 29058,
             "negative_samples": 13769,
-            "version": "3.100000000000001",
-            "test_date": "2025-05-09 04:49:31",
+            "version": "3.200000000000001",
+            "test_date": "2025-05-09 05:11:38",
             "used_monte_carlo_dropout": true,
-            "mc_passes": 3,
+            "mc_passes": 30,
             "framework": "pytorch"
         }
     }
