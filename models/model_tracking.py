@@ -450,6 +450,8 @@ def get_latest_version(flare_class, time_window):
                 try:
                     version_str = parts[1][1:]  # Remove the 'v' prefix
                     version_num = float(version_str)
+                    # Round to 1 decimal place to ensure consistency
+                    version_num = round(version_num, 1)
                     versions.append(version_num)
                 except ValueError:
                     continue
@@ -463,7 +465,8 @@ def get_next_version(flare_class, time_window):
     latest_version = get_latest_version(flare_class, time_window)
     if latest_version is None:
         return 1.0
-    return latest_version + 0.1
+    # Round to 1 decimal place to avoid floating point precision issues
+    return round(latest_version + 0.1, 1)
 
 
 if __name__ == "__main__":
