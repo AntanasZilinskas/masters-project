@@ -1,0 +1,34 @@
+{
+    "24": {
+        "C": {
+            "accuracy": 0.6783,
+            "precision": 0.6785,
+            "recall": 0.9997,
+            "balanced_accuracy": 0.4999,
+            "TSS": -0.0002,
+            "sensitivity": 0.9997,
+            "specificity": 0.0001,
+            "mean_entropy": 0.5108237862586975,
+            "mean_uncertainty": 0.10997819155454636,
+            "mean_confidence": 0.7761512994766235,
+            "confusion_matrix": [
+                [
+                    1,
+                    13768
+                ],
+                [
+                    8,
+                    29050
+                ]
+            ],
+            "test_samples": 42827,
+            "positive_samples": 29058,
+            "negative_samples": 13769,
+            "version": "2.1",
+            "test_date": "2025-05-09 00:46:36",
+            "used_monte_carlo_dropout": true,
+            "mc_passes": 5,
+            "framework": "pytorch"
+        }
+    }
+}
