@@ -397,7 +397,7 @@ def get_training_data(time_window, flare_class):
     file_name = os.path.join(
         PROJECT_ROOT,
         "Nature_data",
-        f"testing_data_{flare_class}_{time_window}.csv",
+        f"training_data_{flare_class}_{time_window}.csv",
     )
     return get_data(flare_class, file_name, noise_enabled=True)
 
