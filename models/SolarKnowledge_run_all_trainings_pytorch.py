@@ -1,6 +1,5 @@
 """
  author: Antanas Zilinskas
- Based on work by Yasser Abduallah
 
  This script runs all training processes for flare class: C, M, M5 and time window: 24, 48, 72
  using the transformer-based SolarKnowledge model in PyTorch.
@@ -13,6 +12,7 @@
  - Uses TensorFlow-compatible weight initialization for better convergence
  - Fixed L1 + L2 regularization to exactly match TensorFlow
  - Matches early stopping behavior with TensorFlow
+ - Implements identical ReduceLROnPlateau scheduler (factor=0.5, patience=3)
 """
 
 import argparse
@@ -51,7 +51,7 @@ def train(
     # Add custom parameter options for notebook integration
     custom_model=None,
     custom_hyperparams=None,
-    epochs=100,
+    epochs=200,
     batch_size=512,
     learning_rate=1e-4,  # Exactly match TensorFlow default
     embed_dim=128,
@@ -188,6 +188,13 @@ def train(
             "batch_size": batch_size,
             "early_stopping_patience": 5,  # Exactly match TensorFlow default
             "early_stopping_metric": "loss",  # Use loss like TensorFlow
+            "lr_scheduler": {
+                "type": "ReduceLROnPlateau",
+                "monitor": "loss",
+                "factor": 0.5,
+                "patience": 3,
+                "min_lr": 1e-6
+            },
             "epochs": epochs,
             "num_transformer_blocks": 6,  # Exactly match TensorFlow model
             "embed_dim": 128,             # Exactly match TensorFlow model
@@ -203,6 +210,10 @@ def train(
             "gradient_clipping": True,
             "max_grad_norm": 1.0,
             "random_seed": RANDOM_SEED,
+            "regularization": {
+                "l1": 1e-5,
+                "l2": 1e-4
+            }
         }
 
     # Include information about previous version in metadata if it exists
@@ -268,7 +279,8 @@ if __name__ == "__main__":
         "--batch-size",
         "-b",
         type=int,
-        help="Batch size for training",
+        default=512,
+        help="Batch size for training (default: 512)",
     )
     parser.add_argument(
         "--flare-classes",

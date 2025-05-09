@@ -59,7 +59,7 @@ if use_amp:
 # Import additional components for advanced optimizers and schedulers
 import math
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 # Set random seed for reproducibility across PyTorch operations
 def set_seed(seed=42):
@@ -651,6 +651,17 @@ class SolarKnowledge:
         if callbacks is None:
             callbacks = {}
             
+        # Create ReduceLROnPlateau scheduler to match TensorFlow's behavior
+        # In TensorFlow this is: ReduceLROnPlateau(monitor='loss', factor=0.5, patience=3, verbose=1, min_lr=1e-6)
+        lr_scheduler = ReduceLROnPlateau(
+            self.optimizer,
+            mode='min',
+            factor=0.5,
+            patience=3,
+            verbose=True,
+            min_lr=1e-6
+        )
+            
         # Convert numpy arrays to PyTorch datasets
         train_dataset = TensorDataset(
             torch.tensor(X_train, dtype=torch.float32),
@@ -723,6 +734,9 @@ class SolarKnowledge:
             if verbose > 0:
                 metrics_str = " - ".join([f"{k}: {v:.4f}" for k, v in train_metrics.items()])
                 print(f"Training: {metrics_str} - lr: {current_lr:.6f}")
+            
+            # Apply learning rate scheduler using training loss (matches TensorFlow)
+            lr_scheduler.step(train_metrics['loss'])
             
             # Validate if validation data is provided (for monitoring only)
             if val_loader is not None:
