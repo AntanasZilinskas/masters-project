@@ -60,6 +60,7 @@ if use_amp:
 import math
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts
+from torch.optim.swa_utils import AveragedModel, SWALR
 
 # Set random seed for reproducibility across PyTorch operations
 def set_seed(seed=42):
@@ -152,14 +153,12 @@ class TransformerBlock(nn.Module):
         # Multi-head attention layer
         self.att = nn.MultiheadAttention(embed_dim, num_heads, dropout=dropout_rate, batch_first=True)
         
-        # Feed-forward network with GELU activation and batch normalization
+        # Feed-forward network with GELU activation - EXACT MATCH to TensorFlow
         self.ffn = nn.Sequential(
             nn.Linear(embed_dim, ff_dim),
-            nn.BatchNorm1d(ff_dim),  # Add batch normalization
             nn.GELU(),
             nn.Dropout(dropout_rate),
             nn.Linear(ff_dim, embed_dim),
-            nn.BatchNorm1d(embed_dim)  # Add batch normalization
         )
         
         # Layer normalization and dropout
@@ -168,9 +167,6 @@ class TransformerBlock(nn.Module):
         self.dropout1 = nn.Dropout(dropout_rate)
         self.dropout2 = nn.Dropout(dropout_rate)
         
-        # Residual scaling factor
-        self.residual_scale = nn.Parameter(torch.ones(1))
-        
         # Initialize weights using TensorFlow-like initialization
         self._init_weights()
         
@@ -178,17 +174,12 @@ class TransformerBlock(nn.Module):
         """Initialize weights using TensorFlow-like initialization (Glorot/Xavier uniform)"""
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                # TensorFlow Glorot/Xavier uniform initializer
-                fan_in, fan_out = nn.init._calculate_fan_in_and_fan_out(m.weight)
-                limit = np.sqrt(6. / (fan_in + fan_out))
-                nn.init.uniform_(m.weight, -limit, limit)
+                # Pure Glorot/Xavier uniform initialization
+                nn.init.xavier_uniform_(m.weight)
                 
                 # TensorFlow initializes biases to zeros by default
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
-            elif isinstance(m, nn.BatchNorm1d):
-                nn.init.ones_(m.weight)
-                nn.init.zeros_(m.bias)
         
     def forward(self, x: torch.Tensor, training: bool = False) -> torch.Tensor:
         # Set dropout training mode
@@ -198,18 +189,12 @@ class TransformerBlock(nn.Module):
         # Multi-head attention with residual connection and layer norm
         attn_output, _ = self.att(x, x, x)
         attn_output = self.dropout1(attn_output)
-        out1 = self.layernorm1(x + self.residual_scale * attn_output)
+        out1 = self.layernorm1(x + attn_output)
         
         # Feed-forward network with residual connection and layer norm
-        # Handle batch norm dimensions (need to reshape for batch norm)
-        batch_size, seq_len, feat_dim = out1.size()
-        ffn_input = out1.reshape(-1, feat_dim)  # Reshape for batch norm
-        
-        ffn_output = self.ffn(ffn_input)
-        ffn_output = ffn_output.view(batch_size, seq_len, feat_dim)  # Reshape back
-        
+        ffn_output = self.ffn(out1)
         ffn_output = self.dropout2(ffn_output)
-        return self.layernorm2(out1 + self.residual_scale * ffn_output)
+        return self.layernorm2(out1 + ffn_output)
 
 # -----------------------------
 # Focal Loss Implementation (TensorFlow-compatible version)
@@ -235,13 +220,11 @@ class CategoricalFocalLoss(nn.Module):
         if not (y_pred.sum(dim=1) - 1.0).abs().max() < 1e-3:
             y_pred = F.softmax(y_pred, dim=1)
             
-        # Clip predictions for numerical stability (matching TensorFlow's epsilon)
+        # Clip predictions for numerical stability (matching TensorFlow's epsilon of 1e-7)
         epsilon = 1e-7
         y_pred = torch.clamp(y_pred, epsilon, 1.0 - epsilon)
         
-        # TensorFlow uses log(x + epsilon) for numerical stability
-        # Since PyTorch's log doesn't add epsilon by default, we need to clip first
-        # and then take the natural logarithm
+        # Standard categorical cross-entropy loss
         ce_loss = -torch.sum(y_true * torch.log(y_pred), dim=1)
         
         # Get probability of true class for each sample
@@ -250,12 +233,9 @@ class CategoricalFocalLoss(nn.Module):
         # Apply modulating factor with gamma
         modulating_factor = torch.pow(1.0 - p_t, self.gamma)
         
-        # Apply alpha weighting if specified (matching TensorFlow's implementation)
-        if self.alpha > 0:
-            alpha_weight = torch.sum(y_true * self.alpha + (1 - y_true) * (1 - self.alpha), dim=1)
-            focal_loss = alpha_weight * modulating_factor * ce_loss
-        else:
-            focal_loss = modulating_factor * ce_loss
+        # Apply alpha weighting (matching TensorFlow implementation)
+        alpha_weight = torch.sum(y_true * self.alpha + (1 - y_true) * (1 - self.alpha), dim=1)
+        focal_loss = alpha_weight * modulating_factor * ce_loss
         
         # Return the mean loss over the batch
         return torch.mean(focal_loss)
@@ -267,13 +247,17 @@ class SolarKnowledgeModel(nn.Module):
     def __init__(
         self, 
         input_shape: Tuple[int, int], 
-        embed_dim: int = 256,  # Increased from 128
-        num_heads: int = 8,    # Increased from 4
-        ff_dim: int = 512,     # Increased from 256
-        num_transformer_blocks: int = 8,  # Increased from 6
-        dropout_rate: float = 0.2, 
+        embed_dim: int = 128,    # Exact match to TensorFlow model
+        num_heads: int = 4,      # Exact match to TensorFlow model
+        ff_dim: int = 256,       # Exact match to TensorFlow model
+        num_transformer_blocks: int = 6,  # Changed from 4 to 6 to exactly match TensorFlow model
+        dropout_rate: float = 0.2,        # Exact match to TensorFlow model
         num_classes: int = 2
     ):
+        """
+        PyTorch implementation of SolarKnowledge Transformer model
+        IMPORTANT: This implementation exactly matches the original TensorFlow architecture
+        """
         super(SolarKnowledgeModel, self).__init__()
         
         # Save input dimensions
@@ -283,7 +267,6 @@ class SolarKnowledgeModel(nn.Module):
         # Project input features to embedding dimension
         self.embedding = nn.Linear(self.features, embed_dim)
         self.layernorm_input = nn.LayerNorm(embed_dim, eps=1e-6)
-        self.batch_norm_input = nn.BatchNorm1d(embed_dim)
         self.input_dropout = nn.Dropout(dropout_rate)
         
         # Positional encoding
@@ -298,18 +281,15 @@ class SolarKnowledgeModel(nn.Module):
         # Global average pooling
         self.global_avg_pool = nn.AdaptiveAvgPool1d(1)
         
-        # Classification head with batch normalization
+        # Classification head - EXACT MATCH to TensorFlow
         self.dropout1 = nn.Dropout(dropout_rate)
-        self.dense1 = nn.Linear(embed_dim, 256)  # Increased from 128
-        self.batch_norm1 = nn.BatchNorm1d(256)
+        self.dense1 = nn.Linear(embed_dim, 128)
         self.dropout2 = nn.Dropout(dropout_rate)
-        self.dense2 = nn.Linear(256, 128)  # Additional dense layer
-        self.batch_norm2 = nn.BatchNorm1d(128)
         self.classifier = nn.Linear(128, num_classes)
         
         # Regularization
-        self.l1_regularizer = 1e-5
-        self.l2_regularizer = 1e-4
+        self.l1_regularizer = 1e-5  # Match TensorFlow value
+        self.l2_regularizer = 1e-4  # Match TensorFlow value
         
         # Initialize weights matching TensorFlow defaults
         self._init_weights()
@@ -318,17 +298,12 @@ class SolarKnowledgeModel(nn.Module):
         """Initialize weights using TensorFlow-like initialization (Glorot/Xavier uniform)"""
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                # TensorFlow Glorot/Xavier uniform initializer
-                fan_in, fan_out = nn.init._calculate_fan_in_and_fan_out(m.weight)
-                limit = np.sqrt(6. / (fan_in + fan_out))
-                nn.init.uniform_(m.weight, -limit, limit)
+                # Pure Glorot/Xavier uniform initialization
+                nn.init.xavier_uniform_(m.weight)
                 
                 # TensorFlow initializes biases to zeros by default
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
-            elif isinstance(m, nn.BatchNorm1d):
-                nn.init.ones_(m.weight)
-                nn.init.zeros_(m.bias)
         
     def _l1_l2_regularization(self):
         """Calculate L1 and L2 regularization loss"""
@@ -368,12 +343,6 @@ class SolarKnowledgeModel(nn.Module):
         # Project to embedding dimension
         x = self.embedding(x)
         x = self.layernorm_input(x)
-        
-        # Reshape for batch norm (batch_size, seq_len, features) -> (batch_size * seq_len, features)
-        x_reshaped = x.reshape(-1, x.size(-1))
-        x_reshaped = self.batch_norm_input(x_reshaped)
-        x = x_reshaped.reshape(batch_size, self.timesteps, -1)
-        
         x = self.input_dropout(x)
         
         # Add positional encoding
@@ -387,19 +356,15 @@ class SolarKnowledgeModel(nn.Module):
         x = x.transpose(1, 2)
         x = self.global_avg_pool(x).squeeze(-1)
         
-        # Apply dense layers with GELU activation and batch normalization
+        # Apply dense layers with GELU activation - MATCH TensorFlow
         x = self.dropout1(x)
         x = self.dense1(x)
-        x = self.batch_norm1(x)
         x = F.gelu(x)
         
         x = self.dropout2(x)
-        x = self.dense2(x)
-        x = self.batch_norm2(x)
-        x = F.gelu(x)
-        
-        # Final classification layer
         x = self.classifier(x)
+        
+        # Apply softmax activation
         return F.softmax(x, dim=1)
     
     # Add a save_weights method for TensorFlow API compatibility
@@ -411,20 +376,23 @@ class SolarKnowledge:
     """
     PyTorch implementation of the SolarKnowledge model with training and evaluation utilities
     """
-    def __init__(self, early_stopping_patience: int = 5):  # Increased from 3
+    def __init__(self, early_stopping_patience: int = 5):  # Match TensorFlow
         self.model_name = "SolarKnowledge"
         self.model = None
         self.early_stopping_patience = early_stopping_patience
         self.input_shape = None
         self.max_grad_norm = 1.0  # Gradient clipping norm
+        self.gradient_accumulation_steps = 1  # No gradient accumulation - match TensorFlow
+        self.scheduler = None    # For batch-level schedulers like OneCycleLR
+        self.use_batch_scheduler = False   # Flag to enable per-batch scheduling
         
     def build_base_model(
         self,
         input_shape: Tuple[int, int],
-        embed_dim: int = 256,  # Increased from 128
-        num_heads: int = 8,    # Increased from 4
-        ff_dim: int = 512,     # Increased from 256
-        num_transformer_blocks: int = 8,  # Increased from 6
+        embed_dim: int = 128,
+        num_heads: int = 4,
+        ff_dim: int = 256,
+        num_transformer_blocks: int = 6,  # Changed from 4 to 6 to exactly match TensorFlow model
         dropout_rate: float = 0.2,
         num_classes: int = 2,
     ):
@@ -468,25 +436,25 @@ class SolarKnowledge:
         self, 
         loss: str = "categorical_crossentropy", 
         metrics: List[str] = ["accuracy"], 
-        learning_rate: float = 5e-5,  # Reduced from 1e-4
-        weight_decay: float = 1e-4,   # Added weight decay
+        learning_rate: float = 1e-4,  # Match TensorFlow's default
+        weight_decay: float = 0.0,    # No weight decay in TensorFlow Adam
         use_focal_loss: bool = True
     ):
         """
-        Compile the model with specified loss and metrics.
+        Configure the model for training.
         
         Args:
             loss: Loss function to use. If use_focal_loss is True, this will be overridden.
             metrics: List of metrics to track
-            learning_rate: Learning rate for the optimizer
-            weight_decay: Weight decay for the AdamW optimizer
+            learning_rate: Learning rate for the optimizer (1e-4 to match TensorFlow)
+            weight_decay: Weight decay for regularization (0.0 to match TensorFlow)
             use_focal_loss: Whether to use focal loss (better for imbalanced data)
         """
         if self.model is None:
             raise ValueError("Model is not built yet. Call build_base_model first.")
             
-        # Create AdamW optimizer with weight decay
-        self.optimizer = AdamW(
+        # Create Adam optimizer to match TensorFlow exactly
+        self.optimizer = torch.optim.Adam(
             self.model.parameters(), 
             lr=learning_rate,
             weight_decay=weight_decay,
@@ -502,7 +470,7 @@ class SolarKnowledge:
             self.loss_fn = CategoricalFocalLoss(gamma=2.0, alpha=0.25)
             print("Using Categorical Focal Loss for rare event awareness")
         else:
-            self.loss_fn = nn.CrossEntropyLoss()
+            self.loss_fn = nn.CrossEntropyLoss(label_smoothing=0.1)
         
         # Initialize metric trackers
         self.metrics = {}
@@ -548,120 +516,115 @@ class SolarKnowledge:
             return X_tensor, y_tensor
         return X_tensor
     
-    def _train_epoch(
-        self, 
-        train_loader: DataLoader, 
-        class_weight: Optional[Dict[int, float]] = None
-    ) -> Dict[str, float]:
-        """Train for one epoch"""
+    def _train_epoch(self, data_loader, class_weight=None):
+        """Train for one epoch and return metrics"""
         self.model.train()
+        device = next(self.model.parameters()).device
         
-        # Reset metrics
-        for name, metric in self.metrics.items():
-            if hasattr(metric, 'reset'):
-                metric.reset()
+        # Track metrics
+        running_loss = 0.0
+        running_metric_sums = {metric: 0.0 for metric in self.metrics}
+        num_batches = 0
         
-        total_loss = 0
-        correct = 0
-        total = 0
+        # Convert class weights to tensor if provided
+        weight_tensor = None
+        if class_weight is not None:
+            if isinstance(class_weight, dict):
+                # Convert class weight dict to tensor format expected by PyTorch
+                weight_list = [class_weight.get(i, 1.0) for i in range(max(class_weight.keys()) + 1)]
+                weight_tensor = torch.FloatTensor(weight_list).to(device)
+            else:
+                weight_tensor = torch.FloatTensor(class_weight).to(device)
         
-        # Create progress bar
-        pbar = tqdm(train_loader, desc="Training")
+        # Progress bar for training
+        from tqdm import tqdm
+        progress_bar = tqdm(data_loader, desc="Training")
         
-        for inputs, targets in pbar:
-            inputs, targets = inputs.to(device), targets.to(device)
-            
-            # Zero gradients
-            self.optimizer.zero_grad()
+        for i, (X_batch, y_batch) in enumerate(progress_bar):
+            X_batch = X_batch.to(device)
+            y_batch = y_batch.to(device)
             
             # Forward pass with mixed precision if available
-            if use_amp:
-                with autocast():
-                    outputs = self.model(inputs, training=True)
+            if hasattr(torch.cuda, 'amp') and hasattr(torch.cuda.amp, 'autocast'):
+                with torch.cuda.amp.autocast():
+                    outputs = self.model(X_batch)
                     
-                    # Apply class weights if provided
-                    if class_weight is not None:
-                        # Convert dict to tensor weight for each sample
-                        weight = torch.zeros(targets.size(0), dtype=torch.float32, device=device)
-                        for cls_idx, cls_weight in class_weight.items():
-                            weight[torch.argmax(targets, dim=1) == cls_idx] = cls_weight
+                    # Calculate loss with optional class weights
+                    if weight_tensor is not None and hasattr(self.loss_fn, 'weight'):
+                        self.loss_fn.weight = weight_tensor
                         
-                        # Weight the loss
-                        loss = self.loss_fn(outputs, targets)
-                        loss = (loss * weight).mean()
-                    else:
-                        loss = self.loss_fn(outputs, targets)
-                        
-                    # Add regularization
-                    loss = loss + self.model._l1_l2_regularization()
-                
-                # Backward pass with scaler
-                scaler.scale(loss).backward()
-                
-                # Gradient clipping
-                scaler.unscale_(self.optimizer)
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.max_grad_norm)
-                
-                scaler.step(self.optimizer)
-                scaler.update()
+                    loss = self.loss_fn(outputs, y_batch)
             else:
-                # Standard training without mixed precision
-                outputs = self.model(inputs, training=True)
+                outputs = self.model(X_batch)
                 
-                # Apply class weights if provided
-                if class_weight is not None:
-                    # Convert dict to tensor weight for each sample
-                    weight = torch.zeros(targets.size(0), dtype=torch.float32, device=device)
-                    for cls_idx, cls_weight in class_weight.items():
-                        weight[torch.argmax(targets, dim=1) == cls_idx] = cls_weight
-                    
-                    # Weight the loss
-                    loss = self.loss_fn(outputs, targets)
-                    loss = (loss * weight).mean()
-                else:
-                    loss = self.loss_fn(outputs, targets)
-                    
-                # Add regularization
-                loss = loss + self.model._l1_l2_regularization()
+                # Calculate loss with optional class weights
+                if weight_tensor is not None and hasattr(self.loss_fn, 'weight'):
+                    self.loss_fn.weight = weight_tensor
                 
-                # Backward pass
+                loss = self.loss_fn(outputs, y_batch)
+                
+            # Scale loss for gradient accumulation
+            loss = loss / self.gradient_accumulation_steps
+            
+            # Backward pass - with mixed precision if available
+            if hasattr(torch.cuda, 'amp') and hasattr(torch.cuda.amp, 'GradScaler') and self.scaler is not None:
+                self.scaler.scale(loss).backward()
+            else:
                 loss.backward()
                 
+            # Update weights every gradient_accumulation_steps
+            if (i + 1) % self.gradient_accumulation_steps == 0:
+                if hasattr(torch.cuda, 'amp') and hasattr(torch.cuda.amp, 'GradScaler') and self.scaler is not None:
+                    # Unscale gradients for clipping
+                    self.scaler.unscale_(self.optimizer)
+                
                 # Gradient clipping
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.max_grad_norm)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
                 
-                self.optimizer.step()
-            
-            # Update metrics
-            total_loss += loss.item()
-            
-            # Update accuracy
-            predicted = torch.argmax(outputs, dim=1)
-            target_classes = torch.argmax(targets, dim=1)
-            correct += (predicted == target_classes).sum().item()
-            total += targets.size(0)
-            
-            # Update TSS metric
-            if "tss" in self.metrics:
-                self.metrics["tss"].update(outputs, targets)
+                # Optimizer step with mixed precision if available
+                if hasattr(torch.cuda, 'amp') and hasattr(torch.cuda.amp, 'GradScaler') and self.scaler is not None:
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                else:
+                    self.optimizer.step()
+                    
+                self.optimizer.zero_grad()
                 
-            # Update progress bar
-            pbar.set_postfix({
-                'loss': total_loss / (pbar.n + 1),
-                'acc': 100. * correct / total
-            })
+                # Step learning rate scheduler if using batch-level scheduling
+                if self.use_batch_scheduler and self.scheduler is not None:
+                    self.scheduler.step()
             
-        # Compute epoch metrics
-        epoch_metrics = {
-            'loss': total_loss / len(train_loader),
-            'accuracy': correct / total
+            # Calculate metrics (unscaled)
+            with torch.no_grad():
+                batch_loss = loss.item() * self.gradient_accumulation_steps  # Unscale the loss
+                running_loss += batch_loss
+                
+                # Calculate additional metrics
+                for metric_name, metric_fn in self.metrics.items():
+                    metric_value = metric_fn(outputs, y_batch).item()
+                    running_metric_sums[metric_name] += metric_value
+                
+                # Update progress bar
+                progress_metrics = {
+                    'loss': running_loss / (num_batches + 1),
+                }
+                
+                for metric_name in self.metrics:
+                    progress_metrics[metric_name] = running_metric_sums[metric_name] / (num_batches + 1)
+                    
+                progress_bar.set_postfix(**progress_metrics)
+                
+            num_batches += 1
+        
+        # Calculate epoch metrics
+        metrics = {
+            'loss': running_loss / num_batches
         }
         
-        # Add TSS
-        if "tss" in self.metrics:
-            epoch_metrics["tss"] = self.metrics["tss"].compute()
-            
-        return epoch_metrics
+        for metric_name in self.metrics:
+            metrics[metric_name] = running_metric_sums[metric_name] / num_batches
+        
+        return metrics
         
     def fit(
         self,
@@ -676,6 +639,7 @@ class SolarKnowledge:
         callbacks: Optional[Dict] = None,
         scheduler_type: str = "cosine_with_restarts",  # Default to cosine with restarts
         scheduler_params: Optional[Dict] = None,
+        use_swa: bool = True,  # Enable stochastic weight averaging
     ):
         """
         Train the model with optional class weights for imbalanced data.
@@ -690,16 +654,31 @@ class SolarKnowledge:
             callbacks: Optional dictionary of callbacks
             scheduler_type: Type of learning rate scheduler to use
             scheduler_params: Parameters for the scheduler
+            use_swa: Whether to use stochastic weight averaging
         """
         if self.model is None:
             raise ValueError("Model is not built. Call build_base_model first.")
             
+        # Default scheduler parameters for cosine with restarts
+        default_scheduler_params = {
+            "T_0": 5,  # First cycle length
+            "T_mult": 2,  # Cycle length multiplier 
+            "eta_min": 1e-7  # Minimum learning rate
+        }
+        
+        # Merge default with provided params
+        if scheduler_params is None:
+            scheduler_params = default_scheduler_params
+        else:
+            for key, value in default_scheduler_params.items():
+                if key not in scheduler_params:
+                    scheduler_params[key] = value
+                    
         # Create scheduler if not provided in callbacks
         if callbacks is None:
             callbacks = {}
             
         if 'lr_scheduler' not in callbacks and scheduler_type:
-            scheduler_params = scheduler_params or {}
             scheduler = self._create_scheduler(scheduler_type, **scheduler_params)
             
             if scheduler_type == "reduce_on_plateau":
@@ -758,6 +737,16 @@ class SolarKnowledge:
             class_weight = {0: 1.0, 1: 10.0}
             print(f"Using default class weights: {class_weight}")
             
+        # Initialize SWA model and scheduler if requested
+        swa_model = None
+        swa_scheduler = None
+        swa_start = int(epochs * 0.75)  # Start SWA at 75% of training
+        
+        if use_swa:
+            swa_model = AveragedModel(self.model)
+            swa_scheduler = SWALR(self.optimizer, anneal_strategy="cos", anneal_epochs=5, swa_lr=1e-4)
+            print(f"Using Stochastic Weight Averaging (SWA) starting at epoch {swa_start}")
+            
         # Training loop
         for epoch in range(epochs):
             if verbose > 0:
@@ -781,9 +770,13 @@ class SolarKnowledge:
             if verbose > 0:
                 metrics_str = " - ".join([f"{k}: {v:.4f}" for k, v in train_metrics.items()])
                 print(f"Training: {metrics_str} - lr: {current_lr:.6f}")
-                
+            
+            # SWA logic
+            if use_swa and epoch >= swa_start:
+                swa_model.update_parameters(self.model)
+                swa_scheduler.step()
             # Call learning rate scheduler if provided
-            if callbacks and 'lr_scheduler' in callbacks:
+            elif callbacks and 'lr_scheduler' in callbacks:
                 # Pass the loss to the scheduler
                 callbacks['lr_scheduler'](train_metrics['loss'])
                 
@@ -818,8 +811,29 @@ class SolarKnowledge:
                         print("Early stopping triggered")
                     break
                     
-        # Restore best model
-        if best_model_state is not None:
+        # Apply SWA batch normalization update if used
+        if use_swa and swa_model is not None:
+            # Update batch normalization statistics for the SWA model
+            print("Updating SWA batch normalization statistics...")
+            
+            # Create a DataLoader with batch norm batch size
+            bn_loader = DataLoader(
+                train_dataset,
+                batch_size=min(batch_size, 1024),  # Use smaller batch size for BN update
+                shuffle=False,
+                num_workers=0,
+                pin_memory=True if device.type != 'cpu' else False
+            )
+            
+            # Update batch statistics
+            torch.optim.swa_utils.update_bn(bn_loader, swa_model)
+            
+            # Replace the model with SWA model
+            print("Replacing model with SWA model")
+            self.model = swa_model.module  # Get the underlying module
+            
+        # Restore best model from regular training if SWA wasn't used
+        elif best_model_state is not None:
             self.model.load_state_dict({k: v.to(device) for k, v in best_model_state.items()})
             
         return history

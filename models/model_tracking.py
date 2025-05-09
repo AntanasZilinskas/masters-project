@@ -22,6 +22,10 @@ import torch
 
 def create_model_dir(version, flare_class, time_window):
     """Create a standardized model directory structure."""
+    # Create the parent models directory if it doesn't exist
+    if not os.path.exists("models"):
+        os.makedirs("models", exist_ok=True)
+        
     model_dir = (
         f"models/SolarKnowledge-v{version}-{flare_class}-{time_window}h"
     )
@@ -77,7 +81,7 @@ def save_model_with_metadata(
 
     # Detect if it's a PyTorch or TensorFlow model
     is_pytorch_model = hasattr(model, 'pytorch_model') or isinstance(model.model, torch.nn.Module)
-    
+
     # Save model weights
     if is_pytorch_model:
         weights_path = os.path.join(model_dir, "model_weights.pt")
@@ -99,7 +103,7 @@ def save_model_with_metadata(
         # Original TensorFlow saving logic
         weights_path = os.path.join(model_dir, "model_weights.weights.h5")
         model.model.save_weights(weights_path)
-        
+
         # Extract architecture details for TensorFlow model
         architecture = {
             "name": "SolarKnowledge",
@@ -428,34 +432,30 @@ def compare_models(versions, flare_classes, time_windows):
 
 def get_latest_version(flare_class, time_window):
     """Get latest version for a specific flare class and time window"""
-    pattern = f"SolarKnowledge-v*-{flare_class}-{time_window}h"
-    # Check for models directory
-    base_dir = "models"
-    if not os.path.exists(base_dir):
-        os.makedirs(base_dir)
-    # Pattern for model directories
-    if os.path.exists(os.path.join(base_dir, "models")):
-        base_dir = os.path.join(base_dir, "models")
-    pattern = os.path.join(base_dir, pattern)
-    # Find all directories matching the pattern
-    dirs = glob.glob(pattern)
-    if not dirs:
-        return None
+    # Check both potential model directory paths
+    potential_dirs = ["models"]
+    if os.path.exists(os.path.join("models", "models")):
+        potential_dirs.append(os.path.join("models", "models"))
+    
+    # Look in all potential directories
     versions = []
-    for dir_path in dirs:
-        dir_name = os.path.basename(dir_path)
-        parts = dir_name.split("-")
-        if len(parts) >= 2 and parts[1].startswith("v"):
-            try:
-                version_str = parts[1][1:]  # Remove the 'v' prefix
-                version_num = float(version_str)
-                versions.append(version_num)
-            except ValueError:
-                continue
-    if not versions:
-        return None
-    # Return the highest version
-    return max(versions)
+    for base_dir in potential_dirs:
+        pattern = os.path.join(base_dir, f"SolarKnowledge-v*-{flare_class}-{time_window}h")
+        dirs = glob.glob(pattern)
+        
+        for dir_path in dirs:
+            dir_name = os.path.basename(dir_path)
+            parts = dir_name.split("-")
+            if len(parts) >= 2 and parts[1].startswith("v"):
+                try:
+                    version_str = parts[1][1:]  # Remove the 'v' prefix
+                    version_num = float(version_str)
+                    versions.append(version_num)
+                except ValueError:
+                    continue
+    
+    # Return the highest version or None if no versions found
+    return max(versions) if versions else None
 
 
 def get_next_version(flare_class, time_window):
