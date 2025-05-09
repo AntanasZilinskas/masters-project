@@ -36,7 +36,7 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 
-from utils import get_testing_data, get_training_data, log, supported_flare_class, normalize_data
+from utils import get_testing_data, get_training_data, log, supported_flare_class
 
 warnings.filterwarnings("ignore")
 
@@ -112,22 +112,18 @@ def test_model(
     train_positive_ratio = np.mean(y_train)
     log(f"Train data positive label ratio: {train_positive_ratio:.4f}", verbose=True)
     
-    # Normalize features using training data statistics for consistency
-    # This is critical to prevent distribution shift between training and testing
-    log("Normalizing test features using training data statistics...", verbose=True)
+    # Check data statistics without normalizing (data is already normalized)
+    log("Checking data statistics for diagnostics...", verbose=True)
     # Get feature-wise mean and std from training data
     X_train_2d = X_train.reshape(-1, X_train.shape[-1])
     train_mean = np.mean(X_train_2d, axis=0)
     train_std = np.std(X_train_2d, axis=0)
-    # Print a few samples before normalization
-    log(f"X_test sample before normalization: {X_test[0, 0, :5]}", verbose=True)
-    log(f"X_train sample before normalization: {X_train[0, 0, :5]}", verbose=True)
+    # Print a few samples from both datasets
+    log(f"X_test sample: {X_test[0, 0, :5]}", verbose=True)
+    log(f"X_train sample: {X_train[0, 0, :5]}", verbose=True)
     log(f"Training data mean: {train_mean[:5]}", verbose=True)
     log(f"Training data std: {train_std[:5]}", verbose=True)
-    # Apply same normalization to test data
-    X_test = normalize_data(X_test, mean=train_mean, std=train_std)
-    log(f"X_test sample after normalization: {X_test[0, 0, :5]}", verbose=True)
-    log("Feature normalization complete", verbose=True)
+    log("Data is already normalized, skipping normalization", verbose=True)
 
     # DEBUG CLASS DISTRIBUTION ISSUE
     log(f"Train y data type: {type(y_train)}, shape: {np.asarray(y_train).shape}", verbose=True)
