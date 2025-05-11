@@ -68,7 +68,7 @@ def train(
     y_train_tr = data_transform(y_train)
 
     epochs = (
-        100  # extend the number of epochs to let the model converge further
+        250  # extend the number of epochs to let the model converge further
     )
     input_shape = (X_train.shape[1], X_train.shape[2])
 
