@@ -1,5 +1,3 @@
-# solarknowledge_ret_plus.py (focal loss with gamma annealing + tss-aware early stopping + attention bottleneck + precursor head)
-
 import os
 import json
 import torch
@@ -9,9 +7,19 @@ import numpy as np
 from datetime import datetime
 from typing import Tuple, Dict, Optional
 from torch.utils.data import DataLoader, TensorDataset
+from torch.amp import autocast, GradScaler
 
-# Device config
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Device config: prefer CUDA, then MPS, then CPU
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+elif getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+    device = torch.device("mps")
+else:
+    device = torch.device("cpu")
+
+# Enable cuDNN autotuner when using CUDA (speeds up fixed-size workloads)
+if device.type == "cuda":
+    torch.backends.cudnn.benchmark = True
 
 # ----------------------------------------
 # Positional Encoding
@@ -187,66 +195,115 @@ def composite_loss(y_true, outputs, gamma=0.0, threshold=2.5):
 class RETPlusWrapper:
     def __init__(self, input_shape, early_stopping_patience=10):
         self.model = RETPlusModel(input_shape).to(device)
-        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=3e-4, weight_decay=1e-4)
+        self.optimizer = torch.optim.AdamW(
+            self.model.parameters(), lr=3e-4, weight_decay=1e-4
+        )
         self.early_stopping_patience = early_stopping_patience
         self.history = {"loss": [], "accuracy": [], "tss": []}
+        # Buffers for later interpretability/evaluation artefacts
+        self._train_data = None  # tuple (X, y) stored as NumPy arrays
 
-    def train(self, X_train, y_train, epochs=100, batch_size=512, gamma_max=2.0, warmup_epochs=50, flare_class="M", time_window=24):
+    def train(
+        self,
+        X_train,
+        y_train,
+        epochs=100,
+        batch_size=512,
+        gamma_max=2.0,
+        warmup_epochs=50,
+        flare_class="M",
+        time_window=24,
+    ):
         from model_tracking import save_model_with_metadata, get_next_version
-    
+
+        # Convert to NumPy arrays
         X_train = np.array(X_train)
         y_train = np.array(y_train)
+
+        # Retain for later evaluation/visualisation
+        self._train_data = (X_train, y_train)
+
+        # Build DataLoader for efficient loading
+        dataset = TensorDataset(
+            torch.tensor(X_train, dtype=torch.float32),
+            torch.tensor(y_train, dtype=torch.float32)
+        )
+        loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            pin_memory=(device.type == "cuda"),
+            num_workers=4,
+        )
+
+        # AMP scaler for mixed-precision
+        scaler = GradScaler()
+
         best_tss = -1e8
         patience = 0
         version = get_next_version(flare_class, time_window)
         best_weights = None
         best_epoch = -1
-    
+
         for epoch in range(epochs):
             gamma = min(gamma_max, gamma_max * epoch / warmup_epochs)
-            perm = np.random.permutation(len(X_train))
             epoch_loss = 0.0
             total = 0
             correct = 0
             TP = TN = FP = FN = 0
-    
-            for i in range(0, len(X_train), batch_size):
-                idx = perm[i:i + batch_size]
-                X_batch = torch.tensor(X_train[idx], dtype=torch.float32).to(device)
-                y_batch = torch.tensor(y_train[idx], dtype=torch.float32).to(device)
-    
+
+            for X_batch, y_batch in loader:
+                # Move to device
+                X_batch = X_batch.to(device, non_blocking=(device.type == "cuda"))
+                y_batch = y_batch.to(device, non_blocking=(device.type == "cuda"))
+
                 self.model.train()
                 self.optimizer.zero_grad()
-                outputs = self.model(X_batch)
-                loss = composite_loss(y_batch, outputs, gamma=gamma)
+
+                # Mixed-precision forward
+                with autocast(device_type=device.type):
+                    outputs = self.model(X_batch)
+                    loss = composite_loss(y_batch, outputs, gamma=gamma)
+
                 if torch.isnan(loss):
                     continue
-                loss.backward()
-                self.optimizer.step()
-    
+
+                # Scaled backward + step
+                scaler.scale(loss).backward()
+                scaler.step(self.optimizer)
+                scaler.update()
+
+                # Metrics accumulation
                 epoch_loss += loss.item()
-                preds = (torch.sigmoid(outputs['logits']) > 0.5).int().squeeze()
+                preds = (
+                    torch.sigmoid(outputs["logits"]) > 0.5
+                ).int().squeeze()
                 y_true = y_batch.int().squeeze()
-    
+
                 TP += ((preds == 1) & (y_true == 1)).sum().item()
                 TN += ((preds == 0) & (y_true == 0)).sum().item()
                 FP += ((preds == 1) & (y_true == 0)).sum().item()
                 FN += ((preds == 0) & (y_true == 1)).sum().item()
                 correct += (preds == y_true).sum().item()
                 total += y_batch.size(0)
-    
-            avg_loss = epoch_loss / max(1, (len(X_train) // batch_size))
+
+            # Epoch-level metrics
+            avg_loss = epoch_loss / max(1, total)
             accuracy = correct / total if total > 0 else 0.0
             sensitivity = TP / (TP + FN + 1e-8)
             specificity = TN / (TN + FP + 1e-8)
             tss = sensitivity + specificity - 1.0
-    
+
             self.history["loss"].append(avg_loss)
             self.history["accuracy"].append(accuracy)
             self.history["tss"].append(tss)
-    
-            print(f"Epoch {epoch + 1}/{epochs} - loss: {avg_loss:.4f} - acc: {accuracy:.4f} - tss: {tss:.4f} - gamma: {gamma:.2f}")
-    
+
+            print(
+                f"Epoch {epoch+1}/{epochs} - loss: {avg_loss:.4f} - "
+                f"acc: {accuracy:.4f} - tss: {tss:.4f} - gamma: {gamma:.2f}"
+            )
+
+            # Early stopping check
             if tss > best_tss:
                 best_tss = tss
                 best_weights = self.model.state_dict()
@@ -255,30 +312,57 @@ class RETPlusWrapper:
             else:
                 patience += 1
                 if patience >= self.early_stopping_patience:
-                    print(f"Early stopping triggered at epoch {epoch+1}. Restoring best model from epoch {best_epoch+1}.")
+                    print(
+                        f"Early stopping triggered at epoch {epoch+1}. "
+                        f"Restoring best model from epoch {best_epoch+1}."
+                    )
                     if best_weights is not None:
                         self.model.load_state_dict(best_weights)
                     break
-    
-        # Always save the best model
-        self.save(version=version, flare_class=flare_class, time_window=time_window)
+
+        # Save best model & metadata
+        model_dir = self.save(
+            version=version,
+            flare_class=flare_class,
+            time_window=time_window,
+            # Provide evaluation data for artefact generation
+            X_eval=X_train,
+            y_eval=y_train,
+        )
+        return model_dir
 
     def predict_proba(self, X):
         self.model.eval()
-        X = torch.tensor(np.array(X), dtype=torch.float32).to(device)
+    
+        # If X is already a torch.Tensor (e.g. on CUDA), just move it to the right device
+        if isinstance(X, torch.Tensor):
+            X_tensor = X.to(device)
+        else:
+            # Otherwise assume it's a list or NumPy array
+            X_np = np.array(X)
+            X_tensor = torch.tensor(X_np, dtype=torch.float32).to(device)
+    
         with torch.no_grad():
-            logits = self.model(X)['logits']
-            return torch.sigmoid(logits).cpu().numpy()
+            logits = self.model(X_tensor)["logits"]
+        # Move logits back to CPU before calling .numpy()
+        return torch.sigmoid(logits).cpu().numpy()
 
-    def save(self, version, flare_class, time_window):
+
+    def save_weights(self, flare_class, w_dir):
+        # Dump raw PyTorch weights
+        os.makedirs(w_dir, exist_ok=True)
+        weights_path = os.path.join(w_dir, "model_weights.pt")
+        torch.save(self.model.state_dict(), weights_path)
+
+    def save(self, version, flare_class, time_window, X_eval=None, y_eval=None):
         from model_tracking import save_model_with_metadata
 
         metrics = {
             "accuracy": self.history["accuracy"][-1],
-            "TSS": self.history["tss"][-1]
+            "TSS": self.history["tss"][-1],
         }
         hyperparams = {
-            "input_shape": (10, 9),  # Adjust if input dims are dynamic
+            "input_shape": (10, 9),
             "embed_dim": 128,
             "num_heads": 4,
             "ff_dim": 256,
@@ -286,7 +370,58 @@ class RETPlusWrapper:
             "dropout": 0.2,
         }
 
-        save_model_with_metadata(
+        # --------------------------------------------------------------
+        # Optional interpretability & uncertainty artefacts
+        # --------------------------------------------------------------
+        y_true = y_pred = y_scores = evid_out = evt_scores = None
+        att_X = att_y_true = att_y_pred = att_y_score = None
+        sample_input = None
+
+        if (X_eval is not None) and (y_eval is not None):
+            # Use a small DataLoader to avoid memory blow-up
+            eval_loader = DataLoader(
+                TensorDataset(
+                    torch.tensor(X_eval, dtype=torch.float32),
+                    torch.tensor(y_eval, dtype=torch.float32),
+                ),
+                batch_size=512,
+                shuffle=False,
+            )
+
+            preds_list = []
+            probs_list = []
+            y_list = []
+            evid_list = []
+            gpd_list = []
+
+            self.model.eval()
+            with torch.no_grad():
+                for xb, yb in eval_loader:
+                    xb = xb.to(device)
+                    out = self.model(xb)
+                    prob = torch.sigmoid(out["logits"]).cpu().numpy().flatten()
+                    pred = (prob > 0.5).astype(int)
+                    preds_list.append(pred)
+                    probs_list.append(prob)
+                    y_list.append(yb.numpy().flatten())
+                    evid_list.append(out["evid"].cpu().numpy())
+                    gpd_list.append(out["gpd"].cpu().numpy())
+
+            y_true = np.concatenate(y_list)
+            y_scores = np.concatenate(probs_list)
+            y_pred = np.concatenate(preds_list)
+            evid_out = np.concatenate(evid_list)
+            evt_scores = np.concatenate(gpd_list)
+
+            # Attention batch: first 10 samples
+            att_X = X_eval[:10]
+            att_y_true = y_true[:10]
+            att_y_pred = y_pred[:10]
+            att_y_score = y_scores[:10]
+
+            sample_input = torch.tensor(att_X[:32], dtype=torch.float32).to(device) if len(X_eval) >= 32 else torch.tensor(X_eval, dtype=torch.float32).to(device)
+
+        model_dir = save_model_with_metadata(
             model=self,
             metrics=metrics,
             hyperparams=hyperparams,
@@ -294,8 +429,20 @@ class RETPlusWrapper:
             version=version,
             flare_class=flare_class,
             time_window=time_window,
-            description="EVEREST model trained on SHARP data with evidential and EVT losses."
+            description="EVEREST model trained on SHARP data with evidential and EVT losses.",
+            # Newly added artefacts
+            y_true=y_true,
+            y_pred=y_pred,
+            y_scores=y_scores,
+            evt_scores=evt_scores,
+            sample_input=sample_input,
+            att_X_batch=att_X,
+            att_y_true=att_y_true,
+            att_y_pred=att_y_pred,
+            att_y_score=att_y_score,
+            evidential_out=evid_out,
         )
+        return model_dir
 
     def load(self, path):
         self.model.load_state_dict(torch.load(path, map_location=device))
