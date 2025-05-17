@@ -33,9 +33,11 @@ class PositionalEncoding(nn.Module):
         pe[0, :, 0::2] = torch.sin(pos * div_term)
         pe[0, :, 1::2] = torch.cos(pos * div_term)
         self.register_buffer("pe", pe)
+        # Learnable scaling as in Transformer-XL
+        self.alpha = nn.Parameter(torch.ones(1))
 
     def forward(self, x):
-        return x + self.pe[:, :x.size(1)].type_as(x)
+        return x + self.alpha * self.pe[:, :x.size(1)].type_as(x)
 
 # ----------------------------------------
 # Transformer Block
@@ -75,19 +77,28 @@ def evidential_nll(y, evid):
     nll = - y * torch.log(p + eps) - (1 - y) * torch.log(1 - p + eps) + 0.5 * torch.log(S + eps)
     return torch.clamp(nll, min=0.0).mean()
 
-def evt_loss(logits, gpd, threshold=2.5):
+def evt_loss(logits, gpd, pct=0.9):
+    """Adaptive EVT loss using per-batch percentile as threshold."""
     try:
+        if gpd is None:
+            return torch.tensor(0.0, device=logits.device)
+
         xi, sigma = torch.split(gpd, 1, dim=-1)
         xi = torch.clamp(xi, min=-0.99, max=1.0)
         sigma = torch.clamp(sigma, min=1e-2)
-        logits = torch.clamp(logits, max=10.0)
-        y = F.relu(logits - threshold)
+
+        # Determine threshold u as the pct-quantile of logits in the batch
+        threshold = torch.quantile(logits.detach(), pct).item()
+
+        y = F.relu(logits - threshold)  # exceedances
         mask = (y > 0).squeeze()
         if mask.sum() == 0:
             return torch.tensor(0.0, device=logits.device)
+
         y = y[mask]
         xi = xi[mask]
         sigma = sigma[mask]
+
         eps = 1e-7
         z = xi * y / (sigma + eps)
         log_term = torch.log1p(torch.clamp(z, min=-0.999, max=1e6))
@@ -96,6 +107,7 @@ def evt_loss(logits, gpd, threshold=2.5):
             y / sigma + torch.log(sigma + eps),
             (1/xi + 1) * log_term + torch.log(sigma + eps)
         )
+
         reg = 1e-3 * (xi**2).mean() + 1e-3 * (1 / (sigma + eps)).mean()
         return torch.clamp(term.mean(), min=0.0) + reg
     except Exception:
@@ -112,10 +124,21 @@ def focal_bce_loss(logits, targets, gamma):
     return (mod * bce).mean()
 
 # ----------------------------------------
+# Binary Cross-Entropy for precursor head
+# ----------------------------------------
+def precursor_bce_loss(logits, targets):
+    targets = targets.view(-1, 1).float()
+    return F.binary_cross_entropy_with_logits(logits, targets)
+
+# ----------------------------------------
 # RET+ Model with attention bottleneck and precursor head
 # ----------------------------------------
 class RETPlusModel(nn.Module):
-    def __init__(self, input_shape, embed_dim=128, num_heads=4, ff_dim=256, num_blocks=6, dropout=0.2):
+    def __init__(self, input_shape, embed_dim=128, num_heads=4, ff_dim=256, num_blocks=6, dropout=0.2,
+                 use_attention_bottleneck: bool = True,
+                 use_evidential: bool = True,
+                 use_evt: bool = True,
+                 use_precursor: bool = True):
         super().__init__()
         T, F = input_shape
         self.embedding = nn.Linear(F, embed_dim)
@@ -126,11 +149,18 @@ class RETPlusModel(nn.Module):
             TransformerBlock(embed_dim, num_heads, ff_dim, dropout) for _ in range(num_blocks)
         ])
 
-        # Attention bottleneck (learned pooling)
-        self.att_pool = nn.Sequential(
-            nn.Linear(embed_dim, 1),
-            nn.Softmax(dim=1)
-        )
+        # Store ablation flags
+        self.use_attention_bottleneck = use_attention_bottleneck
+        self.use_evidential = use_evidential
+        self.use_evt = use_evt
+        self.use_precursor = use_precursor
+
+        # Attention bottleneck (learned pooling) – optional
+        if self.use_attention_bottleneck:
+            self.att_pool = nn.Sequential(
+                nn.Linear(embed_dim, 1),
+                nn.Softmax(dim=1)
+            )
 
         self.head = nn.Sequential(
             nn.Dropout(dropout),
@@ -139,9 +169,22 @@ class RETPlusModel(nn.Module):
             nn.Dropout(dropout)
         )
         self.logits = nn.Linear(128, 1)
-        self.nig = nn.Linear(128, 4)
-        self.gpd = nn.Linear(128, 2)
-        self.precursor_head = nn.Linear(128, 1)  # added precursor head
+
+        # Optional heads
+        if self.use_evidential:
+            self.nig = nn.Linear(128, 4)
+        else:
+            self.nig = None
+
+        if self.use_evt:
+            self.gpd = nn.Linear(128, 2)
+        else:
+            self.gpd = None
+
+        if self.use_precursor:
+            self.precursor_head = nn.Linear(128, 1)
+        else:
+            self.precursor_head = None
 
     def forward(self, x):
         x = self.embedding(x)
@@ -151,50 +194,143 @@ class RETPlusModel(nn.Module):
         for blk in self.transformers:
             x = blk(x)
 
-        attn_weights = self.att_pool(x)  # shape: [B, T, 1]
-        x_bottleneck = (x * attn_weights).sum(dim=1)  # shape: [B, embed_dim]
+        # Sequence summarisation
+        if self.use_attention_bottleneck:
+            attn_weights = self.att_pool(x)  # shape: [B, T, 1]
+            x_bottleneck = (x * attn_weights).sum(dim=1)  # shape: [B, embed_dim]
+        else:
+            x_bottleneck = x.mean(dim=1)
 
         x = self.head(x_bottleneck)
 
         logits = self.logits(x)
-        nig_raw = self.nig(x)
-        mu, logv, loga, logb = torch.split(nig_raw, 1, dim=-1)
-        v = F.softplus(logv)
-        a = 1 + F.softplus(loga)
-        b = F.softplus(logb)
-        evid = torch.cat([mu, v, a, b], dim=-1)
 
-        gpd_raw = self.gpd(x)
-        xi, log_sigma = torch.split(gpd_raw, 1, dim=-1)
-        sigma = F.softplus(log_sigma)
-        gpd_out = torch.cat([xi, sigma], dim=-1)
+        # Evidential outputs (optional)
+        evid = None
+        if self.use_evidential and self.nig is not None:
+            nig_raw = self.nig(x)
+            mu, logv, loga, logb = torch.split(nig_raw, 1, dim=-1)
+            v = F.softplus(logv)
+            a = 1 + F.softplus(loga)
+            b = F.softplus(logb)
+            evid = torch.cat([mu, v, a, b], dim=-1)
 
-        precursor = self.precursor_head(x)
+        # EVT outputs (optional)
+        gpd_out = None
+        if self.use_evt and self.gpd is not None:
+            gpd_raw = self.gpd(x)
+            xi_raw, log_sigma = torch.split(gpd_raw, 1, dim=-1)
+            # Robust parameterisation: ξ ∈ (-0.5, +1.0); σ > 0
+            xi = 1.5 * torch.tanh(xi_raw) - 0.5
+            sigma = F.softplus(log_sigma) + 1e-3
+            gpd_out = torch.cat([xi, sigma], dim=-1)
+
+        # Precursor output (optional)
+        precursor = None
+        if self.use_precursor and self.precursor_head is not None:
+            precursor = self.precursor_head(x)
 
         return {"logits": logits, "evid": evid, "gpd": gpd_out, "precursor": precursor}
 
 # ----------------------------------------
 # Composite Loss
 # ----------------------------------------
-def composite_loss(y_true, outputs, gamma=0.0, threshold=2.5):
-    logits = outputs['logits']
-    evid = outputs['evid']
-    gpd = outputs['gpd']
+def composite_loss(
+    y_true,
+    outputs,
+    gamma: float = 0.0,
+    weights: Optional[Dict[str, float]] = None,
+    threshold: float = 2.5,
+):
+    """Compute composite loss with configurable component weights.
+
+    Args:
+        y_true: Ground-truth labels tensor.
+        outputs: Dict returned by the model forward pass.
+        gamma: Focal-loss focusing parameter.
+        weights: Dict with keys ``focal``, ``evid``, and ``evt`` specifying
+            the contribution of each component. Defaults to {0.8, 0.1, 0.1}.
+        threshold: EVT threshold.
+    """
+
+    if weights is None:
+        weights = {"focal": 0.8, "evid": 0.1, "evt": 0.1, "prec": 0.05}
+
+    logits = outputs["logits"]
     y_true = y_true.view(-1, 1).float()
 
+    # Always compute focal loss
     fl = focal_bce_loss(logits, y_true, gamma)
-    evid_loss = evidential_nll(y_true, evid)
-    tail_loss = evt_loss(logits, gpd, threshold)
-    total = 0.8 * fl + 0.1 * evid_loss + 0.1 * tail_loss
 
-    return total if not torch.isnan(total) else torch.tensor(0.0, requires_grad=True).to(logits.device)
+    # Evidential component (optional)
+    evid_loss = 0.0
+    if weights.get("evid", 0) > 0 and outputs.get("evid", None) is not None:
+        evid_loss = evidential_nll(y_true, outputs["evid"])
+
+    # EVT component (optional)
+    tail_loss = 0.0
+    if weights.get("evt", 0) > 0 and outputs.get("gpd", None) is not None:
+        tail_loss = evt_loss(logits, outputs["gpd"])
+
+    # Precursor component (optional)
+    prec_loss = 0.0
+    if weights.get("prec", 0) > 0 and outputs.get("precursor", None) is not None:
+        prec_loss = precursor_bce_loss(outputs["precursor"], y_true)
+
+    total = (
+        weights.get("focal", 0) * fl
+        + weights.get("evid", 0) * evid_loss
+        + weights.get("evt", 0) * tail_loss
+        + weights.get("prec", 0) * prec_loss
+    )
+
+    return (
+        total
+        if not torch.isnan(total)
+        else torch.tensor(0.0, requires_grad=True).to(logits.device)
+    )
 
 # ----------------------------------------
 # Wrapper
 # ----------------------------------------
 class RETPlusWrapper:
-    def __init__(self, input_shape, early_stopping_patience=10):
-        self.model = RETPlusModel(input_shape).to(device)
+    def __init__(
+        self,
+        input_shape: Tuple[int, int],
+        early_stopping_patience: int = 10,
+        use_attention_bottleneck: bool = True,
+        use_evidential: bool = True,
+        use_evt: bool = True,
+        use_precursor: bool = True,
+        loss_weights: Optional[Dict[str, float]] = None,
+    ):
+        """Wrapper around ``RETPlusModel`` with flexible ablation flags.
+
+        Args:
+            input_shape: Tuple specifying (timesteps, features).
+            early_stopping_patience: Early-stopping window on TSS.
+            use_attention_bottleneck: Enable learned attention pooling.
+            use_evidential: Enable evidential (NIG) head.
+            use_evt: Enable EVT (GPD) head.
+            use_precursor: Enable precursor score head.
+            loss_weights: Optional dict to scale composite-loss components. If
+                None, defaults to {"focal":0.8,"evid":0.1,"evt":0.1}. Set a
+                component's weight to 0 to exclude it during training.
+        """
+
+        self.loss_weights = (
+            loss_weights
+            if loss_weights is not None
+            else {"focal": 0.8, "evid": 0.1, "evt": 0.1}
+        )
+
+        self.model = RETPlusModel(
+            input_shape,
+            use_attention_bottleneck=use_attention_bottleneck,
+            use_evidential=use_evidential,
+            use_evt=use_evt,
+            use_precursor=use_precursor,
+        ).to(device)
         self.optimizer = torch.optim.AdamW(
             self.model.parameters(), lr=3e-4, weight_decay=1e-4
         )
@@ -236,8 +372,9 @@ class RETPlusWrapper:
             num_workers=4,
         )
 
-        # AMP scaler for mixed-precision
-        scaler = GradScaler()
+        # AMP scaler for mixed-precision (CUDA only – avoids dtype issues on MPS/CPU)
+        use_amp = device.type == "cuda"
+        scaler = GradScaler(enabled=use_amp)
 
         best_tss = -1e8
         patience = 0
@@ -260,18 +397,55 @@ class RETPlusWrapper:
                 self.model.train()
                 self.optimizer.zero_grad()
 
-                # Mixed-precision forward
-                with autocast(device_type=device.type):
+                if use_amp:
+                    # Mixed-precision path
+                    with autocast(device_type=device.type):
+                        # Dynamically adjust loss weights: simple 3-phase schedule
+                        if epoch < 20:
+                            phase_weights = {"focal": 0.9, "evid": 0.1, "evt": 0.0, "prec": 0.05}
+                        elif epoch < 40:
+                            phase_weights = {"focal": 0.8, "evid": 0.1, "evt": 0.1, "prec": 0.05}
+                        else:
+                            phase_weights = {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05}
+
+                        outputs = self.model(X_batch)
+                        loss = composite_loss(
+                            y_batch,
+                            outputs,
+                            gamma=gamma,
+                            weights=phase_weights,
+                        )
+
+                    if torch.isnan(loss):
+                        continue
+
+                    # Scaled backward + step
+                    scaler.scale(loss).backward()
+                    scaler.step(self.optimizer)
+                    scaler.update()
+                else:
+                    # Standard FP32 training path (CPU / MPS)
+                    # Dynamically adjust loss weights: simple 3-phase schedule
+                    if epoch < 20:
+                        phase_weights = {"focal": 0.9, "evid": 0.1, "evt": 0.0, "prec": 0.05}
+                    elif epoch < 40:
+                        phase_weights = {"focal": 0.8, "evid": 0.1, "evt": 0.1, "prec": 0.05}
+                    else:
+                        phase_weights = {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05}
+
                     outputs = self.model(X_batch)
-                    loss = composite_loss(y_batch, outputs, gamma=gamma)
+                    loss = composite_loss(
+                        y_batch,
+                        outputs,
+                        gamma=gamma,
+                        weights=phase_weights,
+                    )
 
-                if torch.isnan(loss):
-                    continue
+                    if torch.isnan(loss):
+                        continue
 
-                # Scaled backward + step
-                scaler.scale(loss).backward()
-                scaler.step(self.optimizer)
-                scaler.update()
+                    loss.backward()
+                    self.optimizer.step()
 
                 # Metrics accumulation
                 epoch_loss += loss.item()
@@ -332,20 +506,22 @@ class RETPlusWrapper:
         return model_dir
 
     def predict_proba(self, X):
+        """Return probability predictions for *either* numpy arrays or tensors.
+
+        • If ``X`` is already a torch.Tensor we only cast dtype/transfer device.
+        • If ``X`` is a NumPy array / list, convert to float32 tensor first.
+        """
         self.model.eval()
-    
-        # If X is already a torch.Tensor (e.g. on CUDA), just move it to the right device
+
         if isinstance(X, torch.Tensor):
-            X_tensor = X.to(device)
+            X_tensor = X.to(device, dtype=torch.float32)
         else:
-            # Otherwise assume it's a list or NumPy array
-            X_np = np.array(X)
-            X_tensor = torch.tensor(X_np, dtype=torch.float32).to(device)
-    
+            X_tensor = torch.tensor(np.array(X), dtype=torch.float32).to(device)
+
         with torch.no_grad():
             logits = self.model(X_tensor)["logits"]
-        # Move logits back to CPU before calling .numpy()
-        return torch.sigmoid(logits).cpu().numpy()
+            probs = torch.sigmoid(logits).cpu().numpy()
+        return probs
 
     def save_weights(self, flare_class, w_dir):
         # Dump raw PyTorch weights
@@ -356,17 +532,10 @@ class RETPlusWrapper:
     def save(self, version, flare_class, time_window, X_eval=None, y_eval=None):
         from model_tracking import save_model_with_metadata
 
+        # ---------------- Basic discrimination metrics ----------------
         metrics = {
             "accuracy": self.history["accuracy"][-1],
             "TSS": self.history["tss"][-1],
-        }
-        hyperparams = {
-            "input_shape": (10, 9),
-            "embed_dim": 128,
-            "num_heads": 4,
-            "ff_dim": 256,
-            "num_blocks": 6,
-            "dropout": 0.2,
         }
 
         # --------------------------------------------------------------
@@ -400,17 +569,22 @@ class RETPlusWrapper:
                     out = self.model(xb)
                     prob = torch.sigmoid(out["logits"]).cpu().numpy().flatten()
                     pred = (prob > 0.5).astype(int)
+
                     preds_list.append(pred)
                     probs_list.append(prob)
                     y_list.append(yb.numpy().flatten())
-                    evid_list.append(out["evid"].cpu().numpy())
-                    gpd_list.append(out["gpd"].cpu().numpy())
+
+                    # Optional artefacts – only append if present and not None
+                    if out.get("evid") is not None:
+                        evid_list.append(out["evid"].cpu().numpy())
+                    if out.get("gpd") is not None:
+                        gpd_list.append(out["gpd"].cpu().numpy())
 
             y_true = np.concatenate(y_list)
             y_scores = np.concatenate(probs_list)
             y_pred = np.concatenate(preds_list)
-            evid_out = np.concatenate(evid_list)
-            evt_scores = np.concatenate(gpd_list)
+            evid_out = np.concatenate(evid_list) if evid_list else None
+            evt_scores = np.concatenate(gpd_list) if gpd_list else None
 
             # Attention batch: first 10 samples
             att_X = X_eval[:10]
@@ -420,10 +594,43 @@ class RETPlusWrapper:
 
             sample_input = torch.tensor(att_X[:32], dtype=torch.float32).to(device) if len(X_eval) >= 32 else torch.tensor(X_eval, dtype=torch.float32).to(device)
 
+            # Additional calibration metrics
+            try:
+                from sklearn.metrics import roc_auc_score, brier_score_loss
+
+                def _ece(probs, labels, n_bins=15):
+                    bins = np.linspace(0, 1, n_bins + 1)
+                    ece = 0.0
+                    for i in range(n_bins):
+                        idx = (probs >= bins[i]) & (probs < bins[i + 1])
+                        if idx.sum() == 0:
+                            continue
+                        acc_bin = (labels[idx] == 1).mean()
+                        conf_bin = probs[idx].mean()
+                        ece += abs(conf_bin - acc_bin) * idx.mean()
+                    return ece
+
+                metrics.update(
+                    {
+                        "ROC_AUC": float(roc_auc_score(y_true, y_scores)),
+                        "Brier": float(brier_score_loss(y_true, y_scores)),
+                        "ECE": float(_ece(y_scores, y_true)),
+                    }
+                )
+            except Exception:
+                pass
+
         model_dir = save_model_with_metadata(
             model=self,
             metrics=metrics,
-            hyperparams=hyperparams,
+            hyperparams={
+                "input_shape": (10, 9),
+                "embed_dim": 128,
+                "num_heads": 4,
+                "ff_dim": 256,
+                "num_blocks": 6,
+                "dropout": 0.2,
+            },
             history=self.history,
             version=version,
             flare_class=flare_class,
@@ -444,4 +651,5 @@ class RETPlusWrapper:
         return model_dir
 
     def load(self, path):
-        self.model.load_state_dict(torch.load(path, map_location=device))
+        # self.model.load_state_dict(torch.load(path, map_location=device))
+        self.model.load_state_dict(torch.load(path, map_location=device), strict=False)
