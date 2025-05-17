@@ -1,7 +1,6 @@
 """
- @author: Antanas Zilinskas
+@author: Antanas Zilinskas
 """
-
 
 import os
 import platform
@@ -17,28 +16,42 @@ from tensorflow.keras.utils import to_categorical
 warnings.filterwarnings("ignore")
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
+# --- TensorFlow Check ---
 try:
     import tensorflow as tf
-
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+
+    if tf.test.gpu_device_name() != "/device:GPU:0":
+        print("WARNING: TensorFlow GPU device not found.")
+    else:
+        print("SUCCESS: TensorFlow found GPU:", tf.test.gpu_device_name())
+        physical_devices = tf.config.list_physical_devices("GPU")
+        if len(physical_devices) > 0:
+            physical_devices = tf.config.experimental.list_physical_devices("GPU")
+            tf.config.experimental.set_memory_growth(
+                physical_devices[0], enable=True
+            )
+    print("TensorFlow backend version:", tf.__version__)
+
 except Exception as e:
-    print("")
+    print("TensorFlow failed to import:", e)
 
+# --- PyTorch Check ---
+try:
+    import torch
 
-if tf.test.gpu_device_name() != "/device:GPU:0":
-    print("WARNING: GPU device not found.")
-else:
-    print("SUCCESS: Found GPU: {}".format(tf.test.gpu_device_name()))
-    physical_devices = tf.config.list_physical_devices("GPU")
-    if len(physical_devices) > 0:
-        physical_devices = tf.config.experimental.list_physical_devices("GPU")
-        tf.config.experimental.set_memory_growth(
-            physical_devices[0], enable=True
-        )
+    if torch.cuda.is_available():
+        print("SUCCESS: PyTorch found GPU:", torch.cuda.get_device_name(0))
+        print("PyTorch CUDA version:", torch.version.cuda)
+    else:
+        print("WARNING: PyTorch GPU device not found.")
+    print("PyTorch version:", torch.__version__)
 
+except Exception as e:
+    print("PyTorch failed to import:", e)
+
+# --- Python Version Info ---
 print("Python version:", platform.python_version())
-tf_version = tf.__version__
-print("Tensorflow bakcend version:", tf_version)
 
 supported_flare_class = ["C", "M", "M5"]
 n_features = 14
