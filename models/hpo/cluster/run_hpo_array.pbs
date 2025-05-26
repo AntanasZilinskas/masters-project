@@ -12,6 +12,10 @@ source ~/miniforge3/etc/profile.d/conda.sh
 # Change to submission directory
 cd $PBS_O_WORKDIR
 
+# Verify we're in the right directory
+echo "Working directory: $(pwd)"
+echo "Contents: $(ls -la | head -5)"
+
 # Activate conda environment
 conda activate everest_env
 
@@ -33,6 +37,38 @@ TIME_WINDOW=${TIME_WINDOWS[$TIME_IDX]}
 echo "Array job ${PBS_ARRAY_INDEX}: ${FLARE_CLASS} class, ${TIME_WINDOW}h window"
 echo "Using GPU: $CUDA_VISIBLE_DEVICES"
 echo "Conda environment: $CONDA_DEFAULT_ENV"
+echo "Python path: $PYTHONPATH"
+echo "Python executable: $(which python)"
+echo "Python version: $(python --version)"
+
+# Test basic imports before running the main script
+echo "Testing imports..."
+python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
+python -c "import models.hpo; print('HPO imports successful')"
+
+# Validate GPU availability - CRITICAL for HPO
+echo "Validating GPU..."
+python -c "
+import torch
+if torch.cuda.is_available():
+    gpu_name = torch.cuda.get_device_name(0)
+    print(f'✅ GPU available: {gpu_name}')
+else:
+    print('❌ GPU not available - HPO cannot proceed')
+    exit(1)
+"
+
+if [ $? -ne 0 ]; then
+    echo "❌ GPU validation failed - terminating job"
+    exit 1
+fi
+
+echo "Starting HPO optimization..."
+
+# Monitor available resources
+echo "Memory info: $(free -h | head -2)"
+echo "Disk space: $(df -h . | tail -1)"
+echo "GPU memory: $(nvidia-smi --query-gpu=memory.total,memory.used --format=csv,noheader,nounits || echo 'GPU info unavailable')"
 
 # Run HPO optimization with only supported arguments
 python models/hpo/run_hpo.py \
@@ -40,6 +76,7 @@ python models/hpo/run_hpo.py \
     --flare-class $FLARE_CLASS \
     --time-window $TIME_WINDOW \
     --max-trials 166 \
-    --timeout 82800
+    --timeout 82800 \
+    --quiet
 
 echo "Completed HPO optimization for ${FLARE_CLASS} class, ${TIME_WINDOW}h window (Array job ${PBS_ARRAY_INDEX})" 
