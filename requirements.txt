@@ -1,3 +1,4 @@
+# Core dependencies
 tensorflow==2.13.0
 tensorflow-addons==0.23.0
 tensorflow-estimator==2.13.0
@@ -16,3 +17,9 @@ fastparquet==2024.11.0
 pyarrow==19.0.0
 scipy==1.14.1
 seaborn==0.13.2
+
+# HPO dependencies
+optuna==3.6.1
+ray[tune]==2.9.3
+plotly==5.18.0
+kaleido==0.2.1
