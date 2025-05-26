@@ -20,6 +20,8 @@ else:
 # Enable cuDNN autotuner when using CUDA (speeds up fixed-size workloads)
 if device.type == "cuda":
     torch.backends.cudnn.benchmark = True
+    # Enable tensor-float-32 for additional throughput on Ampere/Ada GPUs
+    torch.backends.cuda.matmul.allow_tf32 = True
 
 # ----------------------------------------
 # Positional Encoding
@@ -303,6 +305,8 @@ class RETPlusWrapper:
         use_evt: bool = True,
         use_precursor: bool = True,
         loss_weights: Optional[Dict[str, float]] = None,
+        *,
+        compile_model: bool = False,  # 🔄 new flag – compile with TorchDynamo for speed
     ):
         """Wrapper around ``RETPlusModel`` with flexible ablation flags.
 
@@ -331,8 +335,15 @@ class RETPlusWrapper:
             use_evt=use_evt,
             use_precursor=use_precursor,
         ).to(device)
+        # Optionally compile the model for higher throughput (PyTorch ≥ 2.0)
+        if compile_model and device.type == "cuda" and hasattr(torch, "compile"):
+            try:
+                self.model = torch.compile(self.model, mode="max-autotune")
+            except Exception:
+                # Fallback gracefully if compilation fails (e.g. older PyTorch)
+                pass
         self.optimizer = torch.optim.AdamW(
-            self.model.parameters(), lr=3e-4, weight_decay=1e-4
+            self.model.parameters(), lr=3e-4, weight_decay=1e-4, fused=True
         )
         self.early_stopping_patience = early_stopping_patience
         self.history = {"loss": [], "accuracy": [], "tss": []}
@@ -349,6 +360,8 @@ class RETPlusWrapper:
         warmup_epochs=50,
         flare_class="M",
         time_window=24,
+        *,
+        in_memory_dataset: bool = False,  # 🔄 load whole dataset straight to GPU
     ):
         from model_tracking import save_model_with_metadata, get_next_version
 
@@ -359,21 +372,35 @@ class RETPlusWrapper:
         # Retain for later evaluation/visualisation
         self._train_data = (X_train, y_train)
 
-        # Build DataLoader for efficient loading
-        dataset = TensorDataset(
-            torch.tensor(X_train, dtype=torch.float32),
-            torch.tensor(y_train, dtype=torch.float32)
-        )
-        loader = DataLoader(
-            dataset,
-            batch_size=batch_size,
-            shuffle=True,
-            pin_memory=(device.type == "cuda"),
-            num_workers=4,
-        )
+        # Build DataLoader – optionally keep the full dataset on the GPU
+        use_amp = device.type == "cuda"
+        if in_memory_dataset and device.type == "cuda":
+            X_tensor = torch.tensor(X_train, dtype=torch.float16 if use_amp else torch.float32, device=device)
+            y_tensor = torch.tensor(y_train, dtype=torch.float32, device=device)
+            dataset = TensorDataset(X_tensor, y_tensor)
+            loader = DataLoader(
+                dataset,
+                batch_size=batch_size,
+                shuffle=True,
+                num_workers=0,
+                pin_memory=False,
+            )
+        else:
+            dataset = TensorDataset(
+                torch.tensor(X_train, dtype=torch.float32),
+                torch.tensor(y_train, dtype=torch.float32)
+            )
+            loader = DataLoader(
+                dataset,
+                batch_size=batch_size,
+                shuffle=True,
+                pin_memory=(device.type == "cuda"),
+                num_workers=os.cpu_count(),
+                persistent_workers=True,
+                prefetch_factor=4,
+            )
 
         # AMP scaler for mixed-precision (CUDA only – avoids dtype issues on MPS/CPU)
-        use_amp = device.type == "cuda"
         scaler = GradScaler(enabled=use_amp)
 
         best_tss = -1e8
@@ -448,7 +475,7 @@ class RETPlusWrapper:
                     self.optimizer.step()
 
                 # Metrics accumulation
-                epoch_loss += loss.item()
+                epoch_loss += loss.item() * X_batch.size(0)
                 preds = (
                     torch.sigmoid(outputs["logits"]) > 0.5
                 ).int().squeeze()

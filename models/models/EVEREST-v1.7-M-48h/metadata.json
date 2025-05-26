@@ -1,0 +1,40 @@
+{
+  "version": 1.7,
+  "timestamp": "2025-05-25T03:04:58.924249",
+  "description": "EVEREST model trained on SHARP data with evidential and EVT losses.",
+  "flare_class": "M",
+  "time_window": "48",
+  "hyperparameters": {
+    "input_shape": [
+      10,
+      9
+    ],
+    "embed_dim": 128,
+    "num_heads": 4,
+    "ff_dim": 256,
+    "num_blocks": 6,
+    "dropout": 0.2
+  },
+  "performance": {
+    "accuracy": 0.9486661876036131,
+    "TSS": 0.8973775666816177,
+    "ROC_AUC": 0.9913386857703415,
+    "Brier": 0.06670260013602108,
+    "ECE": 0.20181984164720207
+  },
+  "git_info": {
+    "commit": "6ae61ec49beb211dba5bc4841dce4a08d59e00c9",
+    "branch": "pytorch-rewrite"
+  },
+  "architecture": {
+    "name": "EVEREST (PyTorch)",
+    "input_shape": [
+      10,
+      9
+    ],
+    "num_params": 814090,
+    "precision": "torch.float32"
+  },
+  "framework": "PyTorch",
+  "latency_sec_per_batch32": 0.0030302882194519045
+}
