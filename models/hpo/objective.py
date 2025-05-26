@@ -182,7 +182,7 @@ class HPOObjective:
         )
         train_loader = DataLoader(
             train_dataset, batch_size=batch_size, shuffle=True, 
-            pin_memory=True, num_workers=2
+            pin_memory=(device.type == "cuda"), num_workers=2
         )
         
         val_dataset = TensorDataset(
@@ -191,7 +191,7 @@ class HPOObjective:
         )
         val_loader = DataLoader(
             val_dataset, batch_size=batch_size, shuffle=False,
-            pin_memory=True, num_workers=2
+            pin_memory=(device.type == "cuda"), num_workers=2
         )
         
         device = next(model.model.parameters()).device
@@ -203,8 +203,8 @@ class HPOObjective:
             epoch_loss = 0.0
             
             for X_batch, y_batch in train_loader:
-                X_batch = X_batch.to(device)
-                y_batch = y_batch.to(device)
+                X_batch = X_batch.to(device, non_blocking=True)
+                y_batch = y_batch.to(device, non_blocking=True)
                 
                 model.optimizer.zero_grad()
                 
@@ -258,6 +258,7 @@ class HPOObjective:
         with torch.no_grad():
             for X_batch, y_batch in val_loader:
                 X_batch = X_batch.to(device)
+                y_batch = y_batch.to(device)  # Ensure targets are also on device
                 
                 outputs = model.model(X_batch)
                 probs = torch.sigmoid(outputs["logits"]).cpu().numpy()
@@ -265,7 +266,7 @@ class HPOObjective:
                 
                 all_preds.extend(preds.flatten())
                 all_probs.extend(probs.flatten())
-                all_targets.extend(y_batch.numpy().flatten())
+                all_targets.extend(y_batch.cpu().numpy().flatten())
                 
         # Compute metrics
         y_true = np.array(all_targets)
