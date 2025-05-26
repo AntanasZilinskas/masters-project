@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=L40S
+#PBS -l select=1:ncpus=4:mem=24gb:ngpus=1
 #PBS -l walltime=24:00:00
 #PBS -N hpo_array
 #PBS -J 1-9
@@ -17,7 +17,6 @@ conda activate everest_env
 
 # Set environment variables for GPU
 export CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES
-export TORCH_CUDA_ARCH_LIST="8.9"  # For L40S GPU
 export PYTHONPATH=$PBS_O_WORKDIR:$PYTHONPATH
 
 # Define the target configurations
