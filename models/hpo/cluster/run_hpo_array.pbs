@@ -34,18 +34,12 @@ echo "Array job ${PBS_ARRAY_INDEX}: ${FLARE_CLASS} class, ${TIME_WINDOW}h window
 echo "Using GPU: $CUDA_VISIBLE_DEVICES"
 echo "Conda environment: $CONDA_DEFAULT_ENV"
 
-# Create output directory for this specific target
-OUTPUT_DIR="results/hpo_${FLARE_CLASS}_${TIME_WINDOW}h"
-mkdir -p $OUTPUT_DIR
-
-# Run HPO optimization
+# Run HPO optimization with only supported arguments
 python models/hpo/run_hpo.py \
     --target single \
     --flare-class $FLARE_CLASS \
     --time-window $TIME_WINDOW \
     --max-trials 166 \
-    --timeout 82800 \
-    --study-name "hpo_${FLARE_CLASS}_${TIME_WINDOW}h_array_${PBS_ARRAY_INDEX}_$(date +%Y%m%d_%H%M%S)" \
-    --output-dir $OUTPUT_DIR
+    --timeout 82800
 
 echo "Completed HPO optimization for ${FLARE_CLASS} class, ${TIME_WINDOW}h window (Array job ${PBS_ARRAY_INDEX})" 
