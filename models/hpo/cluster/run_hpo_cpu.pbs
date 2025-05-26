@@ -1,0 +1,42 @@
+#!/bin/bash
+#PBS -l select=1:ncpus=16:mem=64gb
+#PBS -l walltime=48:00:00
+#PBS -N hpo_cpu
+#PBS -o hpo_cpu_${FLARE_CLASS}_${TIME_WINDOW}.out
+#PBS -e hpo_cpu_${FLARE_CLASS}_${TIME_WINDOW}.err
+
+# Load required modules
+module load tools/prod
+module load Python/3.12.3-GCCcore-13.3.0
+module load PyTorch/2.1.2-foss-2023a
+
+# Change to submission directory
+cd $PBS_O_WORKDIR
+
+# Activate virtual environment
+source venv_hpo/bin/activate
+
+# Set CPU optimization flags
+export OMP_NUM_THREADS=16
+export MKL_NUM_THREADS=16
+
+# Default values if not set as environment variables
+FLARE_CLASS=${FLARE_CLASS:-"M"}
+TIME_WINDOW=${TIME_WINDOW:-24}
+MAX_TRIALS=${MAX_TRIALS:-166}
+
+echo "Starting CPU-based HPO optimization for ${FLARE_CLASS} class, ${TIME_WINDOW}h window"
+echo "Using ${OMP_NUM_THREADS} CPU threads"
+echo "Max trials: $MAX_TRIALS"
+
+# Run HPO optimization
+python models/hpo/run_hpo.py \
+    --target single \
+    --flare-class $FLARE_CLASS \
+    --time-window $TIME_WINDOW \
+    --max-trials $MAX_TRIALS \
+    --timeout 165600 \
+    --study-name "hpo_cpu_${FLARE_CLASS}_${TIME_WINDOW}h_$(date +%Y%m%d_%H%M%S)" \
+    --output-dir results/hpo_cpu_${FLARE_CLASS}_${TIME_WINDOW}h
+
+echo "CPU HPO optimization completed for ${FLARE_CLASS} class, ${TIME_WINDOW}h window" 
