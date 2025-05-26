@@ -6,20 +6,19 @@
 #PBS -o hpo_array_${PBS_ARRAY_INDEX}.out
 #PBS -e hpo_array_${PBS_ARRAY_INDEX}.err
 
-# Load required modules
-module load tools/prod
-module load Python/3.12.3-GCCcore-13.3.0
-module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
+# Initialize conda
+source ~/miniforge3/etc/profile.d/conda.sh
 
 # Change to submission directory
 cd $PBS_O_WORKDIR
 
-# Activate virtual environment
-source venv_hpo/bin/activate
+# Activate conda environment
+conda activate everest_env
 
 # Set environment variables for GPU
 export CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES
 export TORCH_CUDA_ARCH_LIST="8.9"  # For L40S GPU
+export PYTHONPATH=$PBS_O_WORKDIR:$PYTHONPATH
 
 # Define the target configurations
 declare -a FLARE_CLASSES=("C" "M" "X")
@@ -34,6 +33,7 @@ TIME_WINDOW=${TIME_WINDOWS[$TIME_IDX]}
 
 echo "Array job ${PBS_ARRAY_INDEX}: ${FLARE_CLASS} class, ${TIME_WINDOW}h window"
 echo "Using GPU: $CUDA_VISIBLE_DEVICES"
+echo "Conda environment: $CONDA_DEFAULT_ENV"
 
 # Create output directory for this specific target
 OUTPUT_DIR="results/hpo_${FLARE_CLASS}_${TIME_WINDOW}h"
