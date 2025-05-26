@@ -24,7 +24,7 @@ export CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES
 export PYTHONPATH=$PBS_O_WORKDIR:$PYTHONPATH
 
 # Define the target configurations
-declare -a FLARE_CLASSES=("C" "M" "X")
+declare -a FLARE_CLASSES=("C" "M" "M5")
 declare -a TIME_WINDOWS=(24 48 72)
 
 # Calculate flare class and time window indices from array index
