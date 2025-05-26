@@ -22,10 +22,14 @@ Usage examples:
 import sys
 import argparse
 from pathlib import Path
+import os
 
 # Add project root to path
-project_root = Path(__file__).parent
+project_root = Path(__file__).parent.parent.parent  # Go up to masters-project root
 sys.path.insert(0, str(project_root))
+
+# Change working directory to project root to ensure relative paths work
+os.chdir(project_root)
 
 from models.hpo import StudyManager, HPO_SEARCH_SPACE, SEARCH_STAGES, EXPERIMENT_TARGETS
 
@@ -57,10 +61,58 @@ def run_single_target(args):
     """Run optimization for a single target."""
     print(f"\n🎯 Running optimization for {args.flare_class}-class, {args.time_window}h window")
     
+    # Validate data availability first
+    try:
+        from utils import get_training_data, get_testing_data
+        print(f"   • Validating data availability...")
+        
+        X_train, y_train = get_training_data(args.time_window, args.flare_class)
+        X_test, y_test = get_testing_data(args.time_window, args.flare_class)
+        
+        if X_train is None or y_train is None:
+            print(f"   ❌ Training data not found for {args.flare_class}/{args.time_window}h")
+            return False
+            
+        if X_test is None or y_test is None:
+            print(f"   ❌ Testing data not found for {args.flare_class}/{args.time_window}h")
+            return False
+            
+        print(f"   ✅ Data validated: {len(X_train)} train, {len(X_test)} test samples")
+        
+    except Exception as e:
+        print(f"   ❌ Data validation failed: {e}")
+        return False
+    
+    # Validate GPU configuration
+    try:
+        import torch
+        print(f"   • Validating GPU configuration...")
+        
+        if torch.cuda.is_available():
+            gpu_count = torch.cuda.device_count()
+            current_gpu = torch.cuda.current_device()
+            gpu_name = torch.cuda.get_device_name(current_gpu)
+            print(f"   ✅ GPU available: {gpu_name} (device {current_gpu}/{gpu_count})")
+        else:
+            print(f"   ❌ GPU not available - HPO requires GPU for large-scale optimization")
+            print(f"   ❌ Training 166 trials on 400k+ samples would take days on CPU")
+            return False
+            
+    except Exception as e:
+        print(f"   ❌ GPU validation failed: {e}")
+        print(f"   ❌ Cannot proceed without GPU for large-scale HPO")
+        return False
+    
     if args.max_trials:
         print(f"   • Limited to {args.max_trials} trials")
     if args.timeout:
         print(f"   • Timeout: {args.timeout}s ({args.timeout/3600:.1f}h)")
+        
+        # Adaptive trial reduction for short timeouts
+        if args.max_trials is None and args.timeout < 21600:  # Less than 6 hours
+            suggested_trials = max(10, int(args.timeout / 200))  # ~3.3 minutes per trial
+            print(f"   ⚠️ Short timeout detected, suggesting {suggested_trials} trials instead of 166")
+            args.max_trials = suggested_trials
     
     manager = StudyManager()
     
