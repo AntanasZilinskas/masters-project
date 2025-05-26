@@ -4,10 +4,24 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import time
+import subprocess
+import threading
 from datetime import datetime
 from typing import Tuple, Dict, Optional
 from torch.utils.data import DataLoader, TensorDataset
 from torch.amp import autocast, GradScaler
+
+# Try to import codecarbon for CO2 tracking
+try:
+    from codecarbon import EmissionsTracker
+    CODECARBON_AVAILABLE = True
+except ImportError:
+    CODECARBON_AVAILABLE = False
+    print("Warning: codecarbon not available. Install with: pip install codecarbon")
+except Exception as e:
+    CODECARBON_AVAILABLE = False
+    print(f"Warning: codecarbon failed to import: {e}")
 
 # Device config: prefer CUDA, then MPS, then CPU
 if torch.cuda.is_available():
@@ -22,6 +36,70 @@ if device.type == "cuda":
     torch.backends.cudnn.benchmark = True
     # Enable tensor-float-32 for additional throughput on Ampere/Ada GPUs
     torch.backends.cuda.matmul.allow_tf32 = True
+
+# ----------------------------------------
+# GPU Power Monitoring Utilities
+# ----------------------------------------
+class GPUMonitor:
+    """Monitor GPU power consumption during training."""
+    
+    def __init__(self, interval=60):
+        self.interval = interval
+        self.power_readings = []
+        self.monitoring = False
+        self.monitor_thread = None
+        
+    def _monitor_power(self):
+        """Background thread to monitor GPU power."""
+        while self.monitoring:
+            try:
+                if device.type == "cuda":
+                    result = subprocess.run(
+                        ["nvidia-smi", "--query-gpu=power.draw", "--format=csv,noheader,nounits"],
+                        capture_output=True, text=True, timeout=10
+                    )
+                    if result.returncode == 0:
+                        power = float(result.stdout.strip().split('\n')[0])
+                        timestamp = time.time()
+                        self.power_readings.append((timestamp, power))
+            except (subprocess.TimeoutExpired, ValueError, FileNotFoundError):
+                pass
+            time.sleep(self.interval)
+    
+    def start_monitoring(self):
+        """Start monitoring GPU power consumption."""
+        if device.type == "cuda" and not self.monitoring:
+            self.monitoring = True
+            self.monitor_thread = threading.Thread(target=self._monitor_power, daemon=True)
+            self.monitor_thread.start()
+    
+    def stop_monitoring(self):
+        """Stop monitoring and return power statistics."""
+        self.monitoring = False
+        if self.monitor_thread:
+            self.monitor_thread.join(timeout=2)
+        
+        if self.power_readings:
+            powers = [reading[1] for reading in self.power_readings]
+            return {
+                "average_power_w": np.mean(powers),
+                "max_power_w": np.max(powers),
+                "min_power_w": np.min(powers),
+                "power_readings": len(powers),
+                "monitoring_duration_s": self.power_readings[-1][0] - self.power_readings[0][0] if len(self.power_readings) > 1 else 0
+            }
+        return None
+
+def get_gpu_info():
+    """Get GPU information."""
+    if device.type == "cuda":
+        gpu_name = torch.cuda.get_device_name(0)
+        gpu_memory = torch.cuda.get_device_properties(0).total_memory // (1024**3)  # GB
+        return {"gpu_name": gpu_name, "gpu_memory_gb": gpu_memory}
+    elif device.type == "mps":
+        return {"gpu_name": "Apple Silicon", "gpu_memory_gb": "Unified Memory"}
+    else:
+        return {"gpu_name": "CPU", "gpu_memory_gb": 0}
 
 # ----------------------------------------
 # Positional Encoding
@@ -362,7 +440,11 @@ class RETPlusWrapper:
         time_window=24,
         *,
         in_memory_dataset: bool = False,  # 🔄 load whole dataset straight to GPU
+        track_emissions: bool = True,  # 🌱 disable for cluster environments if needed
     ):
+        import sys
+        import os
+        sys.path.append(os.path.dirname(__file__))
         from model_tracking import save_model_with_metadata, get_next_version
 
         # Convert to NumPy arrays
@@ -372,6 +454,59 @@ class RETPlusWrapper:
         # Retain for later evaluation/visualisation
         self._train_data = (X_train, y_train)
 
+        # Get GPU information
+        gpu_info = get_gpu_info()
+        print(f"Training on: {gpu_info['gpu_name']} ({gpu_info['gpu_memory_gb']} GB)")
+
+        # Initialize lightweight monitoring (cluster-safe)
+        gpu_monitor = None
+        emissions_tracker = None
+        
+        # GPU monitoring with maximum safety
+        if device.type == "cuda":
+            try:
+                gpu_monitor = GPUMonitor(interval=300)  # Sample every 5 minutes
+                gpu_monitor.start_monitoring()
+            except Exception as e:
+                print(f"Note: GPU power monitoring unavailable: {e}")
+                gpu_monitor = None
+
+        # Initialize codecarbon emissions tracking (ultra-safe for clusters)
+        if CODECARBON_AVAILABLE and track_emissions:
+            try:
+                # Create emissions directory with error handling
+                emissions_dir = "models/hpo/emissions"
+                try:
+                    os.makedirs(emissions_dir, exist_ok=True)
+                except (OSError, PermissionError) as e:
+                    print(f"Warning: Cannot create emissions directory: {e}. Using current directory.")
+                    emissions_dir = "."
+                
+                emissions_tracker = EmissionsTracker(
+                    project_name=f"everest-{flare_class}-{time_window}h",
+                    experiment_id=f"{flare_class}_{time_window}h_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                    output_dir=emissions_dir,
+                    save_to_file=True,
+                    log_level="error",  # Minimal logging
+                    tracking_mode="process",  # Only track this process
+                    measure_power_secs=300,  # Less frequent sampling (5 min)
+                    api_call_interval=300,  # Less frequent API calls
+                    emissions_endpoint=None,  # Disable cloud API calls
+                    save_to_logger=False,  # Disable logger output
+                    save_to_api=False,  # Disable API uploads
+                    offline_mode=True,  # Force offline mode
+                )
+                emissions_tracker.start()
+                print("🌱 CO2 tracking started (cluster-safe mode)")
+            except Exception as e:
+                print(f"Note: CO2 tracking unavailable: {e}")
+                emissions_tracker = None
+                track_emissions = False  # Disable for this session
+
+        # Training timing
+        training_start_time = time.time()
+        epoch_times = []
+        
         # Build DataLoader – optionally keep the full dataset on the GPU
         use_amp = device.type == "cuda"
         if in_memory_dataset and device.type == "cuda":
@@ -410,6 +545,8 @@ class RETPlusWrapper:
         best_epoch = -1
 
         for epoch in range(epochs):
+            epoch_start_time = time.time()
+            
             gamma = min(gamma_max, gamma_max * epoch / warmup_epochs)
             epoch_loss = 0.0
             total = 0
@@ -488,7 +625,11 @@ class RETPlusWrapper:
                 correct += (preds == y_true).sum().item()
                 total += y_batch.size(0)
 
-            # Epoch-level metrics
+            # Calculate epoch metrics and timing
+            epoch_end_time = time.time()
+            epoch_duration = epoch_end_time - epoch_start_time
+            epoch_times.append(epoch_duration)
+            
             avg_loss = epoch_loss / max(1, total)
             accuracy = correct / total if total > 0 else 0.0
             sensitivity = TP / (TP + FN + 1e-8)
@@ -501,7 +642,8 @@ class RETPlusWrapper:
 
             print(
                 f"Epoch {epoch+1}/{epochs} - loss: {avg_loss:.4f} - "
-                f"acc: {accuracy:.4f} - tss: {tss:.4f} - gamma: {gamma:.2f}"
+                f"acc: {accuracy:.4f} - tss: {tss:.4f} - gamma: {gamma:.2f} - "
+                f"time: {epoch_duration:.1f}s"
             )
 
             # Early stopping check
@@ -520,6 +662,49 @@ class RETPlusWrapper:
                     if best_weights is not None:
                         self.model.load_state_dict(best_weights)
                     break
+
+        # Calculate total training time
+        training_end_time = time.time()
+        total_training_time = training_end_time - training_start_time
+        
+        # Stop monitoring and collect metrics
+        gpu_power_stats = None
+        if gpu_monitor:
+            gpu_power_stats = gpu_monitor.stop_monitoring()
+        
+        emissions_data = None
+        if emissions_tracker:
+            try:
+                emissions_data = emissions_tracker.stop()
+                print(f"🌱 Training emissions: {emissions_data:.6f} kg CO2eq")
+            except Exception as e:
+                print(f"Warning: Failed to stop codecarbon tracker: {e}")
+
+        # Store comprehensive training metrics
+        self.training_metrics = {
+            "total_training_time_s": total_training_time,
+            "total_training_time_h": total_training_time / 3600,
+            "average_epoch_time_s": np.mean(epoch_times),
+            "fastest_epoch_time_s": np.min(epoch_times),
+            "slowest_epoch_time_s": np.max(epoch_times),
+            "epoch_times": epoch_times,
+            "epochs_completed": len(epoch_times),
+            "early_stopped": len(epoch_times) < epochs,
+            "gpu_info": gpu_info,
+            "gpu_power_stats": gpu_power_stats,
+            "co2_emissions_kg": emissions_data if emissions_data else None,
+            "training_samples": len(X_train),
+            "batch_size": batch_size,
+            "mixed_precision": use_amp,
+        }
+
+        print(f"\n📊 Training completed in {total_training_time:.1f}s ({total_training_time/3600:.2f}h)")
+        print(f"   • Average epoch time: {np.mean(epoch_times):.1f}s")
+        print(f"   • GPU: {gpu_info['gpu_name']}")
+        if gpu_power_stats:
+            print(f"   • Average GPU power: {gpu_power_stats['average_power_w']:.1f}W")
+        if emissions_data:
+            print(f"   • CO2 emissions: {emissions_data:.6f} kg CO2eq")
 
         # Save best model & metadata
         model_dir = self.save(
@@ -557,6 +742,9 @@ class RETPlusWrapper:
         torch.save(self.model.state_dict(), weights_path)
 
     def save(self, version, flare_class, time_window, X_eval=None, y_eval=None):
+        import sys
+        import os
+        sys.path.append(os.path.dirname(__file__))
         from model_tracking import save_model_with_metadata
 
         # ---------------- Basic discrimination metrics ----------------
@@ -663,6 +851,8 @@ class RETPlusWrapper:
             flare_class=flare_class,
             time_window=time_window,
             description="EVEREST model trained on SHARP data with evidential and EVT losses.",
+            # Training metrics and efficiency data
+            training_metrics=getattr(self, 'training_metrics', None),
             # Newly added artefacts
             y_true=y_true,
             y_pred=y_pred,
