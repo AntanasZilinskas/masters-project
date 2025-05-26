@@ -25,16 +25,70 @@ import sklearn
 import seaborn as sns
 
 
+class TrainingMetricsEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles large arrays and training metrics properly."""
+    
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            # For large arrays, save summary statistics instead of full data
+            if obj.size > 1000:  # If array is very large
+                return {
+                    "_type": "large_array",
+                    "shape": obj.shape,
+                    "dtype": str(obj.dtype),
+                    "mean": float(np.mean(obj)) if obj.size > 0 else None,
+                    "std": float(np.std(obj)) if obj.size > 0 else None,
+                    "min": float(np.min(obj)) if obj.size > 0 else None,
+                    "max": float(np.max(obj)) if obj.size > 0 else None,
+                    "first_10": obj.flatten()[:10].tolist() if obj.size >= 10 else obj.tolist(),
+                    "last_10": obj.flatten()[-10:].tolist() if obj.size >= 20 else []
+                }
+            else:
+                return obj.tolist()
+        elif isinstance(obj, torch.Tensor):
+            return self.default(obj.detach().cpu().numpy())
+        elif isinstance(obj, (np.integer, np.floating)):
+            return obj.item()
+        elif hasattr(obj, 'isoformat'):  # datetime objects
+            return obj.isoformat()
+        # Let the default encoder handle other types
+        return super().default(obj)
+
+
 def create_model_dir(version, flare_class, time_window):
     """Create a standardized model directory structure."""
     # Create the parent models directory if it doesn't exist
-    if not os.path.exists("models"):
-        os.makedirs("models", exist_ok=True)
+    try:
+        if not os.path.exists("models"):
+            os.makedirs("models", exist_ok=True)
+    except (OSError, PermissionError) as e:
+        print(f"Warning: Cannot create models directory: {e}")
+        # Fallback to current directory
+        return f"EVEREST-v{version}-{flare_class}-{time_window}h"
         
     model_dir = (
         f"models/EVEREST-v{version}-{flare_class}-{time_window}h"
     )
-    os.makedirs(model_dir, exist_ok=True)
+    
+    try:
+        os.makedirs(model_dir, exist_ok=True)
+    except (OSError, PermissionError) as e:
+        print(f"Warning: Cannot create model directory {model_dir}: {e}")
+        # Fallback to current directory with simple name
+        model_dir = f"EVEREST-v{version}-{flare_class}-{time_window}h"
+        try:
+            os.makedirs(model_dir, exist_ok=True)
+        except (OSError, PermissionError):
+            # Last resort: use timestamp-based name
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            model_dir = f"model_{timestamp}"
+            try:
+                os.makedirs(model_dir, exist_ok=True)
+            except (OSError, PermissionError):
+                # Ultimate fallback: current directory
+                model_dir = "."
+                print(f"Warning: Using current directory for model output")
+    
     return model_dir
 
 
@@ -80,6 +134,8 @@ def save_model_with_metadata(
     att_y_pred=None,
     att_y_score=None,
     evidential_out=None,
+    # Training metrics and efficiency data
+    training_metrics=None,
 ):
     """
     Save a model with comprehensive metadata tracking.
@@ -104,6 +160,7 @@ def save_model_with_metadata(
         att_y_pred: Predicted labels for attention batch
         att_y_score: Confidence scores for attention batch
         evidential_out: Evidential model outputs (mu, v, alpha, beta) for violin plots
+        training_metrics: Training metrics and efficiency data
     """
     # Create model directory
     model_dir = create_model_dir(version, flare_class, time_window)
@@ -114,34 +171,65 @@ def save_model_with_metadata(
     # Save model weights
     if is_pytorch_model:
         weights_path = os.path.join(model_dir, "model_weights.pt")
-        if hasattr(model, 'save_weights'):
-            # Use the model's save_weights method if available
-            model.save_weights(flare_class=flare_class, w_dir=model_dir)
-        else:
-            # Fallback to direct PyTorch save
-            torch.save(model.model.state_dict(), weights_path)
+        try:
+            if hasattr(model, 'save_weights'):
+                # Use the model's save_weights method if available
+                model.save_weights(flare_class=flare_class, w_dir=model_dir)
+            else:
+                # Fallback to direct PyTorch save
+                torch.save(model.model.state_dict(), weights_path)
+        except Exception as e:
+            print(f"Warning: Cannot save model weights to {weights_path}: {e}")
+            # Try alternative filename
+            try:
+                alt_weights_path = os.path.join(model_dir, f"weights_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pt")
+                torch.save(model.model.state_dict(), alt_weights_path)
+                print(f"Saved weights to alternative path: {alt_weights_path}")
+            except Exception as e2:
+                print(f"Warning: Cannot save model weights at all: {e2}")
             
         # Extract architecture details for PyTorch model
-        architecture = {
-            "name": "EVEREST (PyTorch)",
-            "input_shape": hyperparams.get("input_shape", "unknown"),
-            "num_params": sum(p.numel() for p in model.model.parameters()),
-            "precision": str(next(model.model.parameters()).dtype),
-        }
+        try:
+            architecture = {
+                "name": "EVEREST (PyTorch)",
+                "input_shape": hyperparams.get("input_shape", "unknown"),
+                "num_params": sum(p.numel() for p in model.model.parameters()),
+                "precision": str(next(model.model.parameters()).dtype),
+            }
+        except Exception as e:
+            print(f"Warning: Cannot extract architecture info: {e}")
+            architecture = {
+                "name": "EVEREST (PyTorch)",
+                "input_shape": hyperparams.get("input_shape", "unknown"),
+                "num_params": "unknown",
+                "precision": "unknown",
+            }
     else:
         # Original TensorFlow saving logic
         weights_path = os.path.join(model_dir, "model_weights.weights.h5")
-        model.model.save_weights(weights_path)
+        try:
+            model.model.save_weights(weights_path)
+        except Exception as e:
+            print(f"Warning: Cannot save TensorFlow weights: {e}")
 
         # Extract architecture details for TensorFlow model
-        architecture = {
-            "name": "EVEREST",
-            "input_shape": model.model.input_shape[1:],
-            "num_params": model.model.count_params(),
-            "precision": str(model.model.dtype_policy)
-            if hasattr(model.model, "dtype_policy")
-            else "float32",
-        }
+        try:
+            architecture = {
+                "name": "EVEREST",
+                "input_shape": model.model.input_shape[1:],
+                "num_params": model.model.count_params(),
+                "precision": str(model.model.dtype_policy)
+                if hasattr(model.model, "dtype_policy")
+                else "float32",
+            }
+        except Exception as e:
+            print(f"Warning: Cannot extract TensorFlow architecture info: {e}")
+            architecture = {
+                "name": "EVEREST",
+                "input_shape": "unknown",
+                "num_params": "unknown",
+                "precision": "unknown",
+            }
 
     # ------------------------------------------------------------------
     # Optional: Benchmark inference latency (before metadata creation so we can log it)
@@ -167,60 +255,93 @@ def save_model_with_metadata(
         "framework": "PyTorch" if is_pytorch_model else "TensorFlow",
         # Optional latency benchmark (seconds per batch of len(sample_input))
         **({"latency_sec_per_batch32": latency} if latency is not None else {}),
+        # Training metrics and efficiency data
+        **({"training_metrics": training_metrics} if training_metrics is not None else {}),
     }
 
     # Save metadata
-    with open(os.path.join(model_dir, "metadata.json"), "w") as f:
-        json.dump(metadata, f, indent=2)
+    try:
+        with open(os.path.join(model_dir, "metadata.json"), "w") as f:
+            json.dump(metadata, f, indent=2, cls=TrainingMetricsEncoder)
+    except (OSError, PermissionError) as e:
+        print(f"Warning: Cannot save metadata.json: {e}")
+        # Try alternative filename
+        try:
+            alt_name = f"metadata_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            with open(os.path.join(model_dir, alt_name), "w") as f:
+                json.dump(metadata, f, indent=2, cls=TrainingMetricsEncoder)
+        except Exception:
+            print("Warning: Metadata could not be saved to file")
 
     # Save training history
     if history:
-        if is_pytorch_model:
-            # Save PyTorch history format (which might be a dict already)
-            save_training_history(history, model_dir)
-        elif hasattr(history, "history"):
-            # Save TensorFlow history format
-            save_training_history(history.history, model_dir)
+        try:
+            if is_pytorch_model:
+                # Save PyTorch history format (which might be a dict already)
+                save_training_history(history, model_dir)
+            elif hasattr(history, "history"):
+                # Save TensorFlow history format
+                save_training_history(history.history, model_dir)
+        except Exception as e:
+            print(f"Warning: Cannot save training history: {e}")
 
     # Generate model card
-    generate_model_card(metadata, metrics, model_dir)
+    try:
+        generate_model_card(metadata, metrics, model_dir)
+    except Exception as e:
+        print(f"Warning: Cannot generate model card: {e}")
 
     # ------------------------------------------------------------------
     # Additional artefacts: classification report, predictions, calibration, EVT, env
     # ------------------------------------------------------------------
-    if (y_true is not None) and (y_pred is not None):
-        save_classification_report(y_true, y_pred, model_dir)
-        save_predictions_csv(y_true, y_pred, y_scores, model_dir)
-        if y_scores is not None:
-            save_calibration_curve(y_true, y_scores, model_dir)
+    try:
+        if (y_true is not None) and (y_pred is not None):
+            save_classification_report(y_true, y_pred, model_dir)
+            save_predictions_csv(y_true, y_pred, y_scores, model_dir)
+            if y_scores is not None:
+                save_calibration_curve(y_true, y_scores, model_dir)
+    except Exception as e:
+        print(f"Warning: Cannot save classification artifacts: {e}")
 
-    if evt_scores is not None:
-        save_evt_tail_distribution(evt_scores, model_dir)
+    try:
+        if evt_scores is not None:
+            save_evt_tail_distribution(evt_scores, model_dir)
+    except Exception as e:
+        print(f"Warning: Cannot save EVT distribution: {e}")
 
     # Always save environment info for reproducibility
-    save_environment_info(model_dir)
+    try:
+        save_environment_info(model_dir)
+    except Exception as e:
+        print(f"Warning: Cannot save environment info: {e}")
 
     # Attention heatmaps
-    if (
-        (att_X_batch is not None)
-        and (att_y_true is not None)
-        and (att_y_pred is not None)
-        and (att_y_score is not None)
-    ):
-        save_attention_heatmaps(
-            model,
-            att_X_batch,
-            att_y_true,
-            att_y_pred,
-            att_y_score,
-            model_dir,
-        )
+    try:
+        if (
+            (att_X_batch is not None)
+            and (att_y_true is not None)
+            and (att_y_pred is not None)
+            and (att_y_score is not None)
+        ):
+            save_attention_heatmaps(
+                model,
+                att_X_batch,
+                att_y_true,
+                att_y_pred,
+                att_y_score,
+                model_dir,
+            )
+    except Exception as e:
+        print(f"Warning: Cannot save attention heatmaps: {e}")
 
     # Evidential uncertainty violin plot
-    if (evidential_out is not None) and (y_true is not None) and (y_pred is not None):
-        save_uncertainty_violinplots(
-            evidential_out, y_true, y_pred, model_dir
-        )
+    try:
+        if (evidential_out is not None) and (y_true is not None) and (y_pred is not None):
+            save_uncertainty_violinplots(
+                evidential_out, y_true, y_pred, model_dir
+            )
+    except Exception as e:
+        print(f"Warning: Cannot save uncertainty plots: {e}")
 
     print(f"Model saved to {model_dir}")
     return model_dir
