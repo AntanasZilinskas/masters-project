@@ -228,7 +228,7 @@ class AblationTrainer:
         # Do NOT re-normalize - keep the same total weight as original training
         return ablation_weights
     
-    def train(self) -> Dict[str, Any]:
+    def train(self, batch_size_override: Optional[int] = None, memory_efficient: bool = False) -> Dict[str, Any]:
         """Train the ablation model and return results."""
         start_time = time.time()
         
@@ -241,9 +241,15 @@ class AblationTrainer:
         # Create model
         model = self.create_model()
         
-        # Training configuration
+        # Training configuration with optional overrides
         epochs = TRAINING_CONFIG["epochs"]
-        batch_size = OPTIMAL_HYPERPARAMS["batch_size"]
+        batch_size = batch_size_override or OPTIMAL_HYPERPARAMS["batch_size"]
+        
+        # Apply memory efficient settings
+        if memory_efficient:
+            batch_size = min(batch_size, 512)  # Reduce batch size for memory sharing
+            print("🧠 Memory efficient mode enabled")
+        
         focal_gamma = self.variant_config["focal_gamma"]
         use_amp = self.variant_config["use_amp"]
         
@@ -253,6 +259,7 @@ class AblationTrainer:
         print(f"   Learning rate: {OPTIMAL_HYPERPARAMS['learning_rate']:.6f}")
         print(f"   Focal gamma: {focal_gamma}")
         print(f"   Mixed precision: {use_amp}")
+        print(f"   Memory efficient: {memory_efficient}")
         print(f"   Loss weights: {self.variant_config['loss_weights']}")
         
         # Custom training loop for ablation studies
@@ -605,7 +612,8 @@ class AblationTrainer:
         print(f"   Metrics: {metrics_file}")
 
 
-def train_ablation_variant(variant_name: str, seed: int, sequence_variant: Optional[str] = None) -> Dict[str, Any]:
+def train_ablation_variant(variant_name: str, seed: int, sequence_variant: Optional[str] = None, 
+                          batch_size_override: Optional[int] = None, memory_efficient: bool = False) -> Dict[str, Any]:
     """
     Train a single ablation variant with specified seed.
     
@@ -613,12 +621,14 @@ def train_ablation_variant(variant_name: str, seed: int, sequence_variant: Optio
         variant_name: Name of ablation variant
         seed: Random seed
         sequence_variant: Optional sequence length variant
+        batch_size_override: Override batch size for memory optimization
+        memory_efficient: Enable memory efficient training
         
     Returns:
         Training results dictionary
     """
     trainer = AblationTrainer(variant_name, seed, sequence_variant)
-    return trainer.train()
+    return trainer.train(batch_size_override=batch_size_override, memory_efficient=memory_efficient)
 
 
 if __name__ == "__main__":
@@ -631,6 +641,9 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
     parser.add_argument("--sequence", choices=list(SEQUENCE_LENGTH_VARIANTS.keys()),
                         help="Sequence length variant")
+    parser.add_argument("--batch-size", type=int, help="Override batch size for memory optimization")
+    parser.add_argument("--memory-efficient", action="store_true", 
+                        help="Enable memory efficient training (reduces batch size)")
     
     args = parser.parse_args()
     
@@ -638,8 +651,18 @@ if __name__ == "__main__":
     print(f"🎲 Random seed: {args.seed}")
     if args.sequence:
         print(f"📏 Sequence variant: {args.sequence}")
+    if args.batch_size:
+        print(f"📦 Batch size override: {args.batch_size}")
+    if args.memory_efficient:
+        print(f"🧠 Memory efficient mode: enabled")
     
-    results = train_ablation_variant(args.variant, args.seed, args.sequence)
+    results = train_ablation_variant(
+        args.variant, 
+        args.seed, 
+        args.sequence,
+        batch_size_override=args.batch_size,
+        memory_efficient=args.memory_efficient
+    )
     
     print(f"\n🎯 Final TSS: {results['final_metrics']['tss']:.4f}")
     print(f"🎯 Final F1: {results['final_metrics']['f1']:.4f}")
