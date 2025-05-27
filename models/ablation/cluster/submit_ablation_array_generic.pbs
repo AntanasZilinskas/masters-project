@@ -1,12 +1,12 @@
 #!/bin/bash
 #PBS -N everest_ablation
 #PBS -l walltime=24:00:00
-#PBS -l select=1:ncpus=4:mem=24gb:ngpus=1:gpu_type=L40S
+#PBS -l select=1:ncpus=4:mem=24gb:ngpus=1
 #PBS -J 1-60
 #PBS -j oe
 #PBS -o logs/ablation_${PBS_ARRAY_INDEX}.log
 
-# EVEREST Ablation Study - Array Job Submission
+# EVEREST Ablation Study - Array Job Submission (Generic GPU)
 # This script runs individual ablation experiments as array jobs
 
 # Load environment

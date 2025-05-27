@@ -1,13 +1,13 @@
 #!/bin/bash
-#PBS -N everest_ablation
-#PBS -l walltime=24:00:00
-#PBS -l select=1:ncpus=4:mem=24gb:ngpus=1:gpu_type=L40S
+#PBS -N everest_ablation_minimal
+#PBS -l walltime=02:00:00
+#PBS -l select=1:ncpus=2:mem=8gb
 #PBS -J 1-60
 #PBS -j oe
 #PBS -o logs/ablation_${PBS_ARRAY_INDEX}.log
 
-# EVEREST Ablation Study - Array Job Submission
-# This script runs individual ablation experiments as array jobs
+# EVEREST Ablation Study - Minimal Resource Array Job (for testing)
+# This script runs individual ablation experiments with minimal resources
 
 # Load environment
 module load anaconda3/personal
@@ -32,6 +32,10 @@ SEQ_VARIANTS=("seq_5" "seq_7" "seq_10" "seq_15" "seq_20")
 
 # Calculate which experiment to run based on array index
 ARRAY_INDEX=$((PBS_ARRAY_INDEX - 1))  # Convert to 0-based indexing
+
+echo "Starting ablation experiment ${PBS_ARRAY_INDEX}/60"
+echo "Working directory: $(pwd)"
+echo "Available GPU devices: $CUDA_VISIBLE_DEVICES"
 
 if [ $ARRAY_INDEX -lt 35 ]; then
     # Component ablation experiment

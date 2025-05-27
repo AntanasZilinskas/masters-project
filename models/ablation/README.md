@@ -213,7 +213,18 @@ Based on paper specifications, expected TSS deltas from full model:
    ls Nature_data/testing_data_M5_72.csv
    ```
 
-4. **PBS dependency error** (`qsub: illegal -W value`):
+4. **PBS resource configuration error** (`Job resource selection does not match`):
+   ```bash
+   # The scripts will automatically try different resource configurations:
+   # 1. L40S GPU (4 cores, 24GB RAM)
+   # 2. Generic GPU (4 cores, 24GB RAM)  
+   # 3. Minimal CPU-only (2 cores, 8GB RAM) - for testing
+   
+   # If all fail, check your cluster's permitted configurations:
+   # https://icl-rcs-user-guide.readthedocs.io/en/latest/hpc/queues/job-sizing-guidance/
+   ```
+
+5. **PBS dependency error** (`qsub: illegal -W value`):
    ```bash
    # Use simple submission script instead:
    cd models/ablation/cluster

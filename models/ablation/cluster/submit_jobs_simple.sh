@@ -84,13 +84,15 @@ echo "📊 Submitting $DESCRIPTION"
 echo "   Array range: $ARRAY_RANGE"
 echo "   Total jobs: $(echo $ARRAY_RANGE | sed 's/-/ /' | awk '{print $2 - $1 + 1}')"
 
-# Submit array job
+# Submit array job - try different PBS scripts for compatibility
 ARRAY_SCRIPT="$SCRIPT_DIR/submit_ablation_array.pbs"
+ARRAY_SCRIPT_GENERIC="$SCRIPT_DIR/submit_ablation_array_generic.pbs"
 
 if [ "$DRY_RUN" = true ]; then
     echo ""
     echo "🔍 DRY RUN - Commands that would be executed:"
     echo "qsub -J $ARRAY_RANGE $ARRAY_SCRIPT"
+    echo "  (or fallback to: qsub -J $ARRAY_RANGE $ARRAY_SCRIPT_GENERIC)"
     echo ""
     echo "After array job completes, run analysis with:"
     echo "qsub $SCRIPT_DIR/submit_analysis.pbs"
@@ -98,15 +100,31 @@ else
     echo ""
     echo "🚀 Submitting array job..."
     
-    # Modify the array range in the PBS script temporarily
+    # Try L40S GPU first, then fallback to generic GPU
     TEMP_SCRIPT=$(mktemp)
     sed "s/#PBS -J 1-60/#PBS -J $ARRAY_RANGE/" "$ARRAY_SCRIPT" > "$TEMP_SCRIPT"
     
-    ARRAY_JOB_ID=$(qsub "$TEMP_SCRIPT" | cut -d'.' -f1)
-    rm "$TEMP_SCRIPT"
+    if ARRAY_JOB_ID=$(qsub "$TEMP_SCRIPT" 2>/dev/null | cut -d'.' -f1); then
+        echo "✅ Array job submitted: $ARRAY_JOB_ID (L40S GPU)"
+        echo "   Range: $ARRAY_RANGE"
+    else
+        echo "⚠️  L40S GPU not available, trying generic GPU..."
+        rm "$TEMP_SCRIPT"
+        TEMP_SCRIPT=$(mktemp)
+        sed "s/#PBS -J 1-60/#PBS -J $ARRAY_RANGE/" "$ARRAY_SCRIPT_GENERIC" > "$TEMP_SCRIPT"
+        
+        if ARRAY_JOB_ID=$(qsub "$TEMP_SCRIPT" 2>/dev/null | cut -d'.' -f1); then
+            echo "✅ Array job submitted: $ARRAY_JOB_ID (Generic GPU)"
+            echo "   Range: $ARRAY_RANGE"
+        else
+            echo "❌ Failed to submit array job. Please check resource requirements."
+            echo "   Try manually: qsub $ARRAY_SCRIPT"
+            rm "$TEMP_SCRIPT"
+            exit 1
+        fi
+    fi
     
-    echo "✅ Array job submitted: $ARRAY_JOB_ID"
-    echo "   Range: $ARRAY_RANGE"
+    rm "$TEMP_SCRIPT"
     
     echo ""
     echo "📊 To run analysis after array job completes:"
