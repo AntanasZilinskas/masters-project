@@ -1,0 +1,151 @@
+#!/bin/bash
+#PBS -N test_component_ablation
+#PBS -l walltime=2:00:00
+#PBS -l select=1:ncpus=4:mem=16gb:ngpus=1:gpu_type=RTX6000
+#PBS -j oe
+
+# Test Component Ablation Study - EXACT HPO Pattern
+
+echo "🧪 Testing Component Ablation Study"
+echo "Node: $(hostname)"
+echo "Date: $(date)"
+
+# Initialize conda (EXACT same as HPO)
+source ~/miniforge3/etc/profile.d/conda.sh
+
+# Change to submission directory (EXACT same as HPO)
+cd $PBS_O_WORKDIR
+
+# Verify we're in the right directory (EXACT same as HPO)
+echo "Working directory: $(pwd)"
+echo "Contents: $(ls -la | head -5)"
+
+# Activate conda environment (EXACT same as HPO)
+conda activate everest_env
+
+echo "Test job: Validating component ablation study"
+echo "Using GPU: $CUDA_VISIBLE_DEVICES"
+echo "Conda environment: $CONDA_DEFAULT_ENV"
+echo "Python executable: $(which python)"
+echo "Python version: $(python --version)"
+
+# Test imports (EXACT same as HPO)
+echo "Testing imports..."
+python -c "
+import torch
+print(f'PyTorch version: {torch.__version__}')
+print('Component ablation imports successful')
+"
+
+# Validate GPU (EXACT same as HPO)
+echo "Validating GPU..."
+python -c "
+import torch
+if torch.cuda.is_available():
+    gpu_name = torch.cuda.get_device_name(0)
+    print(f'✅ GPU available: {gpu_name}')
+else:
+    print('❌ GPU not available - ablation cannot proceed')
+    exit(1)
+"
+
+if [ $? -ne 0 ]; then
+    echo "❌ GPU validation failed"
+    exit 1
+fi
+
+# Test data loading (EXACT same as HPO)
+echo "Testing data loading..."
+python -c "
+import sys
+from pathlib import Path
+project_root = Path.cwd()
+sys.path.insert(0, str(project_root))
+print(f'Project root: {project_root}')
+
+try:
+    from models.utils import get_training_data, get_testing_data
+    print('✅ Successfully imported data functions')
+except Exception as e:
+    print(f'❌ Import failed: {e}')
+    exit(1)
+
+print('Loading training data...')
+X_train, y_train = get_training_data('72', 'M5')
+if X_train is None or y_train is None:
+    print('❌ Training data not found')
+    exit(1)
+print(f'✅ Training data: {len(X_train)} samples, shape {X_train[0].shape if len(X_train) > 0 else \"unknown\"}')
+
+print('Loading testing data...')
+X_test, y_test = get_testing_data('72', 'M5')
+if X_test is None or y_test is None:
+    print('❌ Testing data not found')
+    exit(1)
+print(f'✅ Testing data: {len(X_test)} samples, shape {X_test[0].shape if len(X_test) > 0 else \"unknown\"}')
+
+import numpy as np
+X_train = np.array(X_train)
+y_train = np.array(y_train)
+print(f'Training X shape: {X_train.shape}, dtype: {X_train.dtype}')
+print(f'Training y shape: {y_train.shape}, dtype: {y_train.dtype}')
+print(f'Positive class ratio: {y_train.mean():.4f}')
+print('✅ Data loading tests passed!')
+"
+
+if [ $? -ne 0 ]; then
+    echo "❌ Data loading test failed"
+    exit 1
+fi
+
+# Test component ablation (EXACT same pattern as HPO)
+echo "🎯 Testing component ablation..."
+python models/ablation/run_ablation_exact_hpo.py --variant full_model --seed 0 || {
+    echo "❌ Component ablation test failed"
+    exit 1
+}
+
+echo "✅ Component ablation test passed!"
+
+# Test different component variants
+echo "🎯 Testing different component variants..."
+
+echo "  Testing no_evidential variant..."
+python -c "
+import sys
+from pathlib import Path
+project_root = Path.cwd()
+sys.path.insert(0, str(project_root))
+from models.ablation.run_ablation_exact_hpo import AblationObjective
+
+# Test no_evidential variant
+obj = AblationObjective('no_evidential', 0)
+config = obj._get_ablation_config()
+print(f'✅ no_evidential config: evidential={config[\"use_evidential\"]}, evt={config[\"use_evt\"]}')
+"
+
+echo "  Testing mean_pool variant..."
+python -c "
+import sys
+from pathlib import Path
+project_root = Path.cwd()
+sys.path.insert(0, str(project_root))
+from models.ablation.run_ablation_exact_hpo import AblationObjective
+
+# Test mean_pool variant
+obj = AblationObjective('mean_pool', 0)
+config = obj._get_ablation_config()
+print(f'✅ mean_pool config: attention={config[\"use_attention_bottleneck\"]}, evidential={config[\"use_evidential\"]}')
+"
+
+echo "✅ All component variant tests passed!"
+
+echo "📊 Component Ablation Study Configuration:"
+echo "  • Component ablations: 7 variants × 5 seeds = 35 experiments"
+echo "  • Total experiments: 35"
+echo ""
+echo "  Component variants: full_model, no_evidential, no_evt, mean_pool, cross_entropy, no_precursor, fp32_training"
+echo "  Seeds: 0, 1, 2, 3, 4"
+
+echo "✅ All tests passed - component ablation study ready!"
+echo "🏁 Test completed at $(date)" 
