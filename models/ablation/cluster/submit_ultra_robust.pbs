@@ -8,7 +8,7 @@
 
 # EVEREST Ablation Study - Ultra Robust Version
 # Comprehensive error handling and debugging
-
+# test
 set -e  # Exit on any error
 set -u  # Exit on undefined variables
 
