@@ -1,0 +1,103 @@
+#!/bin/bash
+#PBS -N test_real_data
+#PBS -l walltime=1:00:00
+#PBS -l select=1:ncpus=4:mem=16gb:ngpus=1:gpu_type=RTX6000
+#PBS -j oe
+
+# Test Real Data Loading with Pandas Compatibility
+
+echo "🧪 Testing Real Data Loading"
+echo "Node: $(hostname)"
+echo "Date: $(date)"
+
+# Initialize conda (EXACT same as HPO)
+source ~/miniforge3/etc/profile.d/conda.sh
+
+# Change to submission directory (EXACT same as HPO)
+cd $PBS_O_WORKDIR
+
+# Verify we're in the right directory (EXACT same as HPO)
+echo "Working directory: $(pwd)"
+echo "Contents: $(ls -la | head -5)"
+
+# Activate conda environment (EXACT same as HPO)
+conda activate everest_env
+
+# Set environment variables for GPU (EXACT same as HPO)
+export CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES
+export PYTHONPATH=$PBS_O_WORKDIR:$PYTHONPATH
+
+echo "Test job: Validating ablation setup"
+echo "Using GPU: $CUDA_VISIBLE_DEVICES"
+echo "Conda environment: $CONDA_DEFAULT_ENV"
+echo "Python executable: $(which python)"
+echo "Python version: $(python --version)"
+
+# Test basic imports (EXACT same as HPO)
+echo "Testing imports..."
+python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
+python -c "import models.ablation; print('Ablation imports successful')"
+
+# Test data loading
+echo "🧪 Testing data loading..."
+python -c "
+import sys
+from pathlib import Path
+import numpy as np
+
+# Setup paths (same as HPO style)
+project_root = Path.cwd()
+sys.path.insert(0, str(project_root))
+
+print(f'Project root: {project_root}')
+print(f'Python path: {sys.path[:3]}')
+
+# Test imports
+try:
+    from models.utils import get_training_data, get_testing_data
+    print('✅ Successfully imported data functions')
+except Exception as e:
+    print(f'❌ Import failed: {e}')
+    raise
+
+# Test data loading
+try:
+    print('Loading training data...')
+    X_train, y_train = get_training_data('72', 'M5')
+    print(f'✅ Training data: {len(X_train)} samples, shape {np.array(X_train).shape}')
+    
+    print('Loading testing data...')
+    X_test, y_test = get_testing_data('72', 'M5')
+    print(f'✅ Testing data: {len(X_test)} samples, shape {np.array(X_test).shape}')
+    
+    # Check data types and basic stats
+    X_train_arr = np.array(X_train)
+    y_train_arr = np.array(y_train)
+    
+    print(f'Training X shape: {X_train_arr.shape}, dtype: {X_train_arr.dtype}')
+    print(f'Training y shape: {y_train_arr.shape}, dtype: {y_train_arr.dtype}')
+    print(f'Positive class ratio: {np.mean(y_train_arr):.4f}')
+    
+except Exception as e:
+    print(f'❌ Data loading failed: {e}')
+    import traceback
+    traceback.print_exc()
+    raise
+"
+
+if [ $? -eq 0 ]; then
+    echo "✅ All tests passed - real data loading works!"
+    
+    # Test a quick ablation run (1 epoch)
+    echo "🎯 Testing quick ablation run..."
+    python models/ablation/run_ablation_hpo_style.py \
+        --variant full_model \
+        --seed 0 \
+        || echo "❌ Ablation test failed"
+        
+else
+    echo "❌ Data loading tests failed"
+    exit 1
+fi
+
+echo "🏁 Test completed at $(date)" 

@@ -15,6 +15,10 @@ import pandas as pd
 from datetime import datetime
 from typing import Dict, Any, Optional, Tuple, List
 from pathlib import Path
+from sklearn.metrics import (
+    confusion_matrix, accuracy_score, precision_score, 
+    recall_score, f1_score, brier_score_loss, roc_auc_score
+)
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -349,10 +353,6 @@ class AblationTrainer:
         
         # Import required functions
         from solarknowledge_ret_plus import composite_loss
-        from sklearn.metrics import (
-            confusion_matrix, accuracy_score, precision_score, 
-            recall_score, f1_score, brier_score_loss, roc_auc_score
-        )
         
         # Mixed precision scaler
         scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
