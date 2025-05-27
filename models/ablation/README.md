@@ -87,6 +87,11 @@ cd models/ablation/cluster
 
 # Dry run (show commands without executing)
 ./submit_jobs.sh --dry-run
+
+# If PBS dependency issues occur, use simple version:
+./submit_jobs_simple.sh
+# Then manually submit analysis after array job completes:
+qsub submit_analysis.pbs
 ```
 
 ## 📁 Directory Structure
@@ -208,7 +213,17 @@ Based on paper specifications, expected TSS deltas from full model:
    ls Nature_data/testing_data_M5_72.csv
    ```
 
-4. **Cluster job failures**: Check PBS logs
+4. **PBS dependency error** (`qsub: illegal -W value`):
+   ```bash
+   # Use simple submission script instead:
+   cd models/ablation/cluster
+   ./submit_jobs_simple.sh
+   
+   # Then manually submit analysis after array completes:
+   qsub submit_analysis.pbs
+   ```
+
+5. **Cluster job failures**: Check PBS logs
    ```bash
    tail -f logs/ablation_*.log
    ```

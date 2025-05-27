@@ -1,13 +1,12 @@
 #!/bin/bash
 """
-EVEREST Ablation Study - Cluster Job Submission Script
+EVEREST Ablation Study - Simple Cluster Job Submission Script
 
-This script submits the complete ablation study workflow:
-1. Array job for all ablation experiments (60 jobs)
-2. Analysis job that runs after all experiments complete
+This script submits the ablation study array job without dependencies.
+Run analysis manually after the array job completes.
 
 Usage:
-  ./submit_jobs.sh [--dry-run] [--component-only] [--sequence-only]
+  ./submit_jobs_simple.sh [--dry-run] [--component-only] [--sequence-only]
 """
 
 set -e  # Exit on any error
@@ -63,8 +62,8 @@ mkdir -p "$PROJECT_ROOT/models/ablation/logs"
 # Change to project root
 cd "$PROJECT_ROOT"
 
-echo "🔬 EVEREST Ablation Study - Cluster Submission"
-echo "=============================================="
+echo "🔬 EVEREST Ablation Study - Simple Cluster Submission"
+echo "====================================================="
 echo "Project root: $PROJECT_ROOT"
 echo "Logs directory: $LOGS_DIR"
 echo ""
@@ -92,6 +91,9 @@ if [ "$DRY_RUN" = true ]; then
     echo ""
     echo "🔍 DRY RUN - Commands that would be executed:"
     echo "qsub -J $ARRAY_RANGE $ARRAY_SCRIPT"
+    echo ""
+    echo "After array job completes, run analysis with:"
+    echo "qsub $SCRIPT_DIR/submit_analysis.pbs"
 else
     echo ""
     echo "🚀 Submitting array job..."
@@ -106,27 +108,12 @@ else
     echo "✅ Array job submitted: $ARRAY_JOB_ID"
     echo "   Range: $ARRAY_RANGE"
     
-    # Submit analysis job with dependency
-    if [ "$COMPONENT_ONLY" = false ] && [ "$SEQUENCE_ONLY" = false ]; then
-        echo ""
-        echo "📊 Submitting analysis job..."
-        
-        ANALYSIS_SCRIPT="$SCRIPT_DIR/submit_analysis.pbs"
-        
-        # Try different dependency syntaxes for different PBS systems
-        if ANALYSIS_JOB_ID=$(qsub -W depend=afterokarray:$ARRAY_JOB_ID "$ANALYSIS_SCRIPT" 2>/dev/null | cut -d'.' -f1); then
-            echo "✅ Analysis job submitted: $ANALYSIS_JOB_ID"
-            echo "   Dependency: afterokarray:$ARRAY_JOB_ID"
-        elif ANALYSIS_JOB_ID=$(qsub -W depend=afterany:$ARRAY_JOB_ID "$ANALYSIS_SCRIPT" 2>/dev/null | cut -d'.' -f1); then
-            echo "✅ Analysis job submitted: $ANALYSIS_JOB_ID"
-            echo "   Dependency: afterany:$ARRAY_JOB_ID"
-        else
-            echo "⚠️  Array dependency not supported, submitting without dependency"
-            echo "   You'll need to manually run analysis after array job completes:"
-            echo "   qsub $ANALYSIS_SCRIPT"
-            ANALYSIS_JOB_ID=""
-        fi
-    fi
+    echo ""
+    echo "📊 To run analysis after array job completes:"
+    echo "   qsub $SCRIPT_DIR/submit_analysis.pbs"
+    echo ""
+    echo "   Or run analysis locally:"
+    echo "   python models/ablation/run_ablation_study.py --analysis-only"
 fi
 
 echo ""
@@ -135,13 +122,7 @@ echo "==============="
 
 if [ "$DRY_RUN" = false ]; then
     echo "Array Job ID: $ARRAY_JOB_ID"
-    if [ "$COMPONENT_ONLY" = false ] && [ "$SEQUENCE_ONLY" = false ]; then
-        if [ -n "$ANALYSIS_JOB_ID" ]; then
-            echo "Analysis Job ID: $ANALYSIS_JOB_ID"
-        else
-            echo "Analysis Job: Manual submission required"
-        fi
-    fi
+    echo "Analysis Job: Manual submission required"
     echo ""
     echo "Monitor jobs with:"
     echo "  qstat -u \$USER"
@@ -173,6 +154,9 @@ echo "   - Raw results (JSON format)"
 
 if [ "$DRY_RUN" = false ]; then
     echo ""
-    echo "✅ Submission complete! Jobs are now queued."
+    echo "✅ Submission complete! Array job is now queued."
     echo "   Use 'qstat -u \$USER' to monitor progress"
+    echo ""
+    echo "⏳ After all array jobs complete, submit analysis job:"
+    echo "   qsub models/ablation/cluster/submit_analysis.pbs"
 fi 
