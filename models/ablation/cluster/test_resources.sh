@@ -1,11 +1,9 @@
 #!/bin/bash
 
-"""
-EVEREST Cluster Resource Testing Script
-
-This script tests different resource configurations to identify
-what works on your specific cluster system.
-"""
+# EVEREST Cluster Resource Testing Script
+#
+# This script tests different resource configurations to identify
+# what works on your specific cluster system.
 
 echo "🔍 EVEREST Cluster Resource Testing"
 echo "=================================="
