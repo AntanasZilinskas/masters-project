@@ -1,0 +1,54 @@
+#!/bin/bash
+#PBS -N everest_ablation_small
+#PBS -l walltime=24:00:00
+#PBS -l select=1:ncpus=4:mem=24gb:ngpus=1
+#PBS -q v1_gpu72
+#PBS -J 1-5
+#PBS -j oe
+#PBS -o logs/ablation_${PBS_ARRAY_INDEX}.log
+
+# EVEREST Ablation Study - Very Small Batch (5 jobs)
+# This script runs just 5 experiments to work within strict queue limits
+
+# Load environment
+module load anaconda3/personal
+source activate everest_env
+
+# Set up paths
+cd $PBS_O_WORKDIR
+export PYTHONPATH="${PBS_O_WORKDIR}:${PYTHONPATH}"
+
+# Create logs directory
+mkdir -p logs
+
+echo "=== EVEREST Ablation Study Small Batch Job ${PBS_ARRAY_INDEX}/5 ==="
+echo "Job ID: $PBS_JOBID"
+echo "Array Index: $PBS_ARRAY_INDEX"
+echo "Node: $(hostname)"
+echo "Working Directory: $(pwd)"
+echo "GPU Devices: $CUDA_VISIBLE_DEVICES"
+echo "Start Time: $(date)"
+echo ""
+
+# Define experiment configurations with updated hyperparameters
+VARIANTS=("full_model" "no_evidential" "no_evt" "mean_pool" "cross_entropy")
+SEED=0  # Use seed 0 for all experiments in this small batch
+
+# Get variant for this job
+ARRAY_INDEX=$((PBS_ARRAY_INDEX - 1))  # Convert to 0-based indexing
+VARIANT=${VARIANTS[$ARRAY_INDEX]}
+
+echo "🔬 Running component ablation (small batch):"
+echo "   Variant: $VARIANT"
+echo "   Seed: $SEED"
+echo "   Updated hyperparameters: embed_dim=64, num_blocks=8, batch_size=1024"
+echo ""
+
+python -m ablation.trainer --variant $VARIANT --seed $SEED
+
+echo ""
+echo "✅ Job completed successfully at $(date)"
+echo "📋 Next steps:"
+echo "   1. Check results in models/ablation/results/"
+echo "   2. Submit next batch when queue allows"
+echo "   3. Run analysis after all batches complete" 
