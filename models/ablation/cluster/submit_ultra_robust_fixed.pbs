@@ -1,0 +1,313 @@
+#!/bin/bash
+#PBS -l select=1:ncpus=4:mem=24gb:ngpus=1
+#PBS -l walltime=12:00:00
+#PBS -N ablation_ultra_fixed
+#PBS -J 1-10
+#PBS -o ablation_ultra_fixed_${PBS_ARRAY_INDEX}.out
+#PBS -e ablation_ultra_fixed_${PBS_ARRAY_INDEX}.err
+
+# EVEREST Ablation Study - Ultra Robust Fixed Version
+# Addresses libstdc++ compatibility issues
+
+set -e  # Exit on any error
+set -u  # Exit on undefined variables
+
+# Function to log with timestamp
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
+
+# Function to handle errors
+error_exit() {
+    log "ERROR: $1"
+    exit 1
+}
+
+log "=== EVEREST Ablation Study - Array Job ${PBS_ARRAY_INDEX} (Fixed) ==="
+log "Job ID: ${PBS_JOBID}"
+log "Node: $(hostname)"
+log "Start time: $(date)"
+
+# Step 1: Load system modules for compatibility
+log "Step 1: Loading system modules for compatibility..."
+module load gcc/9.3.0 2>/dev/null || log "GCC module not available"
+module load cuda/11.8 2>/dev/null || log "CUDA module not available"
+
+# Step 2: Environment setup with error checking
+log "Step 2: Setting up environment..."
+
+# Check if conda initialization file exists
+if [ ! -f ~/miniforge3/etc/profile.d/conda.sh ]; then
+    error_exit "Conda initialization file not found at ~/miniforge3/etc/profile.d/conda.sh"
+fi
+
+# Initialize conda with error checking
+log "Initializing conda..."
+source ~/miniforge3/etc/profile.d/conda.sh || error_exit "Failed to initialize conda"
+
+# Change to submission directory with verification
+log "Changing to submission directory..."
+cd $PBS_O_WORKDIR || error_exit "Failed to change to submission directory: $PBS_O_WORKDIR"
+
+log "Working directory: $(pwd)"
+
+# Verify we're in the right place
+if [ ! -f "models/ablation/run_ablation_hpo_style.py" ]; then
+    error_exit "Ablation runner script not found. Are we in the right directory?"
+fi
+
+# Step 3: Conda environment activation with retry logic
+log "Step 3: Activating conda environment..."
+
+# Try to activate environment with retries
+for attempt in 1 2 3; do
+    log "Activation attempt $attempt/3..."
+    if conda activate everest_env; then
+        log "Conda environment activated successfully"
+        break
+    else
+        if [ $attempt -eq 3 ]; then
+            error_exit "Failed to activate conda environment after 3 attempts"
+        fi
+        log "Activation failed, retrying in 5 seconds..."
+        sleep 5
+    fi
+done
+
+# Verify environment
+log "Conda environment: $CONDA_DEFAULT_ENV"
+if [ "$CONDA_DEFAULT_ENV" != "everest_env" ]; then
+    error_exit "Wrong conda environment activated: $CONDA_DEFAULT_ENV (expected: everest_env)"
+fi
+
+# Step 4: Environment variables and path setup with library compatibility
+log "Step 4: Setting up environment variables..."
+
+# Critical: Set LD_LIBRARY_PATH to use conda libraries first
+export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+export CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES
+export PYTHONPATH=$PBS_O_WORKDIR:$PYTHONPATH
+
+log "GPU device: $CUDA_VISIBLE_DEVICES"
+log "Python path: $PYTHONPATH"
+log "Python executable: $(which python)"
+log "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+
+# Step 5: Python and package validation with compatibility fixes
+log "Step 5: Validating Python and packages..."
+
+# Check Python version
+python_version=$(python --version 2>&1) || error_exit "Failed to get Python version"
+log "Python version: $python_version"
+
+# Test basic imports with detailed error reporting
+log "Testing basic imports..."
+python -c "
+import sys
+try:
+    import numpy as np
+    print(f'✅ NumPy: {np.__version__}')
+    
+    import torch
+    print(f'✅ PyTorch: {torch.__version__}')
+    if torch.cuda.is_available():
+        print(f'✅ CUDA available: {torch.cuda.get_device_name(0)}')
+    else:
+        print('⚠️ CUDA not available')
+        
+except Exception as e:
+    print(f'❌ Basic imports failed: {e}')
+    sys.exit(1)
+" || error_exit "Basic imports validation failed"
+
+# Test pandas separately with error handling
+log "Testing pandas import..."
+python -c "
+import sys
+try:
+    import pandas as pd
+    print(f'✅ Pandas: {pd.__version__}')
+except ImportError as e:
+    if 'GLIBCXX' in str(e):
+        print('⚠️ Pandas has libstdc++ compatibility issue - continuing without pandas')
+    else:
+        print(f'❌ Pandas failed: {e}')
+        sys.exit(1)
+except Exception as e:
+    print(f'❌ Pandas failed: {e}')
+    sys.exit(1)
+" || log "Pandas validation had issues but continuing..."
+
+log "Testing ablation imports..."
+python -c "
+import sys
+import os
+sys.path.insert(0, os.getcwd())
+
+try:
+    from models.solarknowledge_ret_plus import RETPlusWrapper
+    from models.ablation.config import OPTIMAL_HYPERPARAMS
+    print('✅ Ablation imports successful')
+except Exception as e:
+    print(f'❌ Ablation import failed: {e}')
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+" || error_exit "Ablation import validation failed"
+
+# Step 6: GPU validation with detailed checking
+log "Step 6: Comprehensive GPU validation..."
+
+python -c "
+import torch
+import sys
+
+try:
+    if not torch.cuda.is_available():
+        print('❌ CUDA not available')
+        sys.exit(1)
+    
+    device_count = torch.cuda.device_count()
+    current_device = torch.cuda.current_device()
+    gpu_name = torch.cuda.get_device_name(current_device)
+    
+    print(f'✅ GPU validation successful:')
+    print(f'   Device count: {device_count}')
+    print(f'   Current device: {current_device}')
+    print(f'   GPU name: {gpu_name}')
+    
+    # Test GPU memory allocation
+    test_tensor = torch.randn(100, 100).cuda()
+    print(f'   Memory test: {test_tensor.device}')
+    
+except Exception as e:
+    print(f'❌ GPU validation failed: {e}')
+    sys.exit(1)
+" || error_exit "GPU validation failed"
+
+# Step 7: Resource monitoring
+log "Step 7: Resource monitoring..."
+log "Memory info:"
+free -h | head -3
+
+log "Disk space:"
+df -h . | tail -1
+
+log "GPU memory:"
+nvidia-smi --query-gpu=memory.total,memory.used,memory.free --format=csv,noheader,nounits 2>/dev/null || log "GPU memory info unavailable"
+
+# Step 8: Experiment configuration
+log "Step 8: Setting up experiments..."
+
+# Define experiment configurations
+declare -a VARIANTS=("full_model" "no_evidential" "no_evt" "mean_pool" "cross_entropy" "no_precursor" "fp32_training")
+declare -a SEEDS=(0 1 2 3 4)
+declare -a SEQ_VARIANTS=("seq_5" "seq_7" "seq_10" "seq_15" "seq_20")
+
+# Create complete experiment list
+ALL_EXPERIMENTS=()
+
+# Add component ablations (7 variants × 5 seeds = 35 experiments)
+for variant in "${VARIANTS[@]}"; do
+    for seed in "${SEEDS[@]}"; do
+        ALL_EXPERIMENTS+=("component:$variant:$seed")
+    done
+done
+
+# Add sequence length ablations (5 variants × 5 seeds = 25 experiments)
+for seq in "${SEQ_VARIANTS[@]}"; do
+    for seed in "${SEEDS[@]}"; do
+        ALL_EXPERIMENTS+=("sequence:$seq:$seed")
+    done
+done
+
+TOTAL_EXPERIMENTS=${#ALL_EXPERIMENTS[@]}
+log "Total experiments configured: $TOTAL_EXPERIMENTS"
+
+# Calculate experiments for this array job
+EXPERIMENTS_PER_JOB=$((TOTAL_EXPERIMENTS / 10))
+REMAINDER=$((TOTAL_EXPERIMENTS % 10))
+
+if [ $PBS_ARRAY_INDEX -le $REMAINDER ]; then
+    EXPERIMENTS_FOR_THIS_JOB=$((EXPERIMENTS_PER_JOB + 1))
+    START_IDX=$(((PBS_ARRAY_INDEX - 1) * (EXPERIMENTS_PER_JOB + 1)))
+else
+    EXPERIMENTS_FOR_THIS_JOB=$EXPERIMENTS_PER_JOB
+    START_IDX=$((REMAINDER * (EXPERIMENTS_PER_JOB + 1) + (PBS_ARRAY_INDEX - 1 - REMAINDER) * EXPERIMENTS_PER_JOB))
+fi
+
+END_IDX=$((START_IDX + EXPERIMENTS_FOR_THIS_JOB - 1))
+
+log "Array job ${PBS_ARRAY_INDEX} will run experiments $((START_IDX + 1)) to $((END_IDX + 1)) ($EXPERIMENTS_FOR_THIS_JOB experiments)"
+
+# Step 9: Run experiments with comprehensive error handling
+log "Step 9: Starting experiments..."
+
+successful_experiments=0
+failed_experiments=0
+
+for i in $(seq $START_IDX $END_IDX); do
+    experiment=${ALL_EXPERIMENTS[$i]}
+    exp_num=$((i + 1))
+    local_exp_num=$((i - START_IDX + 1))
+    
+    log ""
+    log "🔬 [$local_exp_num/$EXPERIMENTS_FOR_THIS_JOB] Global: [$exp_num/$TOTAL_EXPERIMENTS] Running: $experiment"
+    
+    # Parse experiment string
+    IFS=':' read -r exp_type variant_or_seq seed <<< "$experiment"
+    
+    # Run experiment with timeout and error handling
+    experiment_start_time=$(date +%s)
+    
+    # Disable strict error checking for individual experiments
+    set +e
+    
+    if [ "$exp_type" = "component" ]; then
+        log "Running component ablation: variant=$variant_or_seq, seed=$seed"
+        timeout 3600 python models/ablation/run_ablation_hpo_style.py --variant $variant_or_seq --seed $seed
+    else
+        log "Running sequence ablation: sequence=$variant_or_seq, seed=$seed"
+        timeout 3600 python models/ablation/run_ablation_hpo_style.py --variant full_model --seed $seed --sequence $variant_or_seq
+    fi
+    
+    exit_code=$?
+    
+    # Re-enable strict error checking
+    set -e
+    
+    experiment_end_time=$(date +%s)
+    experiment_duration=$((experiment_end_time - experiment_start_time))
+    
+    if [ $exit_code -eq 0 ]; then
+        log "   ✅ Completed successfully in ${experiment_duration}s"
+        successful_experiments=$((successful_experiments + 1))
+    elif [ $exit_code -eq 124 ]; then
+        log "   ⏰ Timed out after 3600s"
+        failed_experiments=$((failed_experiments + 1))
+    else
+        log "   ❌ Failed with exit code $exit_code after ${experiment_duration}s"
+        failed_experiments=$((failed_experiments + 1))
+    fi
+    
+    # Brief pause between experiments to avoid resource contention
+    sleep 2
+done
+
+# Step 10: Final summary
+log ""
+log "=== FINAL SUMMARY ==="
+log "Array job ${PBS_ARRAY_INDEX} completed"
+log "Successful experiments: $successful_experiments"
+log "Failed experiments: $failed_experiments"
+log "Total experiments: $EXPERIMENTS_FOR_THIS_JOB"
+log "Success rate: $(( successful_experiments * 100 / EXPERIMENTS_FOR_THIS_JOB ))%"
+log "End time: $(date)"
+
+if [ $failed_experiments -eq 0 ]; then
+    log "🎉 All experiments completed successfully!"
+    exit 0
+else
+    log "⚠️ Some experiments failed"
+    exit 1
+fi 
