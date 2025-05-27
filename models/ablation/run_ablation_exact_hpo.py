@@ -4,6 +4,10 @@ EVEREST Ablation Study Runner - EXACT HPO Pattern
 
 This script follows the EXACT same pattern as the working HPO runner,
 using the same data loading, model creation, and training patterns.
+
+COMPONENT ABLATION STUDY:
+- Component ablations: 7 variants × 5 seeds = 35 experiments
+- Focus on architectural components only
 """
 
 import sys
@@ -31,13 +35,17 @@ class AblationObjective:
     
     This class encapsulates the training and evaluation logic for a single
     ablation experiment, following the exact same structure as HPOObjective.
+    
+    Focuses on component ablations only.
     """
     
-    def __init__(self, variant_name: str, seed: int, sequence_variant=None):
+    def __init__(self, variant_name: str, seed: int):
         """Initialize the ablation objective (EXACT same as HPO)."""
         self.variant_name = variant_name
         self.seed = seed
-        self.sequence_variant = sequence_variant
+        
+        # Fixed input shape for component ablations
+        self.input_shape = (10, 9)
         
         # Load data once to avoid repeated I/O (EXACT same as HPO)
         self._load_data()
@@ -82,8 +90,8 @@ class AblationObjective:
             self.y_val = np.array(self.y_val)
                 
             print(f"Data loaded successfully:")
-            print(f"  Training: {self.X_train.shape[0]} samples")
-            print(f"  Validation: {self.X_val.shape[0]} samples")
+            print(f"  Training: {self.X_train.shape[0]} samples, shape: {self.X_train.shape}")
+            print(f"  Validation: {self.X_val.shape[0]} samples, shape: {self.X_val.shape}")
             print(f"  Positive rate (train): {self.y_train.mean():.3f}")
             print(f"  Positive rate (val): {self.y_val.mean():.3f}")
             
@@ -166,7 +174,7 @@ class AblationObjective:
         
         # Create wrapper (EXACT same as HPO - let wrapper create the model)
         wrapper = RETPlusWrapper(
-            input_shape=(10, 9),
+            input_shape=self.input_shape,
             use_attention_bottleneck=ablation_config["use_attention_bottleneck"],
             use_evidential=ablation_config["use_evidential"],
             use_evt=ablation_config["use_evt"],
@@ -186,7 +194,8 @@ class AblationObjective:
         
     def run_experiment(self):
         """Run ablation experiment (EXACT same pattern as HPO)."""
-        print(f"\n🔬 Running ablation: {self.variant_name}, seed {self.seed}")
+        print(f"\n🔬 Running component ablation: {self.variant_name}, seed {self.seed}")
+        print(f"   Input shape: {self.input_shape}")
         
         try:
             # Create model (EXACT same as HPO)
@@ -236,8 +245,10 @@ class AblationObjective:
             tss = sensitivity + specificity - 1
             
             results = {
+                "experiment_type": "component",
                 "variant": self.variant_name,
                 "seed": self.seed,
+                "input_shape": self.input_shape,
                 "model_dir": model_dir,
                 "final_metrics": {
                     "accuracy": accuracy,
@@ -269,7 +280,8 @@ class AblationObjective:
 def print_banner():
     """Print welcome banner."""
     print("=" * 80)
-    print("🔬 EVEREST Ablation Study - EXACT HPO Pattern")
+    print("🔬 EVEREST Component Ablation Study - EXACT HPO Pattern")
+    print("   Component Ablations Only (35 experiments)")
     print("   Following the exact same structure as working HPO")
     print("=" * 80)
 
@@ -297,12 +309,13 @@ def validate_gpu():
 
 def main():
     """Main function (EXACT same structure as HPO)."""
-    parser = argparse.ArgumentParser(description="EVEREST Ablation Study - HPO Pattern")
+    parser = argparse.ArgumentParser(description="EVEREST Component Ablation Study - HPO Pattern")
     
-    parser.add_argument("--variant", required=True, 
+    parser.add_argument("--variant", 
                        choices=["full_model", "no_evidential", "no_evt", "mean_pool", 
                                "cross_entropy", "no_precursor", "fp32_training"],
-                       help="Ablation variant to run")
+                       required=True,
+                       help="Component ablation variant to run")
     
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
     

@@ -96,22 +96,22 @@ Created `run_ablation_exact_hpo.py` that follows the **exact same pattern** as y
 
 ### ✅ **Files Created**
 
-1. **`run_ablation_exact_hpo.py`** - Main ablation runner following exact HPO pattern
-2. **`cluster/submit_exact_hpo_pattern.pbs`** - Cluster submission using exact HPO environment
-3. **`cluster/test_exact_hpo_pattern.pbs`** - Test script to verify the pattern works
+1. **`run_ablation_exact_hpo.py`** - Complete ablation runner (component + sequence) following exact HPO pattern
+2. **`cluster/submit_complete_ablation.pbs`** - Complete cluster submission for all 60 experiments
+3. **`cluster/test_complete_ablation.pbs`** - Test script to verify both component and sequence ablations work
 
 ## Usage
 
-### Test the Pattern
+### Test the Complete Study
 ```bash
 cd models/ablation
-qsub cluster/test_exact_hpo_pattern.pbs
+qsub cluster/test_complete_ablation.pbs
 ```
 
-### Run Full Study
+### Run Complete Study (60 experiments)
 ```bash
 cd models/ablation  
-qsub cluster/submit_exact_hpo_pattern.pbs
+qsub cluster/submit_complete_ablation.pbs
 ```
 
 ## Expected Results
@@ -124,13 +124,24 @@ This approach should work because it:
 4. **Uses your exact working training method** - same `wrapper.train()` call
 5. **Uses your exact working validation** - same GPU checks, same error handling
 
-## Experiment Configuration
+## Complete Experiment Configuration
 
-- **35 experiments**: 7 variants × 5 seeds
+**Total: 60 experiments**
+
+### Component Ablations (35 experiments)
+- **7 variants × 5 seeds = 35 experiments**
 - **Variants**: full_model, no_evidential, no_evt, mean_pool, cross_entropy, no_precursor, fp32_training
 - **Seeds**: 0, 1, 2, 3, 4
+
+### Sequence Length Ablations (25 experiments)  
+- **5 variants × 5 seeds = 25 experiments**
+- **Sequence variants**: seq_5, seq_7, seq_10, seq_15, seq_20
+- **Seeds**: 0, 1, 2, 3, 4
+
+### Configuration
 - **Target**: M5-class, 72h window (same as HPO optimal target)
 - **Hyperparameters**: Optimal values from HPO study
+- **Input shapes**: (5,9), (7,9), (10,9), (15,9), (20,9) for sequence variants
 
 ## Monitoring
 
