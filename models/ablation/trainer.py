@@ -21,12 +21,23 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from solarknowledge_ret_plus import RETPlusWrapper, RETPlusModel
 from utils import get_training_data, get_testing_data
-from .config import (
-    OPTIMAL_HYPERPARAMS, FIXED_ARCHITECTURE, PRIMARY_TARGET,
-    TRAINING_CONFIG, ABLATION_VARIANTS, SEQUENCE_LENGTH_VARIANTS,
-    OUTPUT_CONFIG, get_variant_config, get_sequence_config,
-    get_experiment_name
-)
+
+# Import config - handle both direct script execution and module import
+try:
+    from .config import (
+        OPTIMAL_HYPERPARAMS, FIXED_ARCHITECTURE, PRIMARY_TARGET,
+        TRAINING_CONFIG, ABLATION_VARIANTS, SEQUENCE_LENGTH_VARIANTS,
+        OUTPUT_CONFIG, get_variant_config, get_sequence_config,
+        get_experiment_name
+    )
+except ImportError:
+    # Direct script execution - import from same directory
+    from config import (
+        OPTIMAL_HYPERPARAMS, FIXED_ARCHITECTURE, PRIMARY_TARGET,
+        TRAINING_CONFIG, ABLATION_VARIANTS, SEQUENCE_LENGTH_VARIANTS,
+        OUTPUT_CONFIG, get_variant_config, get_sequence_config,
+        get_experiment_name
+    )
 
 
 class AblationTrainer:

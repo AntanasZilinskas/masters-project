@@ -7,7 +7,7 @@
 #PBS -o logs/
 
 # EVEREST Ablation Study - Fixed Array Job
-# Fixed log file path issues
+# Fixed import path issues by calling script directly
 
 # Load environment
 module load anaconda3/personal
@@ -41,6 +41,12 @@ python --version
 echo "GPU Device: $CUDA_VISIBLE_DEVICES"
 nvidia-smi
 echo ""
+
+# Test imports before running experiments
+echo "Testing imports..."
+python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
+python -c "import sys; sys.path.append('models'); from solarknowledge_ret_plus import RETPlusWrapper; print('✅ EVEREST imports successful')"
+python -c "import sys; sys.path.append('models'); from utils import get_training_data; print('✅ Utils imports successful')"
 
 # Define all experiment configurations
 VARIANTS=("full_model" "no_evidential" "no_evt" "mean_pool" "cross_entropy" "no_precursor" "fp32_training")
@@ -102,11 +108,11 @@ run_experiment() {
     echo "   Seed: $seed"
     echo "   Time: $(date)"
     
-    # Run the appropriate experiment
+    # Run the appropriate experiment - FIXED: Call script directly like HPO
     if [ "$exp_type" = "component" ]; then
-        timeout 7200 python -m ablation.trainer --variant $variant_or_seq --seed $seed
+        timeout 7200 python models/ablation/trainer.py --variant $variant_or_seq --seed $seed
     else
-        timeout 7200 python -m ablation.trainer --variant full_model --seed $seed --sequence $variant_or_seq
+        timeout 7200 python models/ablation/trainer.py --variant full_model --seed $seed --sequence $variant_or_seq
     fi
     
     local exit_code=$?
