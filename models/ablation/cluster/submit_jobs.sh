@@ -1,13 +1,12 @@
 #!/bin/bash
-"""
-EVEREST Ablation Study - Cluster Job Submission Script
 
-This script submits the ablation study array job and optional analysis job
-with multiple fallback resource configurations for different cluster systems.
-
-Usage:
-  ./submit_jobs.sh [--dry-run] [--components-only] [--sequence-only] [--no-analysis]
-"""
+# EVEREST Ablation Study - Cluster Job Submission Script
+#
+# This script submits the ablation study array job and optional analysis job
+# with multiple fallback resource configurations for different cluster systems.
+#
+# Usage:
+#   ./submit_jobs.sh [--dry-run] [--components-only] [--sequence-only] [--no-analysis]
 
 set -e  # Exit on any error
 
@@ -109,6 +108,7 @@ echo "   Time limit: 24 hours per job"
 
 # List of PBS scripts to try (in order of preference)
 PBS_SCRIPTS=(
+    "submit_ablation_array_icl.pbs"
     "submit_ablation_array.pbs"
     "submit_ablation_array_minimal.pbs"
 )
@@ -199,7 +199,11 @@ elif command -v qsub &> /dev/null; then
             sed "s/#PBS -J 1-60/#PBS -J $ARRAY_RANGE/" "$SCRIPT_PATH" > "$TEMP_SCRIPT"
             
             # Try to submit the job
-            if ARRAY_JOB_ID=$(qsub "$TEMP_SCRIPT" 2>/dev/null | cut -d'.' -f1); then
+            SUBMIT_OUTPUT=$(qsub "$TEMP_SCRIPT" 2>&1)
+            SUBMIT_EXIT_CODE=$?
+            
+            if [ $SUBMIT_EXIT_CODE -eq 0 ] && [ -n "$SUBMIT_OUTPUT" ]; then
+                ARRAY_JOB_ID=$(echo "$SUBMIT_OUTPUT" | cut -d'.' -f1)
                 rm "$TEMP_SCRIPT"
                 SUCCESSFUL_SCRIPT="$script"
                 echo "✅ PBS array job submitted: $ARRAY_JOB_ID"
@@ -209,6 +213,7 @@ elif command -v qsub &> /dev/null; then
             else
                 rm "$TEMP_SCRIPT"
                 echo "❌ Failed with configuration: $script"
+                echo "   Error: $SUBMIT_OUTPUT"
             fi
         done
         
