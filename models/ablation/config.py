@@ -12,12 +12,12 @@ from typing import Dict, List, Any, Optional
 # OPTIMAL HYPERPARAMETERS (from HPO study - frozen for all ablations)
 # ============================================================================
 OPTIMAL_HYPERPARAMS = {
-    "embed_dim": 128,
-    "num_blocks": 4,
-    "dropout": 0.3531616510212273,
-    "focal_gamma": 2.8033450352296265,
-    "learning_rate": 0.0005337429672856022,
-    "batch_size": 512
+    "embed_dim": 64,
+    "num_blocks": 8,
+    "dropout": 0.23876978467047777,
+    "focal_gamma": 3.4223204654921875,
+    "learning_rate": 0.0006926769179941219,
+    "batch_size": 1024
 }
 
 # Fixed architecture settings
