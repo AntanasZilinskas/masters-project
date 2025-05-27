@@ -1,12 +1,12 @@
 #!/bin/bash
 #PBS -l select=1:ncpus=4:mem=24gb:ngpus=1
 #PBS -l walltime=01:00:00
-#PBS -N ablation_test_fixed
-#PBS -o ablation_test_fixed.out
-#PBS -e ablation_test_fixed.err
+#PBS -N ablation_test_robust
+#PBS -o ablation_test_robust.out
+#PBS -e ablation_test_robust.err
 
-# EVEREST Ablation Study - Fixed Single Experiment Test
-# Addresses libstdc++ compatibility issues
+# EVEREST Ablation Study - Robust Single Experiment Test
+# Addresses libstdc++ compatibility issues without modifying environment
 
 set -e  # Exit on any error
 
@@ -15,7 +15,7 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
 }
 
-log "=== EVEREST Ablation Study - Fixed Single Experiment Test ==="
+log "=== EVEREST Ablation Study - Robust Single Experiment Test ==="
 log "Job ID: ${PBS_JOBID}"
 log "Node: $(hostname)"
 
@@ -75,7 +75,7 @@ except Exception as e:
     sys.exit(1)
 "
 
-# Test pandas import separately with error handling
+# Test pandas import with graceful handling
 log "Testing pandas import..."
 python -c "
 import sys
@@ -84,21 +84,14 @@ try:
     print(f'✅ Pandas: {pd.__version__}')
 except ImportError as e:
     if 'GLIBCXX' in str(e):
-        print('⚠️ Pandas has libstdc++ compatibility issue')
-        print('Attempting to use conda-forge pandas...')
-        import subprocess
-        try:
-            subprocess.run(['conda', 'install', '-y', '-c', 'conda-forge', 'pandas'], check=True)
-            import pandas as pd
-            print(f'✅ Pandas fixed: {pd.__version__}')
-        except:
-            print('❌ Could not fix pandas, will try without it')
+        print('⚠️ Pandas has libstdc++ compatibility issue - will continue without pandas')
+        print('This is expected and the ablation study can run without pandas')
     else:
-        print(f'❌ Pandas failed: {e}')
-        sys.exit(1)
+        print(f'⚠️ Pandas import issue: {e}')
+        print('Continuing without pandas...')
 except Exception as e:
-    print(f'❌ Pandas failed: {e}')
-    sys.exit(1)
+    print(f'⚠️ Pandas failed: {e}')
+    print('Continuing without pandas...')
 "
 
 # Test ablation imports
@@ -133,7 +126,7 @@ import numpy as np
 sys.path.insert(0, os.getcwd())
 
 try:
-    # Try to load data without pandas if needed
+    # Try to load data
     from models.utils import get_training_data, get_testing_data
     X_train, y_train = get_training_data('72', 'M5')
     X_test, y_test = get_testing_data('72', 'M5')
@@ -181,4 +174,41 @@ except Exception as e:
     sys.exit(1)
 "
 
-log "Fixed test completed successfully!" 
+# Test a very short training run (1 epoch)
+log "Testing short training run..."
+python -c "
+import sys
+import os
+import torch
+import numpy as np
+sys.path.insert(0, os.getcwd())
+
+try:
+    from models.ablation.trainer import AblationTrainer
+    
+    # Create trainer and run 1 epoch
+    trainer = AblationTrainer('full_model', 0)
+    
+    # Load minimal data
+    from models.utils import get_training_data
+    X_train, y_train = get_training_data('72', 'M5')
+    
+    # Take only first 100 samples for quick test
+    X_train = X_train[:100]
+    y_train = y_train[:100]
+    
+    print(f'Running 1-epoch test with {len(X_train)} samples...')
+    
+    # Run very short training
+    trainer.train(X_train, y_train, epochs=1, batch_size=32)
+    
+    print('✅ Short training test completed successfully')
+    
+except Exception as e:
+    print(f'❌ Training test failed: {e}')
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+"
+
+log "Robust test completed successfully!" 

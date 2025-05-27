@@ -1,0 +1,132 @@
+#!/bin/bash
+#PBS -N everest_ablation_real
+#PBS -l walltime=12:00:00
+#PBS -l select=1:ncpus=8:mem=32gb:ngpus=1:gpu_type=RTX6000
+#PBS -j oe
+#PBS -J 1-10
+
+# EVEREST Ablation Study - Real Data with Pandas Compatibility Fixes
+# Uses actual SHARP data via get_training_data/get_testing_data
+
+echo "🚀 EVEREST Ablation Study - Job ${PBS_ARRAY_INDEX}/10"
+echo "Node: $(hostname)"
+echo "Date: $(date)"
+echo "Working directory: $PBS_O_WORKDIR"
+
+# Initialize conda (EXACT same as HPO)
+source ~/miniforge3/etc/profile.d/conda.sh
+
+# Change to submission directory (EXACT same as HPO)
+cd $PBS_O_WORKDIR
+
+# Verify we're in the right directory (EXACT same as HPO)
+echo "Working directory: $(pwd)"
+echo "Contents: $(ls -la | head -5)"
+
+# Activate conda environment (EXACT same as HPO)
+conda activate everest_env
+
+# Set environment variables for GPU (EXACT same as HPO)
+export CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES
+export PYTHONPATH=$PBS_O_WORKDIR:$PYTHONPATH
+
+echo "Array job ${PBS_ARRAY_INDEX}: Running ablation experiments"
+echo "Using GPU: $CUDA_VISIBLE_DEVICES"
+echo "Conda environment: $CONDA_DEFAULT_ENV"
+echo "Python path: $PYTHONPATH"
+echo "Python executable: $(which python)"
+echo "Python version: $(python --version)"
+
+# Test basic imports before running the main script (EXACT same as HPO)
+echo "Testing imports..."
+python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
+python -c "import models.ablation; print('Ablation imports successful')"
+
+# Validate GPU availability - CRITICAL for ablation (EXACT same as HPO)
+echo "Validating GPU..."
+python -c "
+import torch
+if torch.cuda.is_available():
+    gpu_name = torch.cuda.get_device_name(0)
+    print(f'✅ GPU available: {gpu_name}')
+else:
+    print('❌ GPU not available - ablation cannot proceed')
+    exit(1)
+"
+
+if [ $? -ne 0 ]; then
+    echo "❌ GPU validation failed - terminating job"
+    exit 1
+fi
+
+echo "Starting ablation experiments..."
+
+# Define experiment mapping (60 total experiments across 10 jobs)
+# Job 1: Experiments 1-6 (6 experiments)
+# Job 2: Experiments 7-12 (6 experiments)
+# ...
+# Job 10: Experiments 55-60 (6 experiments)
+
+# Calculate experiment range for this job
+START_EXP=$(( (PBS_ARRAY_INDEX - 1) * 6 + 1 ))
+END_EXP=$(( PBS_ARRAY_INDEX * 6 ))
+
+echo "📊 Job ${PBS_ARRAY_INDEX} running experiments ${START_EXP}-${END_EXP}"
+
+# Define all 60 experiments
+declare -a EXPERIMENTS=(
+    # Component ablations (35 experiments: 7 variants × 5 seeds)
+    "full_model 0" "full_model 1" "full_model 2" "full_model 3" "full_model 4"
+    "no_evidential 0" "no_evidential 1" "no_evidential 2" "no_evidential 3" "no_evidential 4"
+    "no_evt 0" "no_evt 1" "no_evt 2" "no_evt 3" "no_evt 4"
+    "mean_pool 0" "mean_pool 1" "mean_pool 2" "mean_pool 3" "mean_pool 4"
+    "cross_entropy 0" "cross_entropy 1" "cross_entropy 2" "cross_entropy 3" "cross_entropy 4"
+    "no_precursor 0" "no_precursor 1" "no_precursor 2" "no_precursor 3" "no_precursor 4"
+    "fp32_training 0" "fp32_training 1" "fp32_training 2" "fp32_training 3" "fp32_training 4"
+    
+    # Sequence ablations (25 experiments: 5 variants × 5 seeds)
+    "seq_5 0" "seq_5 1" "seq_5 2" "seq_5 3" "seq_5 4"
+    "seq_7 0" "seq_7 1" "seq_7 2" "seq_7 3" "seq_7 4"
+    "seq_10 0" "seq_10 1" "seq_10 2" "seq_10 3" "seq_10 4"
+    "seq_15 0" "seq_15 1" "seq_15 2" "seq_15 3" "seq_15 4"
+    "seq_20 0" "seq_20 1" "seq_20 2" "seq_20 3" "seq_20 4"
+)
+
+# Run experiments for this job
+for EXP_NUM in $(seq $START_EXP $END_EXP); do
+    if [ $EXP_NUM -le 60 ]; then
+        EXP_INDEX=$((EXP_NUM - 1))
+        EXP_CONFIG="${EXPERIMENTS[$EXP_INDEX]}"
+        
+        # Parse experiment config
+        read -r VARIANT SEED <<< "$EXP_CONFIG"
+        
+        echo ""
+        echo "🎯 Experiment ${EXP_NUM}/60: ${VARIANT} (seed ${SEED})"
+        echo "Time: $(date)"
+        
+        # Determine if this is a sequence experiment
+        if [[ $VARIANT == seq_* ]]; then
+            # Sequence ablation
+            python models/ablation/run_ablation_hpo_style.py \
+                --variant full_model \
+                --seed $SEED \
+                --sequence $VARIANT
+        else
+            # Component ablation
+            python models/ablation/run_ablation_hpo_style.py \
+                --variant $VARIANT \
+                --seed $SEED
+        fi
+        
+        if [ $? -eq 0 ]; then
+            echo "✅ Experiment ${EXP_NUM} completed successfully"
+        else
+            echo "❌ Experiment ${EXP_NUM} failed"
+        fi
+    fi
+done
+
+echo ""
+echo "🏁 Job ${PBS_ARRAY_INDEX} completed at $(date)"
+echo "Experiments ${START_EXP}-${END_EXP} finished" 
