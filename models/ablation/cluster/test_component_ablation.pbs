@@ -13,12 +13,23 @@ echo "Date: $(date)"
 # Initialize conda (EXACT same as HPO)
 source ~/miniforge3/etc/profile.d/conda.sh
 
-# Change to submission directory (EXACT same as HPO)
+# Change to submission directory first
 cd $PBS_O_WORKDIR
+echo "Submission directory: $(pwd)"
 
-# Verify we're in the right directory (EXACT same as HPO)
-echo "Working directory: $(pwd)"
+# Navigate to project root (where models/ directory is located)
+cd ../../
+PROJECT_ROOT=$(pwd)
+echo "Project root: $PROJECT_ROOT"
+
+# Verify we're in the right directory (should see models/ directory)
 echo "Contents: $(ls -la | head -5)"
+if [ ! -d "models" ]; then
+    echo "❌ models directory not found - wrong location"
+    echo "Current directory: $(pwd)"
+    echo "Contents: $(ls -la)"
+    exit 1
+fi
 
 # Activate conda environment (EXACT same as HPO)
 conda activate everest_env
@@ -41,11 +52,21 @@ print('Component ablation imports successful')
 echo "Validating GPU..."
 python -c "
 import torch
+import os
+print(f'CUDA_VISIBLE_DEVICES: {os.environ.get(\"CUDA_VISIBLE_DEVICES\", \"Not set\")}')
+print(f'PyTorch CUDA available: {torch.cuda.is_available()}')
 if torch.cuda.is_available():
     gpu_name = torch.cuda.get_device_name(0)
-    print(f'✅ GPU available: {gpu_name}')
+    gpu_count = torch.cuda.device_count()
+    print(f'✅ GPU available: {gpu_name} (count: {gpu_count})')
 else:
     print('❌ GPU not available - ablation cannot proceed')
+    print('Debugging info:')
+    print(f'  PyTorch version: {torch.__version__}')
+    print(f'  CUDA compiled version: {torch.version.cuda if hasattr(torch.version, \"cuda\") else \"Unknown\"}')
+    print(f'  Environment variables:')
+    for key in ["CUDA_VISIBLE_DEVICES", "CUDA_HOME", "PATH"]:
+        print(f'    {key}: {os.environ.get(key, "Not set")}')
     exit(1)
 "
 
@@ -100,6 +121,33 @@ fi
 
 # Test component ablation (EXACT same pattern as HPO)
 echo "🎯 Testing component ablation..."
+
+# First, test just the imports and model creation (quick test)
+echo "  Quick test: Model creation only..."
+python -c "
+import sys
+from pathlib import Path
+project_root = Path.cwd()
+sys.path.insert(0, str(project_root))
+from models.ablation.run_ablation_exact_hpo import AblationObjective
+
+print('Testing AblationObjective creation...')
+obj = AblationObjective('full_model', 0)
+print('✅ AblationObjective created successfully')
+
+print('Testing model creation...')
+model, hyperparams = obj._create_model()
+print('✅ Model created successfully')
+print(f'Model device: {next(model.model.parameters()).device}')
+print(f'Hyperparams: {hyperparams}')
+"
+
+if [ $? -ne 0 ]; then
+    echo "❌ Quick model creation test failed"
+    exit 1
+fi
+
+echo "  Full test: Running complete ablation..."
 python models/ablation/run_ablation_exact_hpo.py --variant full_model --seed 0 || {
     echo "❌ Component ablation test failed"
     exit 1
