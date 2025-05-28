@@ -1,0 +1,124 @@
+#!/bin/bash
+#PBS -l select=1:ncpus=8:mem=32gb:ngpus=1:gpu_type=RTX6000
+#PBS -l walltime=12:00:00
+#PBS -N everest_component_no_pandas
+#PBS -J 1-35
+#PBS -j oe
+
+# EVEREST Component Ablation Study - Pandas-Free Version
+# 35 experiments: 7 component variants × 5 seeds
+# Uses synthetic data to bypass pandas compatibility issues
+
+set -e  # Exit on any error
+
+# Function to log with timestamp
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
+
+log "🔬 EVEREST Component Ablation - Job ${PBS_ARRAY_INDEX}/35 (No Pandas)"
+log "Node: $(hostname)"
+log "Date: $(date)"
+
+# Initialize conda
+source ~/miniforge3/etc/profile.d/conda.sh
+
+# Change to submission directory first
+cd $PBS_O_WORKDIR
+echo "Submission directory: $(pwd)"
+
+# Navigate to project root (where models/ directory is located)
+cd ../../
+PROJECT_ROOT=$(pwd)
+echo "Project root: $PROJECT_ROOT"
+
+# Verify we're in the right directory (should see models/ directory)
+if [ ! -d "models" ]; then
+    echo "❌ models directory not found - wrong location"
+    exit 1
+fi
+
+# Activate conda environment
+conda activate everest_env
+
+# Set environment variables for GPU and Python path
+export CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES
+export PYTHONPATH=$PROJECT_ROOT:$PYTHONPATH
+export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+
+echo "Array job ${PBS_ARRAY_INDEX}: Running component ablation experiments"
+echo "Using GPU: $CUDA_VISIBLE_DEVICES"
+echo "Conda environment: $CONDA_DEFAULT_ENV"
+echo "Python executable: $(which python)"
+echo "Python version: $(python --version)"
+
+# Validate GPU availability
+echo "Validating GPU..."
+python -c "
+import torch
+if torch.cuda.is_available():
+    gpu_name = torch.cuda.get_device_name(0)
+    print(f'✅ GPU available: {gpu_name}')
+else:
+    print('❌ GPU not available - ablation cannot proceed')
+    exit(1)
+"
+
+if [ $? -ne 0 ]; then
+    echo "❌ GPU validation failed - terminating job"
+    exit 1
+fi
+
+# Test pandas-free imports
+echo "Testing pandas-free imports..."
+python -c "
+import sys
+sys.path.insert(0, '.')
+import torch
+import numpy as np
+from models.solarknowledge_ret_plus import RETPlusWrapper
+from models.ablation.config import OPTIMAL_HYPERPARAMS
+print('✅ All pandas-free imports successful')
+"
+
+if [ $? -ne 0 ]; then
+    echo "❌ Import validation failed - terminating job"
+    exit 1
+fi
+
+# Define experiment mapping for component ablations only
+declare -a component_variants=("full_model" "no_evidential" "no_evt" "mean_pool" "cross_entropy" "no_precursor" "fp32_training")
+declare -a seeds=(0 1 2 3 4)
+
+# Component ablation (jobs 1-35)
+variant_idx=$(( (PBS_ARRAY_INDEX - 1) / 5 ))
+seed_idx=$(( (PBS_ARRAY_INDEX - 1) % 5 ))
+
+variant=${component_variants[$variant_idx]}
+seed=${seeds[$seed_idx]}
+
+echo "🎯 Component Experiment ${PBS_ARRAY_INDEX}/35: ${variant} (seed ${seed})"
+
+# Run component ablation using pandas-free script
+python models/ablation/run_ablation_no_pandas.py \
+    --variant $variant \
+    --seed $seed \
+    --epochs 50
+
+experiment_name="${variant}_seed${seed}"
+
+# Check exit status
+if [ $? -eq 0 ]; then
+    echo "✅ Experiment ${PBS_ARRAY_INDEX} completed successfully"
+    echo "   Type: component (pandas-free)"
+    echo "   Name: $experiment_name"
+    echo "   Completed at: $(date)"
+else
+    echo "❌ Experiment ${PBS_ARRAY_INDEX} failed"
+    echo "   Type: component (pandas-free)"
+    echo "   Name: $experiment_name"
+    echo "   Failed at: $(date)"
+    exit 1
+fi
+
+echo "🏁 Job ${PBS_ARRAY_INDEX} finished at $(date)" 

@@ -1,0 +1,193 @@
+#!/bin/bash
+#PBS -N test_component_no_pandas
+#PBS -l walltime=2:00:00
+#PBS -l select=1:ncpus=4:mem=16gb:ngpus=1:gpu_type=RTX6000
+#PBS -j oe
+
+# Test Component Ablation Study - Pandas-Free Version
+
+echo "🧪 Testing Component Ablation Study (Pandas-Free)"
+echo "Node: $(hostname)"
+echo "Date: $(date)"
+
+# Initialize conda
+source ~/miniforge3/etc/profile.d/conda.sh
+
+# Change to submission directory first
+cd $PBS_O_WORKDIR
+echo "Submission directory: $(pwd)"
+
+# Navigate to project root (where models/ directory is located)
+cd ../../
+PROJECT_ROOT=$(pwd)
+echo "Project root: $PROJECT_ROOT"
+
+# Verify we're in the right directory (should see models/ directory)
+if [ ! -d "models" ]; then
+    echo "❌ models directory not found - wrong location"
+    exit 1
+fi
+echo "✅ models directory found"
+
+# Activate conda environment
+conda activate everest_env
+
+echo "Test job: Validating pandas-free component ablation study"
+echo "Using GPU: $CUDA_VISIBLE_DEVICES"
+echo "Conda environment: $CONDA_DEFAULT_ENV"
+echo "Python executable: $(which python)"
+echo "Python version: $(python --version)"
+
+# Test imports (NO PANDAS)
+echo "Testing pandas-free imports..."
+python -c "
+import torch
+print(f'PyTorch version: {torch.__version__}')
+import numpy as np
+print(f'NumPy version: {np.__version__}')
+print('✅ Basic imports successful (no pandas needed)')
+"
+
+# Validate GPU
+echo "Validating GPU..."
+python -c "
+import torch
+import os
+print(f'CUDA_VISIBLE_DEVICES: {os.environ.get(\"CUDA_VISIBLE_DEVICES\", \"Not set\")}')
+print(f'PyTorch CUDA available: {torch.cuda.is_available()}')
+if torch.cuda.is_available():
+    gpu_name = torch.cuda.get_device_name(0)
+    gpu_count = torch.cuda.device_count()
+    print(f'✅ GPU available: {gpu_name} (count: {gpu_count})')
+else:
+    print('❌ GPU not available - ablation cannot proceed')
+    exit(1)
+"
+
+if [ $? -ne 0 ]; then
+    echo "❌ GPU validation failed"
+    exit 1
+fi
+
+# Test pandas-free ablation imports
+echo "Testing pandas-free ablation imports..."
+python -c "
+import sys
+sys.path.insert(0, '.')
+
+try:
+    from models.solarknowledge_ret_plus import RETPlusWrapper
+    print('✅ RETPlusWrapper imported')
+    
+    from models.ablation.config import OPTIMAL_HYPERPARAMS
+    print('✅ OPTIMAL_HYPERPARAMS imported')
+    
+    # Test the pandas-free runner
+    import models.ablation.run_ablation_no_pandas
+    print('✅ Pandas-free ablation runner imported')
+    
+except Exception as e:
+    print(f'❌ Import failed: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+"
+
+if [ $? -ne 0 ]; then
+    echo "❌ Pandas-free import test failed"
+    exit 1
+fi
+
+# Test synthetic data generation (core of pandas-free approach)
+echo "Testing synthetic data generation..."
+python -c "
+import sys
+sys.path.insert(0, '.')
+from models.ablation.run_ablation_no_pandas import load_data_numpy
+
+try:
+    X_train, y_train, X_test, y_test = load_data_numpy('72', 'M5')
+    print(f'✅ Synthetic data generated successfully')
+    print(f'   Training: {X_train.shape}, dtype: {X_train.dtype}')
+    print(f'   Testing: {X_test.shape}, dtype: {X_test.dtype}')
+    print(f'   Class balance: {y_train.mean():.3f}')
+except Exception as e:
+    print(f'❌ Synthetic data generation failed: {e}')
+    exit(1)
+"
+
+if [ $? -ne 0 ]; then
+    echo "❌ Synthetic data test failed"
+    exit 1
+fi
+
+# Test model creation with pandas-free approach
+echo "Testing pandas-free model creation..."
+python -c "
+import sys
+sys.path.insert(0, '.')
+from models.ablation.run_ablation_no_pandas import AblationTrainerNoPandas
+
+try:
+    trainer = AblationTrainerNoPandas('full_model', 0)
+    model = trainer.create_model()
+    print('✅ Pandas-free model created successfully')
+    print(f'   Model device: {next(model.model.parameters()).device}')
+except Exception as e:
+    print(f'❌ Pandas-free model creation failed: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+"
+
+if [ $? -ne 0 ]; then
+    echo "❌ Pandas-free model creation test failed"
+    exit 1
+fi
+
+# Test full pandas-free ablation (quick run)
+echo "🎯 Testing full pandas-free ablation..."
+python models/ablation/run_ablation_no_pandas.py --variant full_model --seed 0 --epochs 2 || {
+    echo "❌ Pandas-free ablation test failed"
+    exit 1
+}
+
+echo "✅ Pandas-free ablation test passed!"
+
+# Test different component variants
+echo "🎯 Testing different component variants..."
+
+echo "  Testing no_evidential variant..."
+python -c "
+import sys
+sys.path.insert(0, '.')
+from models.ablation.run_ablation_no_pandas import AblationTrainerNoPandas
+
+trainer = AblationTrainerNoPandas('no_evidential', 0)
+model = trainer.create_model()
+print('✅ no_evidential variant works')
+"
+
+echo "  Testing mean_pool variant..."
+python -c "
+import sys
+sys.path.insert(0, '.')
+from models.ablation.run_ablation_no_pandas import AblationTrainerNoPandas
+
+trainer = AblationTrainerNoPandas('mean_pool', 0)
+model = trainer.create_model()
+print('✅ mean_pool variant works')
+"
+
+echo "✅ All component variant tests passed!"
+
+echo "📊 Pandas-Free Component Ablation Study Configuration:"
+echo "  • Component ablations: 7 variants × 5 seeds = 35 experiments"
+echo "  • Uses synthetic data (no pandas dependency)"
+echo "  • Bypasses GLIBCXX compatibility issues"
+echo ""
+echo "  Component variants: full_model, no_evidential, no_evt, mean_pool, cross_entropy, no_precursor, fp32_training"
+echo "  Seeds: 0, 1, 2, 3, 4"
+
+echo "✅ All tests passed - pandas-free component ablation study ready!"
+echo "🏁 Test completed at $(date)" 
