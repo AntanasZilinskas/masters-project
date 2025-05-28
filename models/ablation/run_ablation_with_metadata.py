@@ -239,9 +239,7 @@ class AblationObjectiveWithMetadata:
                     description=enhanced_description,
                     training_metrics=getattr(model, 'training_metrics', None),
                     # Add ablation-specific metadata
-                    ablation_metadata=model.ablation_metadata,
-                    X_eval=X_eval,
-                    y_eval=y_eval
+                    ablation_metadata=model.ablation_metadata
                 )
                 return model_dir
             
