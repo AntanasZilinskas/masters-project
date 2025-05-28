@@ -65,8 +65,8 @@ else:
     print(f'  PyTorch version: {torch.__version__}')
     print(f'  CUDA compiled version: {torch.version.cuda if hasattr(torch.version, \"cuda\") else \"Unknown\"}')
     print(f'  Environment variables:')
-    for key in ["CUDA_VISIBLE_DEVICES", "CUDA_HOME", "PATH"]:
-        print(f'    {key}: {os.environ.get(key, "Not set")}')
+    for key in [\"CUDA_VISIBLE_DEVICES\", \"CUDA_HOME\", \"PATH\"]:
+        print(f'    {key}: {os.environ.get(key, \"Not set\")}')
     exit(1)
 "
 
