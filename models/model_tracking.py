@@ -57,17 +57,24 @@ class TrainingMetricsEncoder(json.JSONEncoder):
 
 def create_model_dir(version, flare_class, time_window):
     """Create a standardized model directory structure."""
-    # Create the parent models directory if it doesn't exist
+    # Create the parent models/models directory if it doesn't exist
     try:
-        if not os.path.exists("models"):
-            os.makedirs("models", exist_ok=True)
+        models_dir = "models/models"
+        if not os.path.exists(models_dir):
+            os.makedirs(models_dir, exist_ok=True)
     except (OSError, PermissionError) as e:
-        print(f"Warning: Cannot create models directory: {e}")
-        # Fallback to current directory
-        return f"EVEREST-v{version}-{flare_class}-{time_window}h"
+        print(f"Warning: Cannot create models/models directory: {e}")
+        # Fallback to models directory
+        try:
+            if not os.path.exists("models"):
+                os.makedirs("models", exist_ok=True)
+            models_dir = "models"
+        except (OSError, PermissionError):
+            # Ultimate fallback to current directory
+            models_dir = "."
         
     model_dir = (
-        f"models/EVEREST-v{version}-{flare_class}-{time_window}h"
+        f"{models_dir}/EVEREST-v{version}-{flare_class}-{time_window}h"
     )
     
     try:
@@ -136,6 +143,8 @@ def save_model_with_metadata(
     evidential_out=None,
     # Training metrics and efficiency data
     training_metrics=None,
+    # Ablation study metadata
+    ablation_metadata=None,
 ):
     """
     Save a model with comprehensive metadata tracking.
@@ -161,6 +170,7 @@ def save_model_with_metadata(
         att_y_score: Confidence scores for attention batch
         evidential_out: Evidential model outputs (mu, v, alpha, beta) for violin plots
         training_metrics: Training metrics and efficiency data
+        ablation_metadata: Ablation study metadata (variant, seed, config, etc.)
     """
     # Create model directory
     model_dir = create_model_dir(version, flare_class, time_window)
@@ -257,6 +267,8 @@ def save_model_with_metadata(
         **({"latency_sec_per_batch32": latency} if latency is not None else {}),
         # Training metrics and efficiency data
         **({"training_metrics": training_metrics} if training_metrics is not None else {}),
+        # Ablation study metadata
+        **({"ablation_metadata": ablation_metadata} if ablation_metadata is not None else {}),
     }
 
     # Save metadata
@@ -477,44 +489,56 @@ def load_model_metadata(version, flare_class, time_window):
 def list_available_models():
     """List all available models in the models directory."""
     try:
-        model_dirs = [
-            d for d in os.listdir("models") if d.startswith("EVEREST-v")
-        ]
+        # Check both potential model directory paths
+        potential_dirs = ["models"]
+        if os.path.exists(os.path.join("models", "models")):
+            potential_dirs.append(os.path.join("models", "models"))
+        
         models = []
+        
+        for base_dir in potential_dirs:
+            try:
+                model_dirs = [
+                    d for d in os.listdir(base_dir) if d.startswith("EVEREST-v")
+                ]
+                
+                for d in model_dirs:
+                    parts = d.split("-")
+                    if len(parts) >= 3:
+                        version = parts[1][1:]  # Remove 'v' prefix
+                        flare_class = parts[2]
+                        time_window = parts[3][:-1]  # Remove 'h' suffix
 
-        for d in model_dirs:
-            parts = d.split("-")
-            if len(parts) >= 3:
-                version = parts[1][1:]  # Remove 'v' prefix
-                flare_class = parts[2]
-                time_window = parts[3][:-1]  # Remove 'h' suffix
+                        metadata_path = os.path.join(base_dir, d, "metadata.json")
+                        if os.path.exists(metadata_path):
+                            with open(metadata_path, "r") as f:
+                                metadata = json.load(f)
 
-                metadata_path = os.path.join("models", d, "metadata.json")
-                if os.path.exists(metadata_path):
-                    with open(metadata_path, "r") as f:
-                        metadata = json.load(f)
-
-                    models.append(
-                        {
-                            "version": version,
-                            "flare_class": flare_class,
-                            "time_window": time_window,
-                            "timestamp": metadata.get("timestamp", "unknown"),
-                            "accuracy": metadata.get("performance", {}).get(
-                                "accuracy", "unknown"
-                            ),
-                        }
-                    )
-                else:
-                    models.append(
-                        {
-                            "version": version,
-                            "flare_class": flare_class,
-                            "time_window": time_window,
-                            "timestamp": "unknown",
-                            "accuracy": "unknown",
-                        }
-                    )
+                            models.append(
+                                {
+                                    "version": version,
+                                    "flare_class": flare_class,
+                                    "time_window": time_window,
+                                    "timestamp": metadata.get("timestamp", "unknown"),
+                                    "accuracy": metadata.get("performance", {}).get(
+                                        "accuracy", "unknown"
+                                    ),
+                                    "path": os.path.join(base_dir, d)
+                                }
+                            )
+                        else:
+                            models.append(
+                                {
+                                    "version": version,
+                                    "flare_class": flare_class,
+                                    "time_window": time_window,
+                                    "timestamp": "unknown",
+                                    "accuracy": "unknown",
+                                    "path": os.path.join(base_dir, d)
+                                }
+                            )
+            except FileNotFoundError:
+                continue
 
         return sorted(
             models,

@@ -118,4 +118,73 @@ After completion, you'll have:
 3. **Faster iteration** - get component insights quickly, then decide on sequence analysis
 4. **Resource efficient** - 35 experiments vs 60 saves significant cluster time
 
+## 🚨 **Potential Issues and Solutions**
+
+### **Issue 1: GPU Detection**
+**Problem**: PyTorch might not detect GPU properly on cluster
+**Solution**: Enhanced GPU validation with detailed debugging info
+**Check**: Look for `✅ GPU available: NVIDIA RTX 6000` in output
+
+### **Issue 2: Training Performance**
+**Problem**: Training might be slow (37+ minutes per experiment locally)
+**Solution**: 
+- Use `in_memory_dataset=True` for faster data loading
+- Early stopping after 10 epochs of no improvement
+- Mixed precision training on GPU
+**Expected**: ~5-10 minutes per experiment on cluster GPU
+
+### **Issue 3: Class Imbalance**
+**Problem**: TSS score of 0.0000 suggests model not learning from rare events
+**Solution**: 
+- Using optimal hyperparameters from HPO study
+- Focal loss with gamma=3.42 to handle imbalance
+- Multiple seeds (5) to ensure statistical significance
+**Expected**: TSS > 0.3 for good performance
+
+### **Issue 4: Environment Compatibility**
+**Problem**: Different PyTorch versions between local and cluster
+**Solution**: 
+- Scripts validated to work with both environments
+- Cluster uses `everest_env` conda environment
+- Automatic fallback for local testing
+**Check**: Look for `PyTorch version: 2.7.0+cu126` on cluster
+
+### **Issue 5: Memory Usage**
+**Problem**: Large dataset (709k samples) might cause memory issues
+**Solution**:
+- Batch size optimized at 1024
+- DataLoader with proper memory management
+- GPU memory monitoring
+**Expected**: Should fit in 32GB RAM + GPU memory
+
+## 🔧 **Quick Fixes if Issues Occur**
+
+### **If GPU not detected:**
+```bash
+# Check GPU allocation
+echo $CUDA_VISIBLE_DEVICES
+nvidia-smi
+
+# Test PyTorch CUDA
+python -c "import torch; print(torch.cuda.is_available())"
+```
+
+### **If training too slow:**
+```bash
+# Check if using GPU
+grep "Training on:" test_component_ablation.o*
+
+# Should show: "Training on: NVIDIA RTX 6000"
+# Not: "Training on: Apple Silicon" or "CPU"
+```
+
+### **If memory errors:**
+```bash
+# Check memory usage
+grep -i "memory\|oom" test_component_ablation.o*
+
+# Reduce batch size if needed (edit run_ablation_exact_hpo.py)
+# Change: "batch_size": 1024 -> "batch_size": 512
+```
+
 The implementation provides a **focused, scientifically rigorous component ablation study** that will give you clear insights into your EVEREST model's architectural components and their relative importance. 

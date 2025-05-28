@@ -1,163 +1,137 @@
 #!/usr/bin/env python3
 """
-EVEREST Ablation Study Runner - EXACT HPO Pattern
+EVEREST Component Ablation Study with Enhanced Metadata Tracking
 
-This script follows the EXACT same pattern as the working HPO runner,
-using the same data loading, model creation, and training patterns.
-
-COMPONENT ABLATION STUDY:
-- Component ablations: 7 variants × 5 seeds = 35 experiments
-- Focus on architectural components only
+This version properly saves ablation variant and seed information in model metadata
+to distinguish between different ablation experiments.
 """
 
 import sys
-import argparse
-from pathlib import Path
 import os
+import argparse
 import numpy as np
 import torch
+import random
+from pathlib import Path
 
-# Add project root to path (EXACT same as HPO)
-project_root = Path(__file__).parent.parent.parent  # Go up to masters-project root
+# Add project root to path
+project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-# Change working directory to project root to ensure relative paths work (EXACT same as HPO)
-os.chdir(project_root)
-
-# Now import from models directory (EXACT same as HPO)
-from models.utils import get_training_data, get_testing_data
 from models.solarknowledge_ret_plus import RETPlusWrapper
+from models.utils import get_training_data, get_testing_data
 
 
-class AblationObjective:
-    """
-    Ablation objective function following EXACT HPO pattern.
-    
-    This class encapsulates the training and evaluation logic for a single
-    ablation experiment, following the exact same structure as HPOObjective.
-    
-    Focuses on component ablations only.
-    """
+class AblationObjectiveWithMetadata:
+    """Enhanced ablation objective that properly tracks metadata."""
     
     def __init__(self, variant_name: str, seed: int):
-        """Initialize the ablation objective (EXACT same as HPO)."""
         self.variant_name = variant_name
         self.seed = seed
-        
-        # Fixed input shape for component ablations
         self.input_shape = (10, 9)
         
-        # Load data once to avoid repeated I/O (EXACT same as HPO)
-        self._load_data()
-        
-        # Set up reproducibility (EXACT same as HPO)
+        # Setup reproducibility
         self._setup_reproducibility()
         
-    def _setup_reproducibility(self):
-        """Set up reproducible training environment (EXACT same as HPO)."""
-        # Set random seeds
-        np.random.seed(self.seed)
-        torch.manual_seed(self.seed)
+        # Load data once (EXACT same as HPO pattern)
+        print(f"Loading data for ablation study...")
+        self._load_data()
         
+    def _setup_reproducibility(self):
+        """Setup reproducible training (EXACT same as HPO)."""
+        torch.manual_seed(self.seed)
+        np.random.seed(self.seed)
+        random.seed(self.seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed(self.seed)
             torch.cuda.manual_seed_all(self.seed)
-            
-        # Set deterministic behavior (EXACT same as HPO)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-            
+        
     def _load_data(self):
-        """Load and cache training/validation data (EXACT same as HPO)."""
+        """Load training and validation data (EXACT same as HPO)."""
         try:
-            print(f"Loading data for M5-class, 72h window...")
-            
-            # Load training data (EXACT same as HPO)
-            self.X_train, self.y_train = get_training_data("72", "M5")
-            
+            # Load training data
+            self.X_train, self.y_train = get_training_data('72', 'M5')
             if self.X_train is None or self.y_train is None:
-                raise ValueError(f"Training data not found for M5/72h")
-                
-            # Load validation data (use testing data for validation during ablation)
-            self.X_val, self.y_val = get_testing_data("72", "M5")
+                raise ValueError("Training data not found")
+            
+            # Load validation data  
+            self.X_val, self.y_val = get_testing_data('72', 'M5')
             if self.X_val is None or self.y_val is None:
-                raise ValueError(f"Validation data not found for M5/72h")
-                    
-            # Convert to numpy arrays (EXACT same as HPO)
-            self.X_train = np.array(self.X_train)
-            self.y_train = np.array(self.y_train)
-            self.X_val = np.array(self.X_val)
-            self.y_val = np.array(self.y_val)
+                raise ValueError("Validation data not found")
                 
-            print(f"Data loaded successfully:")
-            print(f"  Training: {self.X_train.shape[0]} samples, shape: {self.X_train.shape}")
-            print(f"  Validation: {self.X_val.shape[0]} samples, shape: {self.X_val.shape}")
-            print(f"  Positive rate (train): {self.y_train.mean():.3f}")
-            print(f"  Positive rate (val): {self.y_val.mean():.3f}")
+            print(f"✅ Data loaded: {len(self.X_train)} train, {len(self.X_val)} val samples")
             
         except Exception as e:
-            print(f"Error loading data: {e}")
+            print(f"❌ Data loading failed: {e}")
             raise
             
     def _get_ablation_config(self):
-        """Get ablation configuration for this variant."""
-        # Define ablation variants (same as config.py)
+        """Get ablation configuration for the specified variant."""
         variants = {
             "full_model": {
                 "use_attention_bottleneck": True,
                 "use_evidential": True,
                 "use_evt": True,
                 "use_precursor": True,
-                "loss_weights": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05}
+                "loss_weights": {"focal": 0.8, "evid": 0.1, "evt": 0.1, "prec": 0.05},
+                "description": "Full EVEREST model with all components (baseline)"
             },
             "no_evidential": {
                 "use_attention_bottleneck": True,
                 "use_evidential": False,
                 "use_evt": True,
                 "use_precursor": True,
-                "loss_weights": {"focal": 0.8, "evid": 0.0, "evt": 0.2, "prec": 0.05}
+                "loss_weights": {"focal": 0.9, "evid": 0.0, "evt": 0.1, "prec": 0.05},
+                "description": "EVEREST model without evidential uncertainty (NIG head removed)"
             },
             "no_evt": {
                 "use_attention_bottleneck": True,
                 "use_evidential": True,
                 "use_evt": False,
                 "use_precursor": True,
-                "loss_weights": {"focal": 0.8, "evid": 0.2, "evt": 0.0, "prec": 0.05}
+                "loss_weights": {"focal": 0.8, "evid": 0.2, "evt": 0.0, "prec": 0.05},
+                "description": "EVEREST model without EVT tail modeling (GPD head removed)"
             },
             "mean_pool": {
                 "use_attention_bottleneck": False,
                 "use_evidential": True,
                 "use_evt": True,
                 "use_precursor": True,
-                "loss_weights": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05}
+                "loss_weights": {"focal": 0.8, "evid": 0.1, "evt": 0.1, "prec": 0.05},
+                "description": "EVEREST model with mean pooling instead of attention pooling"
             },
             "cross_entropy": {
                 "use_attention_bottleneck": True,
                 "use_evidential": False,
                 "use_evt": False,
                 "use_precursor": True,
-                "loss_weights": {"focal": 1.0, "evid": 0.0, "evt": 0.0, "prec": 0.05}
+                "loss_weights": {"focal": 0.0, "evid": 0.0, "evt": 0.0, "prec": 0.05},
+                "description": "EVEREST model with standard cross-entropy loss (no focal/evidential/EVT)"
             },
             "no_precursor": {
                 "use_attention_bottleneck": True,
                 "use_evidential": True,
                 "use_evt": True,
                 "use_precursor": False,
-                "loss_weights": {"focal": 0.75, "evid": 0.1, "evt": 0.15, "prec": 0.0}
+                "loss_weights": {"focal": 0.8, "evid": 0.1, "evt": 0.1, "prec": 0.0},
+                "description": "EVEREST model without precursor prediction head"
             },
             "fp32_training": {
                 "use_attention_bottleneck": True,
                 "use_evidential": True,
                 "use_evt": True,
                 "use_precursor": True,
-                "loss_weights": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05}
+                "loss_weights": {"focal": 0.8, "evid": 0.1, "evt": 0.1, "prec": 0.05},
+                "description": "EVEREST model trained with FP32 precision (no mixed precision)"
             }
         }
         
         return variants[self.variant_name]
         
-    def _create_model(self):
-        """Create model with ablation configuration (EXACT same pattern as HPO)."""
+    def _create_enhanced_wrapper(self):
+        """Create model wrapper with enhanced metadata tracking."""
         
         # Get optimal hyperparameters from HPO study
         optimal_hyperparams = {
@@ -172,7 +146,7 @@ class AblationObjective:
         # Get ablation configuration
         ablation_config = self._get_ablation_config()
         
-        # Create wrapper (EXACT same as HPO - let wrapper create the model)
+        # Create wrapper
         wrapper = RETPlusWrapper(
             input_shape=self.input_shape,
             use_attention_bottleneck=ablation_config["use_attention_bottleneck"],
@@ -182,7 +156,7 @@ class AblationObjective:
             loss_weights=ablation_config["loss_weights"]
         )
         
-        # Update optimizer with optimal learning rate (EXACT same as HPO)
+        # Update optimizer with optimal learning rate
         wrapper.optimizer = torch.optim.AdamW(
             wrapper.model.parameters(),
             lr=optimal_hyperparams["learning_rate"],
@@ -190,38 +164,104 @@ class AblationObjective:
             fused=True
         )
         
+        # ENHANCEMENT: Store ablation metadata in the wrapper
+        wrapper.ablation_metadata = {
+            "experiment_type": "component_ablation",
+            "variant": self.variant_name,
+            "seed": self.seed,
+            "ablation_config": ablation_config,
+            "optimal_hyperparams": optimal_hyperparams,
+            "description": ablation_config["description"]
+        }
+        
         return wrapper, optimal_hyperparams
         
     def run_experiment(self):
-        """Run ablation experiment (EXACT same pattern as HPO)."""
+        """Run ablation experiment with enhanced metadata tracking."""
         print(f"\n🔬 Running component ablation: {self.variant_name}, seed {self.seed}")
         print(f"   Input shape: {self.input_shape}")
         
         try:
-            # Create model (EXACT same as HPO)
-            model, hyperparams = self._create_model()
+            # Create enhanced model wrapper
+            model, hyperparams = self._create_enhanced_wrapper()
             
-            print(f"Model created with ablation config:")
             ablation_config = self._get_ablation_config()
+            print(f"Model created with ablation config:")
             print(f"  Attention: {ablation_config['use_attention_bottleneck']}")
             print(f"  Evidential: {ablation_config['use_evidential']}")
             print(f"  EVT: {ablation_config['use_evt']}")
             print(f"  Precursor: {ablation_config['use_precursor']}")
             
-            # Train model using wrapper's train method (EXACT same as HPO)
+            # ENHANCEMENT: Monkey-patch the save method to include ablation metadata
+            original_save = model.save
+            
+            def enhanced_save(version, flare_class, time_window, X_eval=None, y_eval=None):
+                """Enhanced save method that includes ablation metadata."""
+                import sys
+                import os
+                sys.path.append(os.path.dirname(__file__))
+                from models.model_tracking import save_model_with_metadata
+                
+                # Basic metrics
+                metrics = {
+                    "accuracy": model.history["accuracy"][-1],
+                    "TSS": model.history["tss"][-1],
+                }
+                
+                # Enhanced hyperparameters with ablation info
+                enhanced_hyperparams = {
+                    "input_shape": (10, 9),
+                    "embed_dim": 64,
+                    "num_blocks": 8,
+                    "dropout": 0.23876978467047777,
+                    # ABLATION-SPECIFIC METADATA
+                    "ablation_variant": self.variant_name,
+                    "ablation_seed": self.seed,
+                    "use_attention_bottleneck": ablation_config["use_attention_bottleneck"],
+                    "use_evidential": ablation_config["use_evidential"],
+                    "use_evt": ablation_config["use_evt"],
+                    "use_precursor": ablation_config["use_precursor"],
+                    "loss_weights": ablation_config["loss_weights"]
+                }
+                
+                # Enhanced description with ablation info
+                enhanced_description = f"EVEREST Ablation Study - {ablation_config['description']} (seed {self.seed})"
+                
+                # Call original save logic with enhanced metadata
+                model_dir = save_model_with_metadata(
+                    model=model,
+                    metrics=metrics,
+                    hyperparams=enhanced_hyperparams,
+                    history=model.history,
+                    version=version,
+                    flare_class=flare_class,
+                    time_window=time_window,
+                    description=enhanced_description,
+                    training_metrics=getattr(model, 'training_metrics', None),
+                    # Add ablation-specific metadata
+                    ablation_metadata=model.ablation_metadata,
+                    X_eval=X_eval,
+                    y_eval=y_eval
+                )
+                return model_dir
+            
+            # Replace the save method
+            model.save = enhanced_save
+            
+            # Train model
             print(f"Training for 50 epochs with early stopping...")
             
             model_dir = model.train(
                 X_train=self.X_train,
                 y_train=self.y_train,
-                epochs=50,  # Early stopping after 10 epochs
+                epochs=50,
                 batch_size=hyperparams["batch_size"],
                 gamma_max=hyperparams["focal_gamma"],
                 warmup_epochs=20,
                 flare_class="M5",
                 time_window="72",
                 in_memory_dataset=True,
-                track_emissions=False  # Disable for cluster
+                track_emissions=False
             )
             
             # Evaluate on validation set
@@ -245,11 +285,12 @@ class AblationObjective:
             tss = sensitivity + specificity - 1
             
             results = {
-                "experiment_type": "component",
+                "experiment_type": "component_ablation",
                 "variant": self.variant_name,
                 "seed": self.seed,
                 "input_shape": self.input_shape,
                 "model_dir": model_dir,
+                "ablation_config": ablation_config,
                 "final_metrics": {
                     "accuracy": accuracy,
                     "precision": precision,
@@ -263,6 +304,7 @@ class AblationObjective:
             }
             
             print(f"✅ Experiment completed successfully!")
+            print(f"   • Variant: {self.variant_name} (seed {self.seed})")
             print(f"   • Accuracy: {accuracy:.4f}")
             print(f"   • TSS: {tss:.4f}")
             print(f"   • F1: {f1:.4f}")
@@ -280,14 +322,14 @@ class AblationObjective:
 def print_banner():
     """Print welcome banner."""
     print("=" * 80)
-    print("🔬 EVEREST Component Ablation Study - EXACT HPO Pattern")
-    print("   Component Ablations Only (35 experiments)")
-    print("   Following the exact same structure as working HPO")
+    print("🔬 EVEREST Component Ablation Study - Enhanced Metadata Tracking")
+    print("   Component Ablations with Proper Variant/Seed Identification")
+    print("   35 experiments: 7 variants × 5 seeds")
     print("=" * 80)
 
 
 def validate_gpu():
-    """Validate GPU configuration (EXACT same as HPO)."""
+    """Validate GPU configuration."""
     try:
         import torch
         print(f"   • Validating GPU configuration...")
@@ -300,7 +342,6 @@ def validate_gpu():
             return True
         else:
             print(f"   ⚠️  GPU not available - checking if this is a local test...")
-            # Check if we're running locally (not on cluster)
             import os
             if 'PBS_O_WORKDIR' not in os.environ and 'SLURM_JOB_ID' not in os.environ:
                 print(f"   ℹ️  Local environment detected - GPU validation skipped for testing")
@@ -316,8 +357,8 @@ def validate_gpu():
 
 
 def main():
-    """Main function (EXACT same structure as HPO)."""
-    parser = argparse.ArgumentParser(description="EVEREST Component Ablation Study - HPO Pattern")
+    """Main function."""
+    parser = argparse.ArgumentParser(description="EVEREST Component Ablation Study - Enhanced Metadata")
     
     parser.add_argument("--variant", 
                        choices=["full_model", "no_evidential", "no_evt", "mean_pool", 
@@ -331,18 +372,19 @@ def main():
     
     print_banner()
     
-    # Validate GPU (EXACT same as HPO)
+    # Validate GPU
     if not validate_gpu():
         print("\n❌ GPU validation failed!")
         return 1
     
-    # Create and run ablation objective (EXACT same pattern as HPO)
-    objective = AblationObjective(args.variant, args.seed)
+    # Create and run ablation objective
+    objective = AblationObjectiveWithMetadata(args.variant, args.seed)
     results = objective.run_experiment()
     
     if results:
         print(f"\n🎉 Ablation completed successfully!")
         print(f"📁 Results saved to: {results['model_dir']}")
+        print(f"🏷️  Metadata includes: variant={args.variant}, seed={args.seed}")
         return 0
     else:
         print(f"\n❌ Ablation failed!")
