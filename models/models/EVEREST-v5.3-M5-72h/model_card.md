@@ -1,7 +1,7 @@
 # EVEREST Model v5.3
 
 ## Overview
-- **Created**: 2025-05-29 03:37
+- **Created**: 2025-05-29 03:33
 - **Type**: Solar flare prediction model
 - **Target**: M5-class flares
 - **Time Window**: 72 hours
@@ -10,16 +10,16 @@
 EVEREST model trained on SHARP data with evidential and EVT losses.
 
 ## Performance Metrics
-- **accuracy**: 0.9957
-- **TSS**: 0.4726
-- **ROC_AUC**: 0.9963
-- **Brier**: 0.0052
-- **ECE**: 0.0230
+- **accuracy**: 0.9961
+- **TSS**: 0.5206
+- **ROC_AUC**: 0.9977
+- **Brier**: 0.0042
+- **ECE**: 0.0240
 
 
 ## Training Details
 - **Architecture**: EVEREST Transformer Model
-- **Parameters**: 549,001
+- **Parameters**: 548,872
 - **Precision**: torch.float32
 
 ## Hyperparameters
@@ -31,8 +31,8 @@ EVEREST model trained on SHARP data with evidential and EVT losses.
 - **dropout**: 0.2
 
 ## Version Control
-- **Git Commit**: a48102e20990c0e78201f09ca6101336f0761a5c
-- **Git Branch**: HEAD
+- **Git Commit**: 74aef05d93b09fd9f34f6accd214249490453284
+- **Git Branch**: pytorch-rewrite
 
 ## Usage
 ```python
