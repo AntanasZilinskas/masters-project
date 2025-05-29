@@ -354,7 +354,7 @@ class AblationTrainer:
             "train_loss": [],
             "train_acc": [],
             "test_tss": [],
-            "test_acc": [],
+            "test_accuracy": [],
             "test_precision": [],
             "test_recall": [],
             "test_specificity": [],
@@ -451,7 +451,7 @@ class AblationTrainer:
             print(f"Epoch {epoch+1:3d}/{epochs} - {epoch_time:.1f}s - "
                   f"loss: {avg_loss:.4f} - acc: {train_acc:.4f} - "
                   f"test_tss: {test_metrics['tss']:.4f} - "
-                  f"test_acc: {test_metrics['accuracy']:.4f}")
+                  f"test_accuracy: {test_metrics['accuracy']:.4f}")
             
             # Early stopping check
             current_tss = test_metrics['tss']
