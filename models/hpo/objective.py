@@ -151,11 +151,12 @@ class HPOObjective:
         )
         
         # Update optimizer with suggested learning rate
+        use_fused = torch.cuda.is_available()  # Only use fused on CUDA
         wrapper.optimizer = torch.optim.AdamW(
             wrapper.model.parameters(),
             lr=hyperparams["learning_rate"],
             weight_decay=1e-4,
-            fused=True
+            fused=use_fused
         )
         
         return wrapper
@@ -176,6 +177,10 @@ class HPOObjective:
         # Get device from model
         device = next(model.model.parameters()).device
         
+        # Adjust settings based on device
+        num_workers = 2 if device.type == "cuda" else 0  # Reduce workers for CPU
+        pin_memory = (device.type == "cuda")
+        
         # Create data loaders
         from torch.utils.data import DataLoader, TensorDataset
         
@@ -185,7 +190,7 @@ class HPOObjective:
         )
         train_loader = DataLoader(
             train_dataset, batch_size=batch_size, shuffle=True, 
-            pin_memory=(device.type == "cuda"), num_workers=2
+            pin_memory=pin_memory, num_workers=num_workers
         )
         
         val_dataset = TensorDataset(
@@ -194,7 +199,7 @@ class HPOObjective:
         )
         val_loader = DataLoader(
             val_dataset, batch_size=batch_size, shuffle=False,
-            pin_memory=(device.type == "cuda"), num_workers=2
+            pin_memory=pin_memory, num_workers=num_workers
         )
         
         best_tss = -float('inf')
@@ -275,19 +280,57 @@ class HPOObjective:
         y_pred = np.array(all_preds)
         y_prob = np.array(all_probs)
         
-        # Confusion matrix
-        cm = confusion_matrix(y_true, y_pred)
-        tn, fp, fn, tp = cm.ravel() if cm.size == 4 else (0, 0, 0, 0)
+        # Ensure we have binary labels
+        y_true = y_true.astype(int)
+        y_pred = y_pred.astype(int)
+        
+        # Confusion matrix with explicit handling
+        cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
+        
+        if cm.shape == (2, 2):
+            tn, fp, fn, tp = cm.ravel()
+        else:
+            # Handle edge cases where only one class is predicted
+            unique_pred = np.unique(y_pred)
+            unique_true = np.unique(y_true)
+            
+            if len(unique_pred) == 1 and len(unique_true) == 1:
+                # Both true and pred have only one class
+                if unique_pred[0] == unique_true[0] == 0:
+                    tn, fp, fn, tp = len(y_true), 0, 0, 0
+                elif unique_pred[0] == unique_true[0] == 1:
+                    tn, fp, fn, tp = 0, 0, 0, len(y_true)
+                else:
+                    # Predicted != True
+                    if unique_pred[0] == 0:  # Predicted all 0, but has 1s
+                        tn, fp, fn, tp = 0, 0, len(y_true), 0
+                    else:  # Predicted all 1, but has 0s
+                        tn, fp, fn, tp = 0, len(y_true), 0, 0
+            else:
+                # More complex edge case - use default
+                tn = fp = fn = tp = 0
         
         # Basic metrics
         accuracy = accuracy_score(y_true, y_pred)
         precision = precision_score(y_true, y_pred, zero_division=0)
         recall = recall_score(y_true, y_pred, zero_division=0)
         
-        # TSS (True Skill Statistic)
-        specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+        # TSS (True Skill Statistic) with safer calculation
+        if (tn + fp) > 0:
+            specificity = tn / (tn + fp)
+        else:
+            specificity = 0.0
+            
         sensitivity = recall  # same as recall
         tss = sensitivity + specificity - 1
+        
+        # Ensure TSS is valid and in reasonable range
+        if np.isnan(tss) or np.isinf(tss):
+            tss = -1.0
+        elif tss < -1.0:
+            tss = -1.0
+        elif tss > 1.0:
+            tss = 1.0
         
         # Additional metrics
         try:
