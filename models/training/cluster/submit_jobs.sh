@@ -91,7 +91,7 @@ fi
 echo "📊 Array job configuration:"
 echo "   Range: $ARRAY_RANGE"
 echo "   Total jobs: 45 (9 targets × 5 seeds)"
-echo "   Resource: 1 GPU (L40S), 8 cores, 64GB RAM per job"
+echo "   Resource: 1 GPU, 4 cores, 24GB RAM per job"
 echo "   Time limit: 24 hours per job"
 
 # Submit array job

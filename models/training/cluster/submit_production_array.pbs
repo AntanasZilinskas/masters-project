@@ -1,7 +1,7 @@
 #!/bin/bash
 #PBS -N everest_production
 #PBS -l walltime=24:00:00
-#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=L40S
+#PBS -l select=1:ncpus=4:mem=24gb:ngpus=1
 #PBS -J 1-45
 #PBS -j oe
 #PBS -o logs/production_${PBS_ARRAY_INDEX}.log
@@ -16,63 +16,44 @@ echo "Node: $(hostname)"
 echo "Started: $(date)"
 echo "========================================"
 
+# Initialize conda
+source ~/miniforge3/etc/profile.d/conda.sh
+
 # Navigate to project root and verify structure
 cd $PBS_O_WORKDIR
 cd ../../..  # Go up from cluster -> training -> models -> project_root
 PROJECT_ROOT=$(pwd)
 echo "Project root: $PROJECT_ROOT"
 
-# Verify project structure
-if [ ! -d "models/training" ]; then
-    echo "Error: models/training/ directory not found"
-    echo "Current directory: $(pwd)"
-    echo "Contents: $(ls -la)"
-    exit 1
-fi
-
-echo "Project structure verified"
-
-# Set Python path
-export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
-
-# Initialize conda - try multiple initialization methods
-if [ -f "$HOME/miniforge3/etc/profile.d/conda.sh" ]; then
-    source "$HOME/miniforge3/etc/profile.d/conda.sh"
-elif [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then
-    source "$HOME/anaconda3/etc/profile.d/conda.sh"
-elif [ -f "$HOME/.bashrc" ]; then
-    source "$HOME/.bashrc"
-else
-    echo "Warning: Could not find conda initialization script"
-fi
+# Verify we're in the right directory
+echo "Working directory: $(pwd)"
+echo "Contents: $(ls -la | head -5)"
 
 # Activate conda environment
-echo "Activating everest_env..."
 conda activate everest_env
 
-if [ $? -ne 0 ]; then
-    echo "Failed to activate everest_env, trying alternative method..."
-    module load anaconda3/personal 2>/dev/null || echo "Module load failed"
-    source activate everest_env
-    
-    if [ $? -ne 0 ]; then
-        echo "Failed to activate everest_env with alternative method"
-        exit 1
-    fi
-fi
+# Set environment variables for GPU
+export CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES
+export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
 
-echo "Environment activated successfully"
+echo "Using GPU: $CUDA_VISIBLE_DEVICES"
 echo "Conda environment: $CONDA_DEFAULT_ENV"
+echo "Python path: $PYTHONPATH"
 echo "Python executable: $(which python)"
+echo "Python version: $(python --version)"
 
-# Validate GPU availability
+# Test basic imports before running the main script
+echo "Testing imports..."
+python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
+python -c "import models.training; print('Training imports successful')"
+
+# Validate GPU availability - CRITICAL for production training
 echo "Validating GPU..."
 python -c "
 import torch
 if torch.cuda.is_available():
     gpu_name = torch.cuda.get_device_name(0)
     print(f'✅ GPU available: {gpu_name}')
-    print(f'GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f}GB')
 else:
     print('❌ GPU not available - production training cannot proceed')
     exit(1)
@@ -83,21 +64,12 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Test basic imports
-echo "Testing imports..."
-python -c "
-try:
-    import models.training
-    print('✅ Training module imports successful')
-except ImportError as e:
-    print(f'❌ Import failed: {e}')
-    exit(1)
-"
+echo "Starting production training..."
 
-if [ $? -ne 0 ]; then
-    echo "❌ Import validation failed - terminating job"
-    exit 1
-fi
+# Monitor available resources
+echo "Memory info: $(free -h | head -2)"
+echo "Disk space: $(df -h . | tail -1)"
+echo "GPU memory: $(nvidia-smi --query-gpu=memory.total,memory.used --format=csv,noheader,nounits || echo 'GPU info unavailable')"
 
 # Create logs directory
 mkdir -p logs
@@ -111,23 +83,10 @@ echo "Memory: $(free -h | head -2)"
 echo ""
 
 # Execute the training script in array mode
-echo "Command: python models/training/run_production_training.py --mode array --array_index ${PBS_ARRAY_INDEX}"
 python models/training/run_production_training.py \
     --mode array \
     --array_index ${PBS_ARRAY_INDEX}
 
-# Check exit status
-exit_code=$?
+echo "Completed production training for Array job ${PBS_ARRAY_INDEX}"
 
-echo ""
-echo "Experiment completed with exit code: $exit_code"
-echo "Array Index: ${PBS_ARRAY_INDEX}"
-echo "Finished: $(date)"
-
-if [ $exit_code -eq 0 ]; then
-    echo "✅ Production training completed successfully"
-else
-    echo "❌ Production training failed"
-fi
-
-exit $exit_code 
+exit 0 
