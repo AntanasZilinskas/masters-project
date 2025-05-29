@@ -135,18 +135,35 @@ class AblationObjectiveWithMetadata:
         
         # Get optimal hyperparameters from HPO study
         optimal_hyperparams = {
-            "embed_dim": 64,
-            "num_blocks": 8,
-            "dropout": 0.23876978467047777,
-            "focal_gamma": 3.4223204654921875,
-            "learning_rate": 0.0006926769179941219,
-            "batch_size": 1024
+            "embed_dim": 128,
+            "num_blocks": 4,
+            "dropout": 0.3531616510212273,
+            "focal_gamma": 2.8033450352296265,
+            "learning_rate": 0.0005337429672856022,
+            "batch_size": 512
         }
         
         # Get ablation configuration
         ablation_config = self._get_ablation_config()
         
-        # Create wrapper
+        # Create model with optimal hyperparameters
+        from models.solarknowledge_ret_plus import RETPlusModel
+        import torch
+        
+        model = RETPlusModel(
+            input_shape=self.input_shape,
+            embed_dim=optimal_hyperparams["embed_dim"],
+            num_heads=4,  # Keep fixed
+            ff_dim=optimal_hyperparams["embed_dim"] * 2,  # Scale with embed_dim
+            num_blocks=optimal_hyperparams["num_blocks"],
+            dropout=optimal_hyperparams["dropout"],
+            use_attention_bottleneck=ablation_config["use_attention_bottleneck"],
+            use_evidential=ablation_config["use_evidential"],
+            use_evt=ablation_config["use_evt"],
+            use_precursor=ablation_config["use_precursor"]
+        )
+        
+        # Create wrapper and manually set the model
         wrapper = RETPlusWrapper(
             input_shape=self.input_shape,
             use_attention_bottleneck=ablation_config["use_attention_bottleneck"],
@@ -155,6 +172,10 @@ class AblationObjectiveWithMetadata:
             use_precursor=ablation_config["use_precursor"],
             loss_weights=ablation_config["loss_weights"]
         )
+        
+        # Replace the default model with our optimized one
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        wrapper.model = model.to(device)
         
         # Update optimizer with optimal learning rate
         wrapper.optimizer = torch.optim.AdamW(
@@ -267,9 +288,14 @@ class AblationObjectiveWithMetadata:
                 # Enhanced hyperparameters with ablation info
                 enhanced_hyperparams = {
                     "input_shape": (10, 9),
-                    "embed_dim": 64,
-                    "num_blocks": 8,
-                    "dropout": 0.23876978467047777,
+                    "embed_dim": 128,
+                    "num_heads": 4,
+                    "ff_dim": 256,  # embed_dim * 2
+                    "num_blocks": 4,
+                    "dropout": 0.3531616510212273,
+                    "learning_rate": 0.0005337429672856022,
+                    "focal_gamma": 2.8033450352296265,
+                    "batch_size": 512,
                     "ablation_variant": model._ablation_variant,
                     "ablation_seed": model._ablation_seed,
                     "use_attention_bottleneck": model._ablation_config["use_attention_bottleneck"],
