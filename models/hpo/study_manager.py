@@ -115,8 +115,8 @@ class StudyManager:
             seed=REPRODUCIBILITY_CONFIG["random_seed"],
             n_startup_trials=10,  # Random sampling for first 10 trials
             n_ei_candidates=24,   # Number of candidates for EI acquisition
-            gamma=0.25,          # Top gamma fraction for TPE
-            multivariate=True    # Use multivariate TPE
+            multivariate=True,    # Use multivariate TPE
+            warn_independent_sampling=False  # Suppress warnings for large studies
         )
         
         # Configure pruner

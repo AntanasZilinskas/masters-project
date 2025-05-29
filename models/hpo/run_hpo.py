@@ -94,9 +94,17 @@ def run_single_target(args):
             gpu_name = torch.cuda.get_device_name(current_gpu)
             print(f"   ✅ GPU available: {gpu_name} (device {current_gpu}/{gpu_count})")
         else:
-            print(f"   ❌ GPU not available - HPO requires GPU for large-scale optimization")
-            print(f"   ❌ Training 166 trials on 400k+ samples would take days on CPU")
-            return False
+            if args.force_cpu:
+                print(f"   ⚠️ GPU not available - forcing CPU execution")
+                print(f"   📉 Automatically reducing trials for CPU feasibility")
+                if args.max_trials is None:
+                    args.max_trials = 10  # Reduce to 10 trials for CPU testing
+                    print(f"   🔧 Set max_trials to {args.max_trials} for CPU")
+            else:
+                print(f"   ❌ GPU not available - HPO requires GPU for large-scale optimization")
+                print(f"   ❌ Training 166 trials on 400k+ samples would take days on CPU")
+                print(f"   💡 Use --force-cpu flag to run reduced trials on CPU for testing")
+                return False
             
     except Exception as e:
         print(f"   ❌ GPU validation failed: {e}")
@@ -224,6 +232,12 @@ def main():
         "--quiet", 
         action="store_true",
         help="Suppress banner and configuration summary"
+    )
+    
+    parser.add_argument(
+        "--force-cpu", 
+        action="store_true",
+        help="Force CPU execution (automatically reduces trials for feasibility)"
     )
     
     args = parser.parse_args()

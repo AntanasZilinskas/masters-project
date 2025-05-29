@@ -63,6 +63,25 @@ SEARCH_STAGES = {
     }
 }
 
+# Extended configuration for thorough optimization
+SEARCH_STAGES_EXTENDED = {
+    "exploration": {
+        "trials": 200,  # Increased from 120
+        "epochs": 30,   # Increased from 20
+        "purpose": "Comprehensive global sweep"
+    },
+    "refinement": {
+        "trials": 80,   # Increased from 40
+        "epochs": 80,   # Increased from 60
+        "purpose": "Deep zoom on top quartile"
+    },
+    "confirmation": {
+        "trials": 12,   # Increased from 6
+        "epochs": 150,  # Increased from 120
+        "purpose": "Extended convergence validation"
+    }
+}
+
 # ============================================================================
 # Fixed Model Architecture 
 # ============================================================================
