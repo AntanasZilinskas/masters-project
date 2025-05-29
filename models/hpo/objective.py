@@ -173,6 +173,9 @@ class HPOObjective:
         batch_size = hyperparams["batch_size"]
         focal_gamma = hyperparams["focal_gamma"]
         
+        # Get device from model
+        device = next(model.model.parameters()).device
+        
         # Create data loaders
         from torch.utils.data import DataLoader, TensorDataset
         
@@ -194,7 +197,6 @@ class HPOObjective:
             pin_memory=(device.type == "cuda"), num_workers=2
         )
         
-        device = next(model.model.parameters()).device
         best_tss = -float('inf')
         
         for epoch in range(epochs):
@@ -319,6 +321,19 @@ class HPOObjective:
         """
         start_time = time.time()
         
+        # Initialize default values for user attributes
+        stage = "unknown"
+        metrics = {
+            "TSS": -1.0,
+            "accuracy": 0.0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "specificity": 0.0,
+            "roc_auc": 0.5,
+            "brier_score": 1.0,
+            "tp": 0, "tn": 0, "fp": 0, "fn": 0
+        }
+        
         try:
             # Get hyperparameters for this trial
             hyperparams = self._suggest_hyperparameters(trial)
@@ -346,40 +361,64 @@ class HPOObjective:
             # Get primary metric (TSS)
             tss = metrics[PRIMARY_METRIC]
             
-            # Check performance thresholds
+            elapsed = time.time() - start_time
+            
+            # Check performance thresholds but still save metrics
             if tss < PERFORMANCE_THRESHOLDS["min_tss"]:
                 print(f"❌ TSS {tss:.4f} below threshold {PERFORMANCE_THRESHOLDS['min_tss']}")
-                return tss  # Still return the value for Optuna to learn from
-                
-            if metrics["accuracy"] < PERFORMANCE_THRESHOLDS["min_accuracy"]:
+                print(f"   Still saving metrics for analysis...")
+            elif metrics["accuracy"] < PERFORMANCE_THRESHOLDS["min_accuracy"]:
                 print(f"❌ Accuracy {metrics['accuracy']:.4f} below threshold {PERFORMANCE_THRESHOLDS['min_accuracy']}")
-                return tss
-                
-            elapsed = time.time() - start_time
-            print(f"✅ Trial completed in {elapsed:.1f}s")
-            print(f"   TSS: {tss:.4f}, Accuracy: {metrics['accuracy']:.4f}")
-            print(f"   Precision: {metrics['precision']:.4f}, Recall: {metrics['recall']:.4f}")
-            
-            # Store additional metrics as user attributes
-            for key, value in metrics.items():
-                if key != PRIMARY_METRIC:
-                    trial.set_user_attr(key, value)
-                    
-            trial.set_user_attr("training_time", elapsed)
-            trial.set_user_attr("stage", stage)
-            trial.set_user_attr("flare_class", self.flare_class)
-            trial.set_user_attr("time_window", self.time_window)
+                print(f"   Still saving metrics for analysis...")
+            else:
+                print(f"✅ Trial completed in {elapsed:.1f}s")
+                print(f"   TSS: {tss:.4f}, Accuracy: {metrics['accuracy']:.4f}")
+                print(f"   Precision: {metrics['precision']:.4f}, Recall: {metrics['recall']:.4f}")
             
             return tss
             
         except optuna.TrialPruned:
             print(f"🛑 Trial {trial.number} pruned")
+            elapsed = time.time() - start_time
+            # Still save partial metrics for pruned trials
+            trial.set_user_attr("pruned", True)
             raise
             
         except Exception as e:
             print(f"❌ Trial {trial.number} failed: {e}")
             print(traceback.format_exc())
-            return -1.0  # Return very low score for failed trials
+            elapsed = time.time() - start_time
+            # Save error information
+            trial.set_user_attr("error", str(e))
+            trial.set_user_attr("failed", True)
+            return -1.0  # Return failed score for non-pruned failures
+            
+        finally:
+            # Always save metrics and metadata, even for failed/pruned trials
+            try:
+                elapsed = time.time() - start_time
+                
+                # Store all metrics as user attributes
+                for key, value in metrics.items():
+                    if key != PRIMARY_METRIC:
+                        # Ensure values are JSON serializable
+                        if isinstance(value, (np.integer, np.floating)):
+                            value = float(value)
+                        trial.set_user_attr(key, value)
+                        
+                trial.set_user_attr("training_time", elapsed)
+                trial.set_user_attr("stage", stage)
+                trial.set_user_attr("flare_class", self.flare_class)
+                trial.set_user_attr("time_window", self.time_window)
+                
+                # Add hyperparameters to user attributes for easier analysis
+                for key, value in trial.params.items():
+                    trial.set_user_attr(f"hp_{key}", value)
+                    
+            except Exception as attr_error:
+                print(f"⚠️ Warning: Could not save user attributes: {attr_error}")
+            
+            # Do NOT return anything in finally block - it overrides try/except returns!
 
 
 def create_objective(flare_class: str, time_window: str) -> HPOObjective:
