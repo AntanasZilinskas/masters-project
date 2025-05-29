@@ -74,7 +74,7 @@ qstat -u $USER
 ## 🔧 Configuration
 
 ### Resource Requirements
-- **Per Job**: 1 GPU (L40S), 8 cores, 64GB RAM
+- **Per Job**: 1 GPU (any available), 4 cores, 24GB RAM
 - **Time Limit**: 24 hours per job
 - **Total Jobs**: 45 (array job)
 - **Expected Runtime**: ~18-24 hours (parallel execution)

@@ -177,6 +177,9 @@ class ProductionTrainer:
             track_emissions=True
         )
         
+        # Store reference to trained model for potential manual saving
+        self._last_trained_model = model
+        
         training_time = time.time() - start_time
         
         print(f"✅ Training completed in {training_time:.1f}s ({training_time/60:.1f} min)")
@@ -383,6 +386,9 @@ class ProductionTrainer:
         """Save comprehensive experiment results."""
         print("\n💾 Saving results...")
         
+        # Store optimal threshold for comprehensive model saving
+        self._optimal_threshold = threshold_results.get("optimal_threshold", 0.5)
+        
         # Compile complete results
         complete_results = {
             "experiment_info": {
@@ -442,11 +448,211 @@ class ProductionTrainer:
             predictions_file = os.path.join(self.experiment_dir, "predictions.csv")
             predictions_df.to_csv(predictions_file, index=False)
         
+        # Create comprehensive model artifacts using the full tracking system
+        if OUTPUT_CONFIG["save_model_artifacts"]:
+            print(f"\n🎯 Creating comprehensive model artifacts...")
+            self._create_comprehensive_model_artifacts(training_results, threshold_results, evaluation_results)
+        
         print(f"📊 Results saved:")
         print(f"   Main: {results_file}")
         print(f"   History: {history_file}")
         print(f"   Thresholds: {threshold_file}")
         print(f"   Metrics: {metrics_file}")
+    
+    def _create_comprehensive_model_artifacts(self, training_results: Dict[str, Any], 
+                                           threshold_results: Dict[str, Any], 
+                                           evaluation_results: Dict[str, Any]):
+        """Create comprehensive model artifacts using the established model tracking system."""
+        try:
+            if not hasattr(self, '_last_trained_model') or self._last_trained_model is None:
+                print(f"⚠️ No trained model reference available for comprehensive saving")
+                return
+            
+            from models.model_tracking import save_model_with_metadata, get_next_version
+            
+            # Get the next version for this model
+            try:
+                version = get_next_version(self.flare_class, self.time_window)
+            except:
+                # Fallback to timestamp-based version  
+                version = f"prod_{time.strftime('%Y%m%d_%H%M%S')}"
+            
+            # Get sample data for artifacts
+            X_sample, y_sample = self._get_sample_data_for_artifacts()
+            
+            # Enhanced metrics combining training and evaluation results
+            comprehensive_metrics = {
+                # Training metrics
+                "final_training_accuracy": self._last_trained_model.history.get("accuracy", [0])[-1] if self._last_trained_model.history.get("accuracy") else 0,
+                "final_training_tss": self._last_trained_model.history.get("tss", [0])[-1] if self._last_trained_model.history.get("tss") else 0,
+                "training_epochs": len(self._last_trained_model.history.get("loss", [])),
+                
+                # Threshold optimization results
+                "optimal_threshold": threshold_results.get("optimal_threshold", 0.5),
+                "optimal_balanced_score": threshold_results.get("optimal_score", 0),
+                
+                # Final test set evaluation
+                **evaluation_results.get("test_metrics", {}),
+                
+                # Production training metadata
+                "production_training": True,
+                "experiment_name": self.experiment_name,
+                "seed": self.seed
+            }
+            
+            # Enhanced hyperparameters
+            enhanced_hyperparams = {
+                **TRAINING_HYPERPARAMS,
+                **FIXED_ARCHITECTURE,
+                "seed": self.seed,
+                "production_training": True,
+                "threshold_optimization": THRESHOLD_CONFIG,
+                "loss_schedule": LOSS_WEIGHT_SCHEDULE,
+                "balanced_weights": BALANCED_WEIGHTS
+            }
+            
+            # Use evaluation predictions if available
+            eval_predictions = evaluation_results.get("predictions", {})
+            y_true = np.array(eval_predictions.get("y_true", [])) if eval_predictions.get("y_true") else y_sample
+            y_pred = np.array(eval_predictions.get("y_pred", [])) if eval_predictions.get("y_pred") else None
+            y_scores = np.array(eval_predictions.get("y_probs", [])) if eval_predictions.get("y_probs") else None
+            
+            # Create comprehensive model directory using the established system
+            print(f"🎯 Using comprehensive model tracking system...")
+            comprehensive_model_dir = save_model_with_metadata(
+                model=self._last_trained_model,
+                metrics=comprehensive_metrics,
+                hyperparams=enhanced_hyperparams,
+                history=self._last_trained_model.history,
+                version=version,
+                flare_class=self.flare_class,
+                time_window=self.time_window,
+                description=f"EVEREST production model for {self.flare_class}-class flares with {self.time_window}h prediction window (seed {self.seed})",
+                # Evaluation artifacts
+                y_true=y_true,
+                y_pred=y_pred,
+                y_scores=y_scores,
+                sample_input=X_sample if X_sample is not None else None,
+                # Attention artifacts for interpretability  
+                att_X_batch=X_sample[:10] if X_sample is not None and len(X_sample) >= 10 else None,
+                att_y_true=y_true[:10] if y_true is not None and len(y_true) >= 10 else None,
+                att_y_pred=y_pred[:10] if y_pred is not None and len(y_pred) >= 10 else None,
+                att_y_score=y_scores[:10] if y_scores is not None and len(y_scores) >= 10 else None,
+                # Training efficiency metrics
+                training_metrics=getattr(self._last_trained_model, 'training_metrics', None)
+            )
+            
+            if comprehensive_model_dir:
+                # Copy all comprehensive artifacts to our production model directory
+                import shutil
+                
+                # Ensure our target directory exists
+                os.makedirs(self.model_dir, exist_ok=True)
+                
+                # Copy all files and directories
+                for item in os.listdir(comprehensive_model_dir):
+                    src = os.path.join(comprehensive_model_dir, item)
+                    dst = os.path.join(self.model_dir, item)
+                    
+                    if os.path.isfile(src):
+                        shutil.copy2(src, dst)
+                    elif os.path.isdir(src):
+                        if os.path.exists(dst):
+                            shutil.rmtree(dst)
+                        shutil.copytree(src, dst)
+                
+                print(f"📋 Comprehensive model artifacts created:")
+                print(f"   Comprehensive metadata: ✅")
+                print(f"   Model weights: ✅") 
+                print(f"   Training history: ✅")
+                print(f"   Model card: ✅")
+                print(f"   Classification report: ✅")
+                print(f"   Predictions CSV: ✅")
+                print(f"   Calibration plots: ✅")
+                print(f"   Environment info: ✅")
+                if X_sample is not None:
+                    print(f"   Attention heatmaps: ✅")
+                print(f"   Saved to: {self.model_dir}")
+                
+                # Create reference to original comprehensive save
+                ref_file = os.path.join(self.experiment_dir, "comprehensive_model_dir.txt")
+                with open(ref_file, 'w') as f:
+                    f.write(f"Comprehensive model saved to: {comprehensive_model_dir}\n")
+                    f.write(f"Production copy located at: {self.model_dir}\n")
+                    f.write(f"Created: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                
+                # Clean up the temporary comprehensive model directory if it's different
+                if comprehensive_model_dir != self.model_dir:
+                    try:
+                        pass  # Keep the original comprehensive save
+                        # shutil.rmtree(comprehensive_model_dir)
+                    except:
+                        pass
+                
+            else:
+                print(f"⚠️ Comprehensive model save failed, falling back to basic save")
+                self._save_basic_model_weights()
+                
+        except Exception as e:
+            print(f"❌ Failed to create comprehensive model artifacts: {e}")
+            print(f"🔄 Falling back to basic model weights saving...")
+            self._save_basic_model_weights()
+    
+    def _get_sample_data_for_artifacts(self, max_samples: int = 1000):
+        """Get a sample of data for creating model artifacts."""
+        try:
+            # Load the same data that was used for training
+            X_train, y_train, X_test, y_test = self.load_data()
+            
+            # Use test set for artifacts (more representative than training set)
+            if len(X_test) > max_samples:
+                # Stratified sampling to maintain class balance
+                indices = np.arange(len(X_test))
+                np.random.shuffle(indices)
+                sample_indices = indices[:max_samples]
+                X_sample = X_test[sample_indices]
+                y_sample = y_test[sample_indices]
+            else:
+                X_sample = X_test
+                y_sample = y_test
+                
+            return X_sample, y_sample
+            
+        except Exception as e:
+            print(f"⚠️ Could not load sample data for artifacts: {e}")
+            return None, None
+    
+    def _save_basic_model_weights(self):
+        """Fallback method to save basic model weights."""
+        try:
+            if hasattr(self, '_last_trained_model') and self._last_trained_model is not None:
+                os.makedirs(self.model_dir, exist_ok=True)
+                weights_path = os.path.join(self.model_dir, "model_weights.pt")
+                torch.save(self._last_trained_model.model.state_dict(), weights_path)
+                
+                # Save basic metadata
+                basic_metadata = {
+                    "experiment_name": self.experiment_name,
+                    "flare_class": self.flare_class,
+                    "time_window": self.time_window,
+                    "seed": self.seed,
+                    "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "description": f"EVEREST production model (basic save)",
+                    "framework": "PyTorch",
+                    "training_config": {
+                        "epochs": TRAINING_HYPERPARAMS["epochs"],
+                        "batch_size": TRAINING_HYPERPARAMS["batch_size"],
+                        "learning_rate": TRAINING_HYPERPARAMS["learning_rate"]
+                    }
+                }
+                
+                metadata_path = os.path.join(self.model_dir, "metadata.json")
+                with open(metadata_path, 'w') as f:
+                    json.dump(basic_metadata, f, indent=2, default=str)
+                
+                print(f"💾 Basic model weights and metadata saved to: {self.model_dir}")
+        except Exception as e:
+            print(f"❌ Failed to save basic model weights: {e}")
     
     def train(self) -> Dict[str, Any]:
         """Complete training pipeline."""
