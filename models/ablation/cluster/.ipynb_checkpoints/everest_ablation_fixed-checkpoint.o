@@ -1,0 +1,48 @@
+EVEREST Component Ablation Study - Fixed
+Job ID: 1175912[4].pbs
+Array Index: 4
+Node: cx3-11-5.cx3.hpc.ic.ac.uk
+Started: Thu 29 May 00:28:36 BST 2025
+========================================
+Project root: /rds/general/user/az2221/home/repositories/masters-project
+Project structure verified
+Activating everest_env...
+Environment activated
+Experiment Configuration:
+   Array Index: 4
+   Variant: full_model
+   Seed: 3
+Starting ablation experiment...
+Command: python models/ablation/run_ablation_with_metadata.py --variant full_model --seed 3
+2025-05-29 00:29:35.334877: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-05-29 00:29:35.334982: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-05-29 00:29:35.500825: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-05-29 00:29:35.618194: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-05-29 00:29:48.688967: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-05-29 00:30:01.688864: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+Traceback (most recent call last):
+  File "/rds/general/user/az2221/home/repositories/masters-project/models/ablation/run_ablation_with_metadata.py", line 254, in run_experiment
+    model_dir = model.train(
+                ^^^^^^^^^^^^
+  File "/rds/general/user/az2221/home/repositories/masters-project/models/solarknowledge_ret_plus.py", line 710, in train
+    model_dir = self.save(
+                ^^^^^^^^^^
+  File "/rds/general/user/az2221/home/repositories/masters-project/models/ablation/run_ablation_with_metadata.py", line 231, in enhanced_save
+    model_dir = save_model_with_metadata(
+                ^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: save_model_with_metadata() got an unexpected keyword argument 'X_eval'
+Experiment completed with exit code: 1
+Finished: Thu 29 May 00:47:53 BST 2025
+Experiment failed
+
+============================================
+
+        Job resource usage summary 
+
+                 Memory (GB)    NCPUs
+ Requested  :        32             8
+ Used       :         6 (peak)   0.96 (ave)
+
+============================================

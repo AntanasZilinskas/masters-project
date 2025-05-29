@@ -1,0 +1,161 @@
+{
+  "version": 5.3,
+  "timestamp": "2025-05-29T03:37:51.474540",
+  "description": "EVEREST Ablation Study - EVEREST model with mean pooling instead of attention pooling (seed 1)",
+  "flare_class": "M5",
+  "time_window": "72",
+  "hyperparameters": {
+    "input_shape": [
+      10,
+      9
+    ],
+    "embed_dim": 128,
+    "num_heads": 4,
+    "ff_dim": 256,
+    "num_blocks": 6,
+    "dropout": 0.2,
+    "ablation_variant": "mean_pool",
+    "ablation_seed": 1,
+    "learning_rate": 0.0005337429672856022,
+    "focal_gamma": 2.8033450352296265,
+    "batch_size": 512
+  },
+  "performance": {
+    "accuracy": 0.9987034532755231,
+    "TSS": 0.6242460732984294,
+    "ROC_AUC": 0.9963009229125201,
+    "Brier": 0.005189651763489925,
+    "ECE": 0.02303708390461797,
+    "precision": 0.5462184873949579,
+    "recall": 0.625,
+    "sensitivity": 0.625,
+    "specificity": 0.9992460732984293,
+    "f1_score": 0.5829596412556054,
+    "auc_roc": 0.9976629077728554,
+    "auc_pr": 0.6396966043896927,
+    "true_positives": 65,
+    "false_positives": 54,
+    "true_negatives": 71571,
+    "false_negatives": 39,
+    "positive_rate": 0.001449901713393467,
+    "prediction_rate": 0.0016590221528252171
+  },
+  "git_info": {
+    "commit": "a48102e20990c0e78201f09ca6101336f0761a5c",
+    "branch": "HEAD"
+  },
+  "architecture": {
+    "name": "EVEREST (PyTorch)",
+    "input_shape": [
+      10,
+      9
+    ],
+    "num_params": 549001,
+    "precision": "torch.float32"
+  },
+  "framework": "PyTorch",
+  "latency_sec_per_batch32": 0.0021208572387695314,
+  "training_metrics": {
+    "total_training_time_s": 1239.6426362991333,
+    "total_training_time_h": 0.34434517674975923,
+    "average_epoch_time_s": 24.791456847190858,
+    "fastest_epoch_time_s": 24.154622554779053,
+    "slowest_epoch_time_s": 25.482903480529785,
+    "epoch_times": [
+      24.941322565078735,
+      24.779552459716797,
+      24.95884680747986,
+      25.17863416671753,
+      24.999347925186157,
+      25.148971796035767,
+      24.98401379585266,
+      25.152711629867554,
+      24.96623182296753,
+      25.161396026611328,
+      24.978686571121216,
+      25.136462688446045,
+      24.92540693283081,
+      25.195310354232788,
+      24.947063207626343,
+      25.157958984375,
+      24.932448863983154,
+      25.20718550682068,
+      24.900466442108154,
+      25.17619276046753,
+      25.135075569152832,
+      25.412998914718628,
+      25.15239191055298,
+      25.427576303482056,
+      25.214489698410034,
+      25.482903480529785,
+      25.20331335067749,
+      25.447595596313477,
+      25.160269260406494,
+      24.7890408039093,
+      24.154622554779053,
+      24.403976678848267,
+      24.1651930809021,
+      24.374478101730347,
+      24.226595401763916,
+      24.406415462493896,
+      24.254932403564453,
+      24.449108600616455,
+      24.21621799468994,
+      24.368035078048706,
+      24.155622005462646,
+      24.42011594772339,
+      24.32352042198181,
+      24.498921394348145,
+      24.25508737564087,
+      24.41468906402588,
+      24.187072038650513,
+      24.47556781768799,
+      24.18367600440979,
+      24.38512873649597
+    ],
+    "epochs_completed": 50,
+    "early_stopped": false,
+    "gpu_info": {
+      "gpu_name": "Quadro RTX 6000",
+      "gpu_memory_gb": 23
+    },
+    "gpu_power_stats": {
+      "average_power_w": 74.122,
+      "max_power_w": 78.71,
+      "min_power_w": 61.36,
+      "power_readings": 5,
+      "monitoring_duration_s": 1200.3525049686432
+    },
+    "co2_emissions_kg": null,
+    "training_samples": 709447,
+    "batch_size": 512,
+    "mixed_precision": true
+  },
+  "ablation_metadata": {
+    "experiment_type": "component_ablation",
+    "variant": "mean_pool",
+    "seed": 1,
+    "ablation_config": {
+      "use_attention_bottleneck": false,
+      "use_evidential": true,
+      "use_evt": true,
+      "use_precursor": true,
+      "loss_weights": {
+        "focal": 0.8,
+        "evid": 0.1,
+        "evt": 0.1,
+        "prec": 0.05
+      },
+      "description": "EVEREST model with mean pooling instead of attention pooling"
+    },
+    "optimal_hyperparams": {
+      "embed_dim": 128,
+      "num_blocks": 4,
+      "dropout": 0.3531616510212273,
+      "focal_gamma": 2.8033450352296265,
+      "learning_rate": 0.0005337429672856022,
+      "batch_size": 512
+    },
+    "description": "EVEREST model with mean pooling instead of attention pooling"
+  }
+}

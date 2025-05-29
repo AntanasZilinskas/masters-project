@@ -1,0 +1,58 @@
+2025-05-27 07:40:14.073178: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-05-27 07:40:14.073460: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-05-27 07:40:14.195655: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-05-27 07:40:14.288612: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-05-27 07:40:28.055306: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-05-27 07:40:42.251624: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+Traceback (most recent call last):
+  File "<string>", line 2, in <module>
+  File "/rds/general/user/az2221/home/repositories/masters-project/models/utils.py", line 12, in <module>
+    import pandas as pd
+  File "/rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/__init__.py", line 49, in <module>
+    from pandas.core.api import (
+  File "/rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/core/api.py", line 47, in <module>
+    from pandas.core.groupby import (
+  File "/rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/core/groupby/__init__.py", line 1, in <module>
+    from pandas.core.groupby.generic import (
+  File "/rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/core/groupby/generic.py", line 68, in <module>
+    from pandas.core.frame import DataFrame
+  File "/rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/core/frame.py", line 149, in <module>
+    from pandas.core.generic import (
+  File "/rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/core/generic.py", line 193, in <module>
+    from pandas.core.window import (
+  File "/rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/core/window/__init__.py", line 1, in <module>
+    from pandas.core.window.ewm import (
+  File "/rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/core/window/ewm.py", line 11, in <module>
+    import pandas._libs.window.aggregations as window_aggregations
+ImportError: /lib64/libstdc++.so.6: version `GLIBCXX_3.4.29' not found (required by /rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/_libs/window/aggregations.cpython-311-x86_64-linux-gnu.so)
+2025-05-27 07:42:37.076397: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-05-27 07:42:37.076535: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-05-27 07:42:37.236173: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-05-27 07:42:37.381770: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-05-27 07:42:51.630069: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-05-27 07:43:05.898723: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+Traceback (most recent call last):
+  File "<string>", line 2, in <module>
+  File "/rds/general/user/az2221/home/repositories/masters-project/models/utils.py", line 12, in <module>
+    import pandas as pd
+  File "/rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/__init__.py", line 49, in <module>
+    from pandas.core.api import (
+  File "/rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/core/api.py", line 47, in <module>
+    from pandas.core.groupby import (
+  File "/rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/core/groupby/__init__.py", line 1, in <module>
+    from pandas.core.groupby.generic import (
+  File "/rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/core/groupby/generic.py", line 68, in <module>
+    from pandas.core.frame import DataFrame
+  File "/rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/core/frame.py", line 149, in <module>
+    from pandas.core.generic import (
+  File "/rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/core/generic.py", line 193, in <module>
+    from pandas.core.window import (
+  File "/rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/core/window/__init__.py", line 1, in <module>
+    from pandas.core.window.ewm import (
+  File "/rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/core/window/ewm.py", line 11, in <module>
+    import pandas._libs.window.aggregations as window_aggregations
+ImportError: /lib64/libstdc++.so.6: version `GLIBCXX_3.4.29' not found (required by /rds/general/user/az2221/home/miniforge3/envs/everest_env/lib/python3.11/site-packages/pandas/_libs/window/aggregations.cpython-311-x86_64-linux-gnu.so)

@@ -1,0 +1,23 @@
+ERROR: Unable to locate a modulefile for 'Python/3.12.3-GCCcore-13.3.0'
+ERROR: Unable to locate a modulefile for 'PyTorch/2.1.2-foss-2023a-CUDA-12.1.1'
+/var/spool/PBS/mom_priv/jobs/1166434.pbs.SC: line 18: python: command not found
+/var/spool/PBS/mom_priv/jobs/1166434.pbs.SC: line 23: venv_hpo/bin/activate: No such file or directory
+/var/spool/PBS/mom_priv/jobs/1166434.pbs.SC: line 26: pip: command not found
+/var/spool/PBS/mom_priv/jobs/1166434.pbs.SC: line 29: pip: command not found
+/var/spool/PBS/mom_priv/jobs/1166434.pbs.SC: line 32: python: command not found
+/var/spool/PBS/mom_priv/jobs/1166434.pbs.SC: line 33: python: command not found
+ERROR: Unable to locate a modulefile for 'Python/3.12.3-GCCcore-13.3.0'
+ERROR: Unable to locate a modulefile for 'PyTorch/2.1.2-foss-2023a-CUDA-12.1.1'
+/var/spool/PBS/mom_priv/jobs/1166470.pbs.SC: line 18: python: command not found
+/var/spool/PBS/mom_priv/jobs/1166470.pbs.SC: line 23: venv_hpo/bin/activate: No such file or directory
+/var/spool/PBS/mom_priv/jobs/1166470.pbs.SC: line 26: pip: command not found
+/var/spool/PBS/mom_priv/jobs/1166470.pbs.SC: line 29: pip: command not found
+/var/spool/PBS/mom_priv/jobs/1166470.pbs.SC: line 32: python: command not found
+/var/spool/PBS/mom_priv/jobs/1166470.pbs.SC: line 33: python: command not found
+2025-05-26 21:07:56.308324: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-05-26 21:07:56.310484: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-05-26 21:07:56.426197: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-05-26 21:07:56.543432: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-05-26 21:08:11.185333: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-05-26 21:08:28.167021: E external/local_xla/xla/stream_executor/cuda/cuda_driver.cc:274] failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
