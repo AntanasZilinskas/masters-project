@@ -18,6 +18,7 @@ echo "========================================"
 
 # Navigate to project root and verify structure
 cd $PBS_O_WORKDIR
+cd ../../..  # Go up from cluster -> training -> models -> project_root
 PROJECT_ROOT=$(pwd)
 echo "Project root: $PROJECT_ROOT"
 
