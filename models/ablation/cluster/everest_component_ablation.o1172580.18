@@ -1,0 +1,33 @@
+🔬 EVEREST Component Ablation Study - Job 18/35
+Node: cx3-11-6.cx3.hpc.ic.ac.uk
+Date: Wed 28 May 02:04:51 BST 2025
+Working directory: /rds/general/user/az2221/home/repositories/masters-project/models/ablation/cluster
+Working directory: /rds/general/user/az2221/home/repositories/masters-project/models/ablation/cluster
+Contents: total 1104
+drwxr-sr-x. 2 az2221 hpc-rshorten  8192 May 28 02:04 .
+drwxr-sr-x. 7 az2221 hpc-rshorten  8192 May 27 23:11 ..
+-rw-------. 1 az2221 hpc-rshorten     0 May 27 06:30 ablation_ultra_${PBS_ARRAY_INDEX}.err
+-rw-------. 1 az2221 hpc-rshorten  1584 May 27 06:30 ablation_ultra_${PBS_ARRAY_INDEX}.out
+Array job 18: Running component ablation experiments
+Using GPU: 1
+Conda environment: everest_env
+Python path: /rds/general/user/az2221/home/repositories/masters-project/models/ablation/cluster:
+Python executable: /rds/general/user/az2221/home/miniforge3/envs/everest_env/bin/python
+Python version: Python 3.11.12
+Validating GPU...
+✅ GPU available: Quadro RTX 6000
+Validating data availability...
+Traceback (most recent call last):
+  File "<string>", line 6, in <module>
+ModuleNotFoundError: No module named 'models'
+❌ Data validation failed - terminating job
+
+============================================
+
+        Job resource usage summary 
+
+                 Memory (GB)    NCPUs
+ Requested  :        32             8
+ Used       :         0 (peak)   0.12 (ave)
+
+============================================

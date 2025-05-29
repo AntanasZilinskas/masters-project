@@ -1,0 +1,99 @@
+{
+  "version": 2.7,
+  "timestamp": "2025-05-28T06:27:27.659281",
+  "description": "EVEREST model trained on SHARP data with evidential and EVT losses.",
+  "flare_class": "M5",
+  "time_window": "72",
+  "hyperparameters": {
+    "input_shape": [
+      10,
+      9
+    ],
+    "embed_dim": 128,
+    "num_heads": 4,
+    "ff_dim": 256,
+    "num_blocks": 6,
+    "dropout": 0.2
+  },
+  "performance": {
+    "accuracy": 0.9960870931866651,
+    "TSS": 0.534979196358204,
+    "ROC_AUC": 0.9971755922272828,
+    "Brier": 0.010122220886974937,
+    "ECE": 0.07119842493071053
+  },
+  "git_info": {
+    "commit": "5ff1a61c7700d3630229b919aeaad50877aaf8a8",
+    "branch": "pytorch-rewrite"
+  },
+  "architecture": {
+    "name": "EVEREST (PyTorch)",
+    "input_shape": [
+      10,
+      9
+    ],
+    "num_params": 814090,
+    "precision": "torch.float32"
+  },
+  "framework": "PyTorch",
+  "latency_sec_per_batch32": 0.002888021469116211,
+  "training_metrics": {
+    "total_training_time_s": 605.314783334732,
+    "total_training_time_h": 0.1681429953707589,
+    "average_epoch_time_s": 18.340382221973304,
+    "fastest_epoch_time_s": 17.973671913146973,
+    "slowest_epoch_time_s": 20.94930648803711,
+    "epoch_times": [
+      20.94930648803711,
+      18.31060528755188,
+      18.38161587715149,
+      18.389991760253906,
+      18.338835954666138,
+      18.135390520095825,
+      18.310348510742188,
+      18.377603769302368,
+      18.401808261871338,
+      18.229647397994995,
+      18.006478786468506,
+      18.1946804523468,
+      18.256208896636963,
+      18.230093717575073,
+      17.973671913146973,
+      18.225194215774536,
+      18.19361186027527,
+      18.185532808303833,
+      18.013479471206665,
+      18.196584939956665,
+      18.308364152908325,
+      18.292590618133545,
+      18.307406663894653,
+      18.096524715423584,
+      18.29129695892334,
+      18.297445058822632,
+      18.30936288833618,
+      18.319141149520874,
+      18.13163661956787,
+      18.425244092941284,
+      18.336203575134277,
+      18.381383895874023,
+      18.435322046279907
+    ],
+    "epochs_completed": 33,
+    "early_stopped": true,
+    "gpu_info": {
+      "gpu_name": "Quadro RTX 6000",
+      "gpu_memory_gb": 23
+    },
+    "gpu_power_stats": {
+      "average_power_w": 145.49,
+      "max_power_w": 145.59,
+      "min_power_w": 145.36,
+      "power_readings": 3,
+      "monitoring_duration_s": 600.1843078136444
+    },
+    "co2_emissions_kg": null,
+    "training_samples": 709447,
+    "batch_size": 1024,
+    "mixed_precision": true
+  }
+}

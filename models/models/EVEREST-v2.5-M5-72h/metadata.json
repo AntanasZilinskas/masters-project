@@ -1,0 +1,67 @@
+{
+  "version": 2.5,
+  "timestamp": "2025-05-28T02:27:26.973785",
+  "description": "EVEREST model trained on SHARP data with evidential and EVT losses.",
+  "flare_class": "M5",
+  "time_window": "72",
+  "hyperparameters": {
+    "input_shape": [
+      10,
+      9
+    ],
+    "embed_dim": 128,
+    "num_heads": 4,
+    "ff_dim": 256,
+    "num_blocks": 6,
+    "dropout": 0.2
+  },
+  "performance": {
+    "accuracy": 0.9929085611751124,
+    "TSS": 0.004201606916812262,
+    "ROC_AUC": 0.9340335609712962,
+    "Brier": 0.006157243797376502,
+    "ECE": 0.002442304144696044
+  },
+  "git_info": {
+    "commit": "def9268ae43c170a23711491eb66ed03dfe0117e",
+    "branch": "pytorch-rewrite"
+  },
+  "architecture": {
+    "name": "EVEREST (PyTorch)",
+    "input_shape": [
+      10,
+      9
+    ],
+    "num_params": 814090,
+    "precision": "torch.float32"
+  },
+  "framework": "PyTorch",
+  "latency_sec_per_batch32": 0.0030617141723632813,
+  "training_metrics": {
+    "total_training_time_s": 33.45838236808777,
+    "total_training_time_h": 0.009293995102246603,
+    "average_epoch_time_s": 33.39939475059509,
+    "fastest_epoch_time_s": 33.39939475059509,
+    "slowest_epoch_time_s": 33.39939475059509,
+    "epoch_times": [
+      33.39939475059509
+    ],
+    "epochs_completed": 1,
+    "early_stopped": false,
+    "gpu_info": {
+      "gpu_name": "Quadro RTX 6000",
+      "gpu_memory_gb": 23
+    },
+    "gpu_power_stats": {
+      "average_power_w": 3.8,
+      "max_power_w": 3.8,
+      "min_power_w": 3.8,
+      "power_readings": 1,
+      "monitoring_duration_s": 0
+    },
+    "co2_emissions_kg": null,
+    "training_samples": 709447,
+    "batch_size": 512,
+    "mixed_precision": true
+  }
+}
