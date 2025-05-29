@@ -283,12 +283,24 @@ class AblationTrainer:
             epochs, batch_size, focal_gamma, use_amp
         )
         
-        # Save results
+        # Store results for model saving
+        self._last_results = results
+        self._last_history = results.get("history", {})
+        
+        # Save results (metrics, history, etc.)
         self._save_results(results)
+        
+        # Save trained model weights
+        print(f"\n💾 Saving trained model weights...")
+        model_save_path = self._save_model_weights(model, X_test, y_test)
+        if model_save_path:
+            results["model_save_path"] = model_save_path
         
         elapsed = time.time() - start_time
         print(f"\n✅ Training completed in {elapsed:.1f}s ({elapsed/60:.1f} min)")
         print(f"📁 Results saved to: {self.experiment_dir}")
+        if model_save_path:
+            print(f"💾 Model saved to: {model_save_path}")
         
         return results
     
@@ -596,7 +608,7 @@ class AblationTrainer:
         return latency_per_sample
     
     def _save_results(self, results: Dict[str, Any]):
-        """Save experiment results."""
+        """Save experiment results and trained model."""
         # Save main results as JSON
         results_file = os.path.join(self.experiment_dir, "results.json")
         with open(results_file, 'w') as f:
@@ -621,6 +633,109 @@ class AblationTrainer:
         print(f"   JSON: {results_file}")
         print(f"   History: {history_file}")
         print(f"   Metrics: {metrics_file}")
+    
+    def _save_model_weights(self, model: RETPlusWrapper, X_eval: np.ndarray, y_eval: np.ndarray) -> str:
+        """
+        Save trained model weights using thread-safe versioning for ablation studies.
+        
+        Args:
+            model: Trained RETPlusWrapper model
+            X_eval: Evaluation data for model artifacts
+            y_eval: Evaluation labels for model artifacts
+            
+        Returns:
+            Path to saved model directory
+        """
+        # Import the thread-safe versioning function
+        sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+        from model_tracking import save_model_with_metadata, get_next_version_safe
+        
+        # Get thread-safe version number
+        flare_class = PRIMARY_TARGET["flare_class"]
+        time_window = PRIMARY_TARGET["time_window"]
+        
+        try:
+            # Use thread-safe versioning with ablation-specific suffix
+            base_version = get_next_version_safe(flare_class, time_window)
+            ablation_version = f"{base_version}_ablation_{self.variant_name}_seed_{self.seed}"
+            
+            # Get performance metrics from the stored results
+            final_metrics = getattr(self, '_last_results', {}).get("final_metrics", {})
+            training_history = getattr(self, '_last_history', {})
+            
+            # Create comprehensive metadata for ablation studies
+            ablation_metadata = {
+                "ablation_type": "component" if not self.sequence_variant else "sequence",
+                "variant_name": self.variant_name,
+                "sequence_variant": self.sequence_variant,
+                "random_seed": self.seed,
+                "experiment_name": self.experiment_name,
+                "variant_config": self.variant_config,
+                "input_shape": self.input_shape,
+                "training_protocol": "5_seeds_early_stopping",
+                "target": {
+                    "flare_class": flare_class,
+                    "time_window": time_window
+                }
+            }
+            
+            # Enhanced hyperparameters combining optimal + ablation settings
+            enhanced_hyperparams = {
+                **OPTIMAL_HYPERPARAMS,
+                "input_shape": self.input_shape,
+                "use_attention_bottleneck": self.variant_config["use_attention_bottleneck"],
+                "use_evidential": self.variant_config["use_evidential"],
+                "use_evt": self.variant_config["use_evt"],
+                "use_precursor": self.variant_config["use_precursor"],
+                "loss_weights": self.variant_config["loss_weights"],
+                "focal_gamma": self.variant_config["focal_gamma"],
+                "use_amp": self.variant_config["use_amp"]
+            }
+            
+            # Compute predictions and probabilities for comprehensive artifacts
+            print("🔮 Computing model predictions for artifacts...")
+            model.model.eval()
+            device = next(model.model.parameters()).device
+            
+            with torch.no_grad():
+                X_eval_tensor = torch.tensor(X_eval, dtype=torch.float32).to(device)
+                outputs = model.model(X_eval_tensor)
+                y_probs = torch.sigmoid(outputs["logits"]).cpu().numpy().flatten()
+                y_pred = (y_probs > 0.5).astype(int)
+            
+            # Save model with comprehensive metadata
+            model_dir = save_model_with_metadata(
+                model=model,
+                metrics=final_metrics,
+                hyperparams=enhanced_hyperparams,
+                history=training_history,
+                version=ablation_version,
+                flare_class=flare_class,
+                time_window=time_window,
+                description=f"EVEREST ablation study: {ABLATION_VARIANTS[self.variant_name]['name']} (seed {self.seed})",
+                # Evaluation data for artifacts
+                y_true=y_eval,
+                y_pred=y_pred,
+                y_scores=y_probs,
+                sample_input=torch.tensor(X_eval[:32], dtype=torch.float32) if len(X_eval) >= 32 else torch.tensor(X_eval, dtype=torch.float32),
+                # Ablation study specific metadata
+                ablation_metadata=ablation_metadata
+            )
+            
+            print(f"💾 Model weights saved to: {model_dir}")
+            return model_dir
+            
+        except Exception as e:
+            print(f"⚠️ Failed to save model weights: {e}")
+            # Fallback: save weights directly to experiment directory
+            fallback_path = os.path.join(self.model_dir, "model_weights.pt")
+            try:
+                torch.save(model.model.state_dict(), fallback_path)
+                print(f"💾 Fallback: Model weights saved to: {fallback_path}")
+                return self.model_dir
+            except Exception as e2:
+                print(f"❌ Fallback save also failed: {e2}")
+                return None
 
 
 def train_ablation_variant(variant_name: str, seed: int, sequence_variant: Optional[str] = None, 
