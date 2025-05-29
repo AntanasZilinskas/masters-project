@@ -1,0 +1,48 @@
+#!/bin/bash
+#PBS -N everest_production
+#PBS -l walltime=12:00:00
+#PBS -l select=1:ncpus=4:mem=32gb:ngpus=1:gpu_type=L40S
+#PBS -J 1-45
+#PBS -j oe
+#PBS -o logs/production_${PBS_ARRAY_INDEX}.log
+
+# EVEREST Production Training - Array Job Submission
+# This script runs individual production training experiments as array jobs
+
+# Load environment
+module load anaconda3/personal
+source activate everest_env
+
+# Set up paths
+cd $PBS_O_WORKDIR
+export PYTHONPATH="${PBS_O_WORKDIR}:${PYTHONPATH}"
+
+# Create logs directory
+mkdir -p logs
+
+# Run the specific experiment for this array index
+echo "🏭 Starting EVEREST Production Training"
+echo "Array Index: ${PBS_ARRAY_INDEX}"
+echo "Node: $(hostname)"
+echo "GPU: $(nvidia-smi -L)"
+echo "Time: $(date)"
+echo ""
+
+# Execute the training script in array mode
+python models/training/run_production_training.py \
+    --mode array \
+    --array_index ${PBS_ARRAY_INDEX}
+
+# Check exit status
+if [ $? -eq 0 ]; then
+    echo ""
+    echo "✅ Production training completed successfully"
+    echo "Array Index: ${PBS_ARRAY_INDEX}"
+    echo "Time: $(date)"
+else
+    echo ""
+    echo "❌ Production training failed"
+    echo "Array Index: ${PBS_ARRAY_INDEX}"
+    echo "Time: $(date)"
+    exit 1
+fi 
