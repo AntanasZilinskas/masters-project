@@ -9,15 +9,15 @@ import os
 from typing import Dict, List, Any, Optional
 
 # ============================================================================
-# OPTIMAL HYPERPARAMETERS (from HPO study - frozen for all ablations)
+# OPTIMAL HYPERPARAMETERS (from solarknowledge_ret_plus.py - frozen for all ablations)
 # ============================================================================
 OPTIMAL_HYPERPARAMS = {
-    "embed_dim": 64,
-    "num_blocks": 8,
-    "dropout": 0.23876978467047777,
-    "focal_gamma": 3.4223204654921875,
-    "learning_rate": 0.0006926769179941219,
-    "batch_size": 1024
+    "embed_dim": 128,          # Updated from 64 to match solarknowledge_ret_plus.py default
+    "num_blocks": 6,           # Updated from 8 to match solarknowledge_ret_plus.py default
+    "dropout": 0.2,            # Updated from 0.23876978467047777 to match solarknowledge_ret_plus.py default
+    "focal_gamma": 2.0,        # Updated from 3.4223204654921875 to match gamma_max from solarknowledge_ret_plus.py
+    "learning_rate": 3e-4,     # Updated from 0.0006926769179941219 to match solarknowledge_ret_plus.py default
+    "batch_size": 512          # Updated from 1024 to match solarknowledge_ret_plus.py default
 }
 
 # Fixed architecture settings
@@ -26,7 +26,7 @@ FIXED_ARCHITECTURE = {
     "num_heads": 4,
     "ff_dim": 256,
     "early_stopping_patience": 10,  # Paper specifies 10 epochs for ablation
-    "max_epochs": 120
+    "max_epochs": 300        # Updated from 120 to match notebook (300 epochs)
 }
 
 # ============================================================================
@@ -61,10 +61,10 @@ RANDOM_SEEDS = [0, 1, 2, 3, 4]
 
 # Training configuration
 TRAINING_CONFIG = {
-    "epochs": 120,
+    "epochs": 300,             # Updated from 120 to match notebook (300 epochs)
     "early_stopping_patience": 10,
     "track_emissions": False,  # Disable for speed in ablation studies
-    "in_memory_dataset": False,
+    "in_memory_dataset": True, # Updated to match notebook setting
     "use_amp": True,  # Mixed precision (will be ablated)
 }
 
