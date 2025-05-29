@@ -16,11 +16,29 @@ from typing import Dict, List, Any
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from .config import (
-    TRAINING_TARGETS, RANDOM_SEEDS, TOTAL_EXPERIMENTS, OUTPUT_CONFIG,
-    get_all_experiments, get_array_job_mapping, create_output_directories
-)
-from .trainer import train_production_model
+# Robust import handling for both module and script execution
+try:
+    # Relative imports (when used as module)
+    from .config import (
+        TRAINING_TARGETS, RANDOM_SEEDS, TOTAL_EXPERIMENTS, OUTPUT_CONFIG,
+        get_all_experiments, get_array_job_mapping, create_output_directories
+    )
+    from .trainer import train_production_model
+except ImportError:
+    # Absolute imports (when used as script from project root)
+    try:
+        from models.training.config import (
+            TRAINING_TARGETS, RANDOM_SEEDS, TOTAL_EXPERIMENTS, OUTPUT_CONFIG,
+            get_all_experiments, get_array_job_mapping, create_output_directories
+        )
+        from models.training.trainer import train_production_model
+    except ImportError:
+        # Direct imports (when script run from training directory)
+        from config import (
+            TRAINING_TARGETS, RANDOM_SEEDS, TOTAL_EXPERIMENTS, OUTPUT_CONFIG,
+            get_all_experiments, get_array_job_mapping, create_output_directories
+        )
+        from trainer import train_production_model
 
 
 def run_single_experiment(experiment_config: Dict[str, Any]) -> Dict[str, Any]:

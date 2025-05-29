@@ -91,8 +91,8 @@ fi
 echo "📊 Array job configuration:"
 echo "   Range: $ARRAY_RANGE"
 echo "   Total jobs: 45 (9 targets × 5 seeds)"
-echo "   Resource: 1 GPU, 4 cores, 32GB RAM per job"
-echo "   Time limit: 12 hours per job"
+echo "   Resource: 1 GPU (L40S), 8 cores, 64GB RAM per job"
+echo "   Time limit: 24 hours per job"
 
 # Submit array job
 ARRAY_SCRIPT="$SCRIPT_DIR/submit_production_array.pbs"
@@ -169,7 +169,7 @@ echo "📁 Results will be saved to:"
 echo "   models/training/results/"
 echo "   models/training/trained_models/"
 echo ""
-echo "🎯 Expected completion time: ~12 hours (parallel execution)"
+echo "🎯 Expected completion time: ~18-24 hours (parallel execution)"
 echo "💾 Expected storage usage: ~50GB"
 
 if [ "$TARGETS_FILTER" != "" ]; then
