@@ -130,10 +130,10 @@ OUTPUT_CONFIG = {
 # ============================================================================
 
 CLUSTER_CONFIG = {
-    "job_time_limit": "24:00:00",  # 24 hours per job (matching HPO configuration)
-    "memory_per_job": "64gb",
-    "gpu_type": "L40S",
-    "cpus_per_task": 8,
+    "job_time_limit": "24:00:00",  # 24 hours per job
+    "memory_per_job": "24gb",
+    "gpu_type": "Any available GPU",
+    "cpus_per_task": 4,
     "array_job_limit": 20,  # Max concurrent jobs
     "partition": "gpu"
 }

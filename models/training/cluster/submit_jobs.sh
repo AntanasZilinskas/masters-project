@@ -1,20 +1,18 @@
 #!/bin/bash
 
-"""
-EVEREST Production Training - Cluster Job Submission Script
-
-This script submits the production training array job and optional analysis job.
-
-Usage:
-  ./submit_jobs.sh [--dry-run] [--targets C-24 M-48 M5-72] [--no-analysis]
-"""
+# EVEREST Production Training - Cluster Job Submission Script
+#
+# This script submits the production training array job and optional analysis job.
+#
+# Usage:
+#   ./submit_jobs.sh [--dry-run] [--targets C-24 M-48 M5-72] [--no-analysis]
 
 set -e  # Exit on any error
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-LOGS_DIR="$PROJECT_ROOT/logs"
+LOGS_DIR="$PROJECT_ROOT/models/training/logs"
 
 # Parse command line arguments
 DRY_RUN=false
@@ -29,8 +27,15 @@ while [[ $# -gt 0 ]]; do
             ;;
         --targets)
             shift
-            TARGETS_FILTER="$*"
-            break
+            # Collect all arguments until we hit another option or end of args
+            while [[ $# -gt 0 ]] && [[ $1 != --* ]]; do
+                if [ -z "$TARGETS_FILTER" ]; then
+                    TARGETS_FILTER="$1"
+                else
+                    TARGETS_FILTER="$TARGETS_FILTER $1"
+                fi
+                shift
+            done
             ;;
         --no-analysis)
             NO_ANALYSIS=true
@@ -97,10 +102,15 @@ echo "   Time limit: 24 hours per job"
 # Submit array job
 ARRAY_SCRIPT="$SCRIPT_DIR/submit_production_array.pbs"
 
+if [ ! -f "$ARRAY_SCRIPT" ]; then
+    echo "❌ Error: Array script not found: $ARRAY_SCRIPT"
+    exit 1
+fi
+
 if [ "$DRY_RUN" = true ]; then
     echo ""
     echo "🔍 DRY RUN - Commands that would be executed:"
-    echo "qsub -J $ARRAY_RANGE $ARRAY_SCRIPT"
+    echo "qsub $ARRAY_SCRIPT"
     
     if [ "$NO_ANALYSIS" = false ]; then
         echo "# After array job completes:"
@@ -110,15 +120,17 @@ else
     echo ""
     echo "🚀 Submitting array job..."
     
-    # Modify the array range in the PBS script temporarily
-    TEMP_SCRIPT=$(mktemp)
-    sed "s/#PBS -J 1-45/#PBS -J $ARRAY_RANGE/" "$ARRAY_SCRIPT" > "$TEMP_SCRIPT"
-    
-    ARRAY_JOB_ID=$(qsub "$TEMP_SCRIPT" | cut -d'.' -f1)
-    rm "$TEMP_SCRIPT"
-    
-    echo "✅ Array job submitted: $ARRAY_JOB_ID"
-    echo "   Range: $ARRAY_RANGE"
+    # Submit the array job directly (range is already set in the PBS script)
+    if ARRAY_JOB_ID=$(qsub "$ARRAY_SCRIPT" 2>&1); then
+        # Extract job ID from PBS output (format may vary by system)
+        ARRAY_JOB_ID=$(echo "$ARRAY_JOB_ID" | grep -o '[0-9]\+' | head -1)
+        echo "✅ Array job submitted: $ARRAY_JOB_ID"
+        echo "   Range: $ARRAY_RANGE"
+    else
+        echo "❌ Failed to submit array job"
+        echo "Error: $ARRAY_JOB_ID"
+        exit 1
+    fi
     
     # Submit analysis job with dependency
     if [ "$NO_ANALYSIS" = false ]; then
@@ -127,18 +139,25 @@ else
         
         ANALYSIS_SCRIPT="$SCRIPT_DIR/submit_analysis.pbs"
         
-        # Try different dependency syntaxes for different PBS systems
-        if ANALYSIS_JOB_ID=$(qsub -W depend=afterokarray:$ARRAY_JOB_ID "$ANALYSIS_SCRIPT" 2>/dev/null | cut -d'.' -f1); then
-            echo "✅ Analysis job submitted: $ANALYSIS_JOB_ID"
-            echo "   Dependency: afterokarray:$ARRAY_JOB_ID"
-        elif ANALYSIS_JOB_ID=$(qsub -W depend=afterany:$ARRAY_JOB_ID "$ANALYSIS_SCRIPT" 2>/dev/null | cut -d'.' -f1); then
-            echo "✅ Analysis job submitted: $ANALYSIS_JOB_ID"
-            echo "   Dependency: afterany:$ARRAY_JOB_ID"
+        if [ ! -f "$ANALYSIS_SCRIPT" ]; then
+            echo "⚠️  Analysis script not found: $ANALYSIS_SCRIPT"
+            echo "   Skipping analysis job submission"
         else
-            echo "⚠️  Could not submit analysis job with dependency"
-            echo "   Please submit manually after array job completes:"
-            echo "   qsub $ANALYSIS_SCRIPT"
-            ANALYSIS_JOB_ID=""
+            # Try different dependency syntaxes for different PBS systems
+            if ANALYSIS_JOB_ID=$(qsub -W depend=afterokarray:$ARRAY_JOB_ID "$ANALYSIS_SCRIPT" 2>/dev/null); then
+                ANALYSIS_JOB_ID=$(echo "$ANALYSIS_JOB_ID" | grep -o '[0-9]\+' | head -1)
+                echo "✅ Analysis job submitted: $ANALYSIS_JOB_ID"
+                echo "   Dependency: afterokarray:$ARRAY_JOB_ID"
+            elif ANALYSIS_JOB_ID=$(qsub -W depend=afterany:$ARRAY_JOB_ID "$ANALYSIS_SCRIPT" 2>/dev/null); then
+                ANALYSIS_JOB_ID=$(echo "$ANALYSIS_JOB_ID" | grep -o '[0-9]\+' | head -1)
+                echo "✅ Analysis job submitted: $ANALYSIS_JOB_ID"
+                echo "   Dependency: afterany:$ARRAY_JOB_ID"
+            else
+                echo "⚠️  Could not submit analysis job with dependency"
+                echo "   Please submit manually after array job completes:"
+                echo "   qsub $ANALYSIS_SCRIPT"
+                ANALYSIS_JOB_ID=""
+            fi
         fi
     fi
 fi
@@ -162,8 +181,11 @@ fi
 
 echo ""
 echo "📊 Monitoring commands:"
-echo "   qstat -u $USER"
-echo "   qstat -t $ARRAY_JOB_ID  # Array job details"
+echo "   qstat -u \$USER"
+if [ "$DRY_RUN" = false ] && [ -n "$ARRAY_JOB_ID" ]; then
+    echo "   qstat -t $ARRAY_JOB_ID  # Array job details"
+fi
+echo "   watch -n 30 'qstat -u \$USER'  # Auto-refresh every 30s"
 echo ""
 echo "📁 Results will be saved to:"
 echo "   models/training/results/"
@@ -176,4 +198,10 @@ if [ "$TARGETS_FILTER" != "" ]; then
     echo ""
     echo "⚠️  Note: Target filtering is applied within the training script"
     echo "   Filtered targets: $TARGETS_FILTER"
-fi 
+fi
+
+echo ""
+echo "🚀 Next steps:"
+echo "   1. Monitor job progress with: qstat -u \$USER"
+echo "   2. Check individual job logs in: models/training/logs/"
+echo "   3. View results after completion in: models/training/results/" 
