@@ -1,0 +1,40 @@
+#!/bin/bash
+#PBS -N everest_production_analysis
+#PBS -l walltime=02:00:00
+#PBS -l select=1:ncpus=4:mem=16gb
+#PBS -j oe
+#PBS -o logs/production_analysis.log
+
+# EVEREST Production Training - Analysis Job
+# This script runs statistical analysis after all training jobs complete
+
+# Load environment
+module load anaconda3/personal
+source activate everest_env
+
+# Set up paths
+cd $PBS_O_WORKDIR
+export PYTHONPATH="${PBS_O_WORKDIR}:${PYTHONPATH}"
+
+# Create logs directory
+mkdir -p logs
+
+echo "📊 Starting EVEREST Production Training Analysis"
+echo "Node: $(hostname)"
+echo "Time: $(date)"
+echo ""
+
+# Run the analysis script
+python models/training/analysis.py
+
+# Check exit status
+if [ $? -eq 0 ]; then
+    echo ""
+    echo "✅ Production training analysis completed successfully"
+    echo "Time: $(date)"
+else
+    echo ""
+    echo "❌ Production training analysis failed"
+    echo "Time: $(date)"
+    exit 1
+fi 
