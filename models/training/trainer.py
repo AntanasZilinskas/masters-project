@@ -22,14 +22,38 @@ from sklearn.metrics import (
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from .config import (
-    TRAINING_TARGETS, RANDOM_SEEDS, FIXED_ARCHITECTURE, TRAINING_HYPERPARAMS,
-    LOSS_WEIGHT_SCHEDULE, THRESHOLD_CONFIG, BALANCED_WEIGHTS, EVALUATION_METRICS,
-    OUTPUT_CONFIG, STATISTICAL_CONFIG, get_experiment_name, get_threshold_search_points,
-    calculate_balanced_score, create_output_directories
-)
-from solarknowledge_ret_plus import RETPlusWrapper
-from utils import get_training_data, get_testing_data
+# Try different import strategies for robustness
+try:
+    # Relative imports (when used as module)
+    from .config import (
+        TRAINING_TARGETS, RANDOM_SEEDS, FIXED_ARCHITECTURE, TRAINING_HYPERPARAMS,
+        LOSS_WEIGHT_SCHEDULE, THRESHOLD_CONFIG, BALANCED_WEIGHTS, EVALUATION_METRICS,
+        OUTPUT_CONFIG, STATISTICAL_CONFIG, get_experiment_name, get_threshold_search_points,
+        calculate_balanced_score, create_output_directories
+    )
+except ImportError:
+    # Absolute imports (when used as script)
+    from config import (
+        TRAINING_TARGETS, RANDOM_SEEDS, FIXED_ARCHITECTURE, TRAINING_HYPERPARAMS,
+        LOSS_WEIGHT_SCHEDULE, THRESHOLD_CONFIG, BALANCED_WEIGHTS, EVALUATION_METRICS,
+        OUTPUT_CONFIG, STATISTICAL_CONFIG, get_experiment_name, get_threshold_search_points,
+        calculate_balanced_score, create_output_directories
+    )
+
+# Import EVEREST model components - try multiple paths
+try:
+    from models.solarknowledge_ret_plus import RETPlusWrapper
+    from models.utils import get_training_data, get_testing_data
+except ImportError:
+    try:
+        from solarknowledge_ret_plus import RETPlusWrapper
+        from utils import get_training_data, get_testing_data
+    except ImportError:
+        # Add project root to path
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        sys.path.insert(0, project_root)
+        from models.solarknowledge_ret_plus import RETPlusWrapper
+        from models.utils import get_training_data, get_testing_data
 
 
 class ProductionTrainer:

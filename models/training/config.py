@@ -52,7 +52,7 @@ FIXED_ARCHITECTURE = {
 
 # Training hyperparameters (from HPO results)
 TRAINING_HYPERPARAMS = {
-    "epochs": 120,
+    "epochs": 300,
     "batch_size": 512,
     "learning_rate": 5.34e-4,
     "weight_decay": 1e-4,
@@ -130,10 +130,10 @@ OUTPUT_CONFIG = {
 # ============================================================================
 
 CLUSTER_CONFIG = {
-    "job_time_limit": "12:00:00",  # 12 hours per job
-    "memory_per_job": "32gb",
+    "job_time_limit": "24:00:00",  # 24 hours per job (matching HPO configuration)
+    "memory_per_job": "64gb",
     "gpu_type": "L40S",
-    "cpus_per_task": 4,
+    "cpus_per_task": 8,
     "array_job_limit": 20,  # Max concurrent jobs
     "partition": "gpu"
 }
