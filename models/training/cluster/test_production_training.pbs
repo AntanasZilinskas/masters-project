@@ -1,7 +1,7 @@
 #!/bin/bash
 #PBS -N test_production_training
 #PBS -l walltime=2:00:00
-#PBS -l select=1:ncpus=8:mem=64gb:ngpus=1:gpu_type=L40S
+#PBS -l select=1:ncpus=4:mem=24gb:ngpus=1
 #PBS -j oe
 #PBS -o test_production_training.log
 
@@ -14,11 +14,31 @@ echo "Node: $(hostname)"
 echo "Started: $(date)"
 echo "============================================="
 
+# Initialize conda
+source ~/miniforge3/etc/profile.d/conda.sh
+
 # Navigate to project root and verify structure
 cd $PBS_O_WORKDIR
 cd ../../..  # Go up from cluster -> training -> models -> project_root
 PROJECT_ROOT=$(pwd)
 echo "Project root: $PROJECT_ROOT"
+
+# Verify we're in the right directory
+echo "Working directory: $(pwd)"
+echo "Contents: $(ls -la | head -5)"
+
+# Activate conda environment
+conda activate everest_env
+
+# Set environment variables for GPU
+export CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES
+export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
+
+echo "Using GPU: $CUDA_VISIBLE_DEVICES"
+echo "Conda environment: $CONDA_DEFAULT_ENV"
+echo "Python path: $PYTHONPATH"
+echo "Python executable: $(which python)"
+echo "Python version: $(python --version)"
 
 # Comprehensive directory verification
 echo ""
@@ -51,46 +71,6 @@ if [ "$all_verified" = false ]; then
 fi
 
 echo "✅ Project structure verified successfully"
-
-# Set Python path
-export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
-echo "PYTHONPATH: $PYTHONPATH"
-
-# Initialize conda - try multiple initialization methods
-echo ""
-echo "🐍 Initializing conda environment..."
-if [ -f "$HOME/miniforge3/etc/profile.d/conda.sh" ]; then
-    source "$HOME/miniforge3/etc/profile.d/conda.sh"
-    echo "✅ Conda initialized from miniforge3"
-elif [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then
-    source "$HOME/anaconda3/etc/profile.d/conda.sh"
-    echo "✅ Conda initialized from anaconda3"
-elif [ -f "$HOME/.bashrc" ]; then
-    source "$HOME/.bashrc"
-    echo "✅ Conda initialized from .bashrc"
-else
-    echo "⚠️ Could not find conda initialization script"
-fi
-
-# Activate conda environment
-echo "Activating everest_env..."
-conda activate everest_env
-
-if [ $? -ne 0 ]; then
-    echo "Failed to activate everest_env, trying alternative method..."
-    module load anaconda3/personal 2>/dev/null || echo "Module load failed"
-    source activate everest_env
-    
-    if [ $? -ne 0 ]; then
-        echo "❌ Failed to activate everest_env with alternative method"
-        exit 1
-    fi
-fi
-
-echo "✅ Environment activated successfully"
-echo "Conda environment: $CONDA_DEFAULT_ENV"
-echo "Python executable: $(which python)"
-echo "Python version: $(python --version)"
 
 # Validate GPU availability
 echo ""
