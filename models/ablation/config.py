@@ -39,6 +39,23 @@ PRIMARY_TARGET = {
     "time_window": "72"
 }
 
+# ALL TARGET COMBINATIONS for comprehensive ablation analysis
+# (Enable for full cross-task comparison - currently focused on primary target for efficiency)
+ALL_TARGETS = [
+    {"flare_class": "C", "time_window": "24"},
+    {"flare_class": "M", "time_window": "24"},
+    {"flare_class": "M5", "time_window": "24"},
+    {"flare_class": "C", "time_window": "48"},
+    {"flare_class": "M", "time_window": "48"},
+    {"flare_class": "M5", "time_window": "48"},
+    {"flare_class": "C", "time_window": "72"},
+    {"flare_class": "M", "time_window": "72"},
+    {"flare_class": "M5", "time_window": "72"}
+]
+
+# Control flag for comprehensive vs focused ablation
+COMPREHENSIVE_ABLATION = False  # Set to True to run across all 9 targets
+
 # Random seeds for reproducibility (5 independent runs)
 RANDOM_SEEDS = [0, 1, 2, 3, 4]
 

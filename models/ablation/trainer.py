@@ -542,10 +542,21 @@ class AblationTrainer:
             roc_auc = roc_auc_score(y_true, y_prob) if len(np.unique(y_true)) > 1 else 0.5
             brier = brier_score_loss(y_true, y_prob)
             ece = self._calculate_ece(y_true, y_prob, n_bins=15)
+            
+            # Add tail risk metrics for EVT analysis
+            # Compute per-sample Brier scores for percentile analysis
+            per_sample_brier = (y_prob - y_true) ** 2
+            brier_99th = np.percentile(per_sample_brier, 99)
+            brier_95th = np.percentile(per_sample_brier, 95)
+            brier_90th = np.percentile(per_sample_brier, 90)
+            
         except:
             roc_auc = 0.5
             brier = 1.0
             ece = 1.0
+            brier_99th = 1.0
+            brier_95th = 1.0
+            brier_90th = 1.0
         
         return {
             "tss": tss,
@@ -556,6 +567,9 @@ class AblationTrainer:
             "f1": f1,
             "roc_auc": roc_auc,
             "brier": brier,
+            "brier_99th": brier_99th,  # 99th percentile Brier score
+            "brier_95th": brier_95th,  # 95th percentile Brier score
+            "brier_90th": brier_90th,  # 90th percentile Brier score
             "ece": ece
         }
     
