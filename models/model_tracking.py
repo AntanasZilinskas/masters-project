@@ -56,17 +56,26 @@ class TrainingMetricsEncoder(json.JSONEncoder):
 
 
 def create_model_dir(version, flare_class, time_window):
-    """Create a standardized model directory structure with atomic creation."""
-    # Create the parent models/models directory if it doesn't exist
-    try:
-        models_dir = "models/models"
-        if not os.path.exists(models_dir):
-            os.makedirs(models_dir, exist_ok=True)
-    except (OSError, PermissionError) as e:
-        print(f"Warning: Cannot create models/models directory: {e}")
-        # Fallback to models directory
+    """
+    Create model directory with appropriate naming convention.
+    
+    Args:
+        version: Version string (e.g., "1.0" or "1.5_12345_20231201_120000_123456")
+        flare_class: Flare classification target (e.g., "M", "C", "M5")
+        time_window: Time window in hours (e.g., "24", "48", "72")
+    
+    Returns:
+        str: Path to created model directory
+    """
+    # Determine the models directory to use
+    models_dir = "models/models"
+    if not os.path.exists(models_dir):
         try:
-            if not os.path.exists("models"):
+            os.makedirs(models_dir, exist_ok=True)
+        except (OSError, PermissionError):
+            # Fallback to models/ if models/models/ can't be created
+            models_dir = "models"
+            if not os.path.exists(models_dir):
                 os.makedirs("models", exist_ok=True)
             models_dir = "models"
         except (OSError, PermissionError):
@@ -81,26 +90,18 @@ def create_model_dir(version, flare_class, time_window):
         # Use os.makedirs with exist_ok=False for atomic creation
         os.makedirs(model_dir, exist_ok=False)
     except FileExistsError:
-        # Directory already exists - this indicates a race condition
-        raise FileExistsError(f"Model directory already exists: {model_dir}")
+        # Directory already exists - this may happen if get_next_version_safe created it
+        # Just return the existing directory path rather than raising an error
+        pass
     except (OSError, PermissionError) as e:
         print(f"Warning: Cannot create model directory {model_dir}: {e}")
         # Fallback to current directory with simple name
         model_dir = f"EVEREST-v{version}-{flare_class}-{time_window}h"
         try:
-            os.makedirs(model_dir, exist_ok=False)
-        except FileExistsError:
-            raise FileExistsError(f"Fallback model directory already exists: {model_dir}")
+            os.makedirs(model_dir, exist_ok=True)
         except (OSError, PermissionError):
-            # Last resort: use timestamp-based name
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            model_dir = f"model_{timestamp}"
-            try:
-                os.makedirs(model_dir, exist_ok=False)
-            except (OSError, PermissionError):
-                # Ultimate fallback: current directory
-                model_dir = "."
-                print(f"Warning: Using current directory for model output")
+            # Ultimate fallback - use current directory
+            model_dir = "."
     
     return model_dir
 
