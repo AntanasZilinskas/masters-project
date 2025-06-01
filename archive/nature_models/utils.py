@@ -69,9 +69,9 @@ d_type = ""
 log_handler = None
 format_logging = True
 
-# Determine the project root (one level above the current file's directory)
+# Determine the project root (two levels above the current file's directory since we're in archive/nature_models/)
 CURRENT_DIR = os.path.dirname(__file__)
-PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
 
 
 def create_log_file(alg="SolarFlareNet", d_type="flares", dir_name="logs"):
