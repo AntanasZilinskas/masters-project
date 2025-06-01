@@ -5,6 +5,16 @@
 
 set -e
 
+# Check if we're in the project root directory
+if [[ ! -f "models/hpo/run_hpo.py" ]]; then
+    echo "❌ Error: Must run from project root directory (~/masters-project/)"
+    echo "Current directory: $(pwd)"
+    echo "Expected to find: models/hpo/run_hpo.py"
+    echo ""
+    echo "Fix: cd ~/masters-project && ./models/hpo/cluster/monitor_jobs.sh $@"
+    exit 1
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

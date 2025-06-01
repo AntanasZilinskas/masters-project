@@ -9,19 +9,26 @@
 # Initialize conda
 source ~/miniforge3/etc/profile.d/conda.sh
 
-# Change to submission directory
+# Change to submission directory (should be project root)
 cd $PBS_O_WORKDIR
 
-# Verify we're in the right directory
+# Ensure we're in the project root by checking for key files
+if [[ ! -f "models/hpo/run_hpo.py" ]]; then
+    echo "Error: Not in project root directory. Expected to find models/hpo/run_hpo.py"
+    echo "Current directory: $(pwd)"
+    echo "Contents: $(ls -la)"
+    exit 1
+fi
+
 echo "Working directory: $(pwd)"
-echo "Contents: $(ls -la | head -5)"
+echo "Project root confirmed"
 
 # Activate conda environment
 conda activate everest_env
 
-# Set environment variables for GPU
+# Set environment variables for GPU and Python path
 export CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES
-export PYTHONPATH=$PBS_O_WORKDIR:$PYTHONPATH
+export PYTHONPATH="$(pwd):$PYTHONPATH"
 
 # Define the target configurations
 declare -a FLARE_CLASSES=("C" "M" "M5")
@@ -70,8 +77,8 @@ echo "Memory info: $(free -h | head -2)"
 echo "Disk space: $(df -h . | tail -1)"
 echo "GPU memory: $(nvidia-smi --query-gpu=memory.total,memory.used --format=csv,noheader,nounits || echo 'GPU info unavailable')"
 
-# Run HPO optimization with only supported arguments
-python models/hpo/run_hpo.py \
+# Run HPO optimization - use python -m to ensure module path is correct
+python -m models.hpo.run_hpo \
     --target single \
     --flare-class $FLARE_CLASS \
     --time-window $TIME_WINDOW \

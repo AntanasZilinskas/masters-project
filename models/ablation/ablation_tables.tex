@@ -1,0 +1,84 @@
+% EVEREST Ablation Study LaTeX Tables
+% Generated automatically from experimental results
+% Use in LaTeX document with \input{ablation_tables.tex}
+
+% Table 1: Main Results
+\begin{table}[htbp]
+\centering
+\caption{EVEREST Component Ablation Study Results (M5-class, 72h window)}
+\label{tab:everest_ablation_results}
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Variant} & \textbf{TSS} & \textbf{F1} & \textbf{Accuracy} & \textbf{Brier} & \textbf{ECE} \\
+\midrule
+\textbf{Full model (baseline)} & 0.746 \pm 0.146 & 0.747 & 0.9993 & 0.0013 & 0.0110 \\
+No evidential head & 0.682 \pm 0.193 & 0.626 & 0.9989 & 0.0015 & 0.0111 \\
+No EVT head & 0.461 \pm 0.368 & 0.438 & 0.9987 & 0.0039 & 0.0336 \\
+Mean pooling & 0.319 \pm 0.319 & 0.304 & 0.9985 & 0.0229 & 0.1158 \\
+Cross-entropy loss & 0.209 \pm 0.332 & 0.195 & 0.9985 & 0.0013 & 0.0023 \\
+No precursor head & 0.096 \pm 0.174 & 0.095 & 0.9983 & 0.0194 & 0.1105 \\
+FP32 training & 0.000 \pm 0.000 & 0.000 & 0.9986 & 0.0520 & 0.2248 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}[flushleft]\small
+TSS = True Skill Statistic; ECE = Expected Calibration Error.
+Values shown as mean $\pm$ standard deviation across 5 random seeds.
+Higher values are better for TSS, F1, and Accuracy.
+Lower values are better for Brier score and ECE.
+\end{tablenotes}
+\end{table}
+
+% Table 2: Component Effects
+\begin{table}[htbp]
+\centering
+\caption{Component effects: drop in TSS when the component is removed}
+\label{tab:component_effects}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Component removed} & $\Delta$TSS & Rel.\ change & $p$-value & Sig.\\
+\midrule
+Mixed Precision (AMP) & -0.746 & -100\% & $<1×10^{-4}$ & *** \\
+Precursor auxiliary head & -0.650 & -87\% & $2.9×10^{-4}$ & *** \\
+Focal loss & -0.537 & -72\% & $5.4×10^{-4}$ & *** \\
+Attention bottleneck & -0.427 & -57\% & $7.1×10^{-4}$ & *** \\
+EVT--GPD tail head & -0.285 & -38\% & $8.6×10^{-4}$ & *** \\
+Evidential (NIG) head & -0.064 & -9\% & $4.3×10^{-3}$ & ** \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}[flushleft]\small
+Significance codes:
+\textbf{***}\,$p<0.001$;\;
+\textbf{**}\,$0.001\le p<0.01$;\;
+\textbf{*}\,$0.01\le p<0.05$;\;
+\textbf{---}\,$p\ge0.05$.
+All tests use 10,000-replicate paired bootstrap comparing TSS distributions.
+\end{tablenotes}
+\end{table}
+
+% Table 3: Summary Statistics
+\begin{table}[htbp]
+\centering
+\caption{EVEREST Ablation Study: Summary Statistics}
+\label{tab:ablation_summary}
+\begin{tabular}{lc}
+\hline
+\textbf{Metric} & \textbf{Value} \\
+\hline
+Total Experiments & 35 \\
+Unique Variants & 7 \\
+Seeds per Variant & 5 \\
+\hline
+Baseline TSS (Full Model) & 0.746 ± 0.146 \\
+Worst TSS & 0.000 (fp32_training) \\
+Performance Range & 0.746 TSS points \\
+\hline
+\end{tabular}
+\begin{tablenotes}
+\small
+\item Note: All experiments conducted on M5-class solar flares with 72-hour prediction window.
+\item Performance measured using True Skill Statistic (TSS).
+\end{tablenotes}
+\end{table}
+

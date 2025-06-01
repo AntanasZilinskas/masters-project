@@ -37,18 +37,28 @@ Upload your EVEREST project to the cluster:
 scp -r /path/to/masters-project username@login.cx3.hpc.imperial.ac.uk:~/
 ```
 
+**Important**: Ensure you upload to your home directory (`~/`) so the project root is at `~/masters-project/`.
+
 ### 3. Set Up Environment and Run
 
+**CRITICAL**: Always run cluster scripts from the project root directory:
+
 ```bash
-# Navigate to your project
+# Navigate to your project ROOT (not the cluster subdirectory)
 cd ~/masters-project
 
+# Verify you're in the correct location
+ls -la  # Should show: data/ models/ requirements.txt etc.
+pwd     # Should be: /rds/general/user/USERNAME/home/masters-project
+
 # Make scripts executable
-chmod +x models/hpo/cluster/submit_jobs.sh
+chmod +x models/hpo/cluster/submit_jobs.sh models/hpo/cluster/monitor_jobs.sh
 
 # Run complete workflow (setup + all 9 HPO targets)
 ./models/hpo/cluster/submit_jobs.sh all
 ```
+
+**Do NOT run scripts from inside the `models/hpo/cluster/` directory** - this will cause module import errors.
 
 ## Detailed Usage
 

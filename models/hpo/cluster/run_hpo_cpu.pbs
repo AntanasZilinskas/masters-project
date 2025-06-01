@@ -8,16 +8,27 @@
 # Initialize conda
 source ~/miniforge3/etc/profile.d/conda.sh
 
-# Change to submission directory
+# Change to submission directory (should be project root)
 cd $PBS_O_WORKDIR
+
+# Ensure we're in the project root by checking for key files
+if [[ ! -f "models/hpo/run_hpo.py" ]]; then
+    echo "Error: Not in project root directory. Expected to find models/hpo/run_hpo.py"
+    echo "Current directory: $(pwd)"
+    echo "Contents: $(ls -la)"
+    exit 1
+fi
+
+echo "Working directory: $(pwd)"
+echo "Project root confirmed"
 
 # Activate conda environment
 conda activate everest_env
 
-# Set CPU optimization flags
+# Set CPU optimization flags and Python path
 export OMP_NUM_THREADS=16
 export MKL_NUM_THREADS=16
-export PYTHONPATH=$PBS_O_WORKDIR:$PYTHONPATH
+export PYTHONPATH="$(pwd):$PYTHONPATH"
 
 # Default values if not set as environment variables
 FLARE_CLASS=${FLARE_CLASS:-"M"}
@@ -28,9 +39,10 @@ echo "Starting CPU-based HPO optimization for ${FLARE_CLASS} class, ${TIME_WINDO
 echo "Using ${OMP_NUM_THREADS} CPU threads"
 echo "Max trials: $MAX_TRIALS"
 echo "Conda environment: $CONDA_DEFAULT_ENV"
+echo "Python path: $PYTHONPATH"
 
-# Run HPO optimization
-python models/hpo/run_hpo.py \
+# Run HPO optimization - use python -m to ensure module path is correct
+python -m models.hpo.run_hpo \
     --target single \
     --flare-class $FLARE_CLASS \
     --time-window $TIME_WINDOW \

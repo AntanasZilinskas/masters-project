@@ -1,0 +1,110 @@
+{
+  "C_24": {
+    "training": {
+      "positive": 244968,
+      "negative": 372895,
+      "total": 617863
+    },
+    "testing": {
+      "positive": 31897,
+      "negative": 30663,
+      "total": 62560
+    }
+  },
+  "C_48": {
+    "training": {
+      "positive": 316149,
+      "negative": 390923,
+      "total": 707072
+    },
+    "testing": {
+      "positive": 40987,
+      "negative": 30742,
+      "total": 71729
+    }
+  },
+  "C_72": {
+    "training": {
+      "positive": 356219,
+      "negative": 407370,
+      "total": 763589
+    },
+    "testing": {
+      "positive": 46066,
+      "negative": 31563,
+      "total": 77629
+    }
+  },
+  "M_24": {
+    "training": {
+      "positive": 13989,
+      "negative": 603874,
+      "total": 617863
+    },
+    "testing": {
+      "positive": 1368,
+      "negative": 61192,
+      "total": 62560
+    }
+  },
+  "M_48": {
+    "training": {
+      "positive": 16709,
+      "negative": 690363,
+      "total": 707072
+    },
+    "testing": {
+      "positive": 1775,
+      "negative": 69954,
+      "total": 71729
+    }
+  },
+  "M_72": {
+    "training": {
+      "positive": 18505,
+      "negative": 745084,
+      "total": 763589
+    },
+    "testing": {
+      "positive": 2131,
+      "negative": 75498,
+      "total": 77629
+    }
+  },
+  "M5_24": {
+    "training": {
+      "positive": 2125,
+      "negative": 615738,
+      "total": 617863
+    },
+    "testing": {
+      "positive": 104,
+      "negative": 62456,
+      "total": 62560
+    }
+  },
+  "M5_48": {
+    "training": {
+      "positive": 2255,
+      "negative": 704817,
+      "total": 707072
+    },
+    "testing": {
+      "positive": 104,
+      "negative": 71625,
+      "total": 71729
+    }
+  },
+  "M5_72": {
+    "training": {
+      "positive": 2375,
+      "negative": 761214,
+      "total": 763589
+    },
+    "testing": {
+      "positive": 104,
+      "negative": 77525,
+      "total": 77629
+    }
+  }
+}

@@ -1,60 +1,91 @@
 {
     "24": {
+        "C": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A"
+        },
         "M": {
-            "accuracy": 0.9703,
-            "precision": 0.4903,
-            "recall": 0.9569,
-            "balanced_accuracy": 0.9638,
-            "TSS": 0.9275,
-            "sensitivity": 0.9569,
-            "specificity": 0.9707,
-            "mean_entropy": 0.0845947265625,
-            "mean_uncertainty": 0.0163726806640625,
-            "mean_confidence": 0.9619140625,
-            "confusion_matrix": [
-                [
-                    45046,
-                    1361
-                ],
-                [
-                    59,
-                    1309
-                ]
-            ],
-            "test_samples": 47775,
-            "positive_samples": 1368,
-            "negative_samples": 46407,
-            "version": "1.4",
-            "test_date": "2025-05-08 05:06:31",
-            "used_monte_carlo_dropout": true,
-            "mc_passes": 20
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A"
         },
         "M5": {
-            "accuracy": 0.9713,
-            "precision": 0.0706,
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A"
+        }
+    },
+    "48": {
+        "C": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A"
+        },
+        "M": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A"
+        },
+        "M5": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A"
+        }
+    },
+    "72": {
+        "C": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A"
+        },
+        "M": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A"
+        },
+        "M5": {
+            "accuracy": 0.2313,
+            "precision": 0.0019,
             "recall": 1.0,
-            "balanced_accuracy": 0.9856,
-            "TSS": 0.9713,
+            "balanced_accuracy": 0.6151,
+            "TSS": 0.2302,
             "sensitivity": 1.0,
-            "specificity": 0.9713,
-            "mean_entropy": 0.072265625,
-            "mean_uncertainty": 0.015655517578125,
-            "mean_confidence": 0.97216796875,
+            "specificity": 0.2302,
+            "mean_entropy": 0.66552734375,
+            "mean_uncertainty": 0.1458740234375,
+            "mean_confidence": 0.5966796875,
             "confusion_matrix": [
                 [
-                    46302,
-                    1369
+                    16488,
+                    55137
                 ],
                 [
                     0,
                     104
                 ]
             ],
-            "test_samples": 47775,
+            "test_samples": 71729,
             "positive_samples": 104,
-            "negative_samples": 47671,
-            "version": "1.4",
-            "test_date": "2025-05-08 05:10:41",
+            "negative_samples": 71625,
+            "version": "unknown",
+            "test_date": "2025-05-31 15:55:58",
             "used_monte_carlo_dropout": true,
             "mc_passes": 20
         }
