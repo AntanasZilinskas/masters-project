@@ -8,8 +8,19 @@
 # Initialize conda (miniforge3)
 source ~/miniforge3/etc/profile.d/conda.sh
 
-# Change to submission directory
+# Change to submission directory (should be project root)
 cd $PBS_O_WORKDIR
+
+# Ensure we're in the project root by checking for key files
+if [[ ! -f "models/hpo/run_hpo.py" ]]; then
+    echo "Error: Not in project root directory. Expected to find models/hpo/run_hpo.py"
+    echo "Current directory: $(pwd)"
+    echo "Contents: $(ls -la)"
+    exit 1
+fi
+
+echo "Working directory: $(pwd)"
+echo "Project root confirmed"
 
 # Activate your existing everest_env environment
 conda activate everest_env
@@ -26,7 +37,8 @@ pip install optuna==3.6.1 ray[tune]==2.9.3 plotly==5.18.0 kaleido==0.2.1 --quiet
 python -c "import optuna, torch, numpy, pandas; print('Environment setup successful!')"
 
 # Test HPO framework imports (set PYTHONPATH)
-export PYTHONPATH=$PBS_O_WORKDIR:$PYTHONPATH
+export PYTHONPATH="$(pwd):$PYTHONPATH"
+echo "Python path: $PYTHONPATH"
 python -c "from models.hpo import HPOObjective, StudyManager; print('HPO framework imports successful!')"
 
 echo "Setup completed successfully!"

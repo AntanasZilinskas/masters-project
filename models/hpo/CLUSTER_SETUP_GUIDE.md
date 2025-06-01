@@ -39,8 +39,12 @@ rsync -avz --progress /path/to/masters-project/ your_username@login.cx3.hpc.impe
 Once logged into the cluster:
 
 ```bash
-# Navigate to your project
+# Navigate to your project ROOT directory (CRITICAL)
 cd ~/masters-project
+
+# Verify you're in the correct location
+ls -la  # Should show: data/ models/ requirements.txt etc.
+pwd     # Should be: /rds/general/user/USERNAME/home/masters-project
 
 # Make scripts executable
 chmod +x models/hpo/cluster/submit_jobs.sh models/hpo/cluster/monitor_jobs.sh
@@ -49,6 +53,8 @@ chmod +x models/hpo/cluster/submit_jobs.sh models/hpo/cluster/monitor_jobs.sh
 qstat -Q  # View queue status
 module avail | grep Python  # Check available Python modules
 ```
+
+**Important**: Always run cluster scripts from the project root directory (`~/masters-project/`), NOT from inside the `models/hpo/cluster/` directory. This prevents module import errors.
 
 ## Data Preparation
 
