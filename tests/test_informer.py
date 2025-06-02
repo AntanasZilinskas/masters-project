@@ -10,7 +10,14 @@ import os
 import sys
 from pathlib import Path
 
-import matplotlib.pyplot as plt
+# Conditional matplotlib import
+try:
+    import matplotlib.pyplot as plt
+    HAS_MATPLOTLIB = True
+except ImportError:
+    plt = None
+    HAS_MATPLOTLIB = False
+
 import numpy as np
 import torch
 
@@ -131,6 +138,10 @@ def plot_results(x, y_true, y_pred):
         y_true: Ground truth values
         y_pred: Predicted values
     """
+    if not HAS_MATPLOTLIB:
+        print("⚠️ matplotlib not available - skipping plot generation")
+        return
+        
     # Plot the context (input) followed by the forecast.
     context_time = np.arange(len(x))
     forecast_time = np.arange(len(x), len(x) + len(y_true))

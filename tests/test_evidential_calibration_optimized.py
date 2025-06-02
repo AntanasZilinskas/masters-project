@@ -5,15 +5,25 @@ This version uses improved hyperparameters and training to achieve
 the target ECE improvement from 0.225 to 0.011.
 """
 
+import warnings
+from pathlib import Path
+import sys
+from typing import Dict, List, Tuple
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.calibration import calibration_curve
-import matplotlib.pyplot as plt
-from pathlib import Path
-import warnings
+
+# Conditional matplotlib import
+try:
+    import matplotlib.pyplot as plt
+    HAS_MATPLOTLIB = True
+except ImportError:
+    plt = None
+    HAS_MATPLOTLIB = False
 
 warnings.filterwarnings("ignore")
 
