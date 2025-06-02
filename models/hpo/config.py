@@ -17,16 +17,16 @@ HPO_SEARCH_SPACE = {
     # Model capacity
     "embed_dim": [64, 128, 192, 256],  # capacity vs. latency
     "num_blocks": [4, 6, 8],           # encoder depth L - receptive field
-    
+
     # Regularization
     "dropout": (0.05, 0.40),           # over-fit control - Uniform[0.05,0.40]
-    
-    # Class-imbalance focus  
+
+    # Class-imbalance focus
     "focal_gamma": (1.0, 4.0),         # minority gradient - Uniform[1,4]
-    
+
     # Optimizer dynamics
     "learning_rate": (2e-4, 8e-4),     # peak LR - Log-Uniform[2×10^-4, 8×10^-4]
-    
+
     # Throughput knob
     "batch_size": [256, 512, 768, 1024]  # throughput vs. generalisation
 }
@@ -42,7 +42,7 @@ BEST_CONFIG = {
 }
 
 # ============================================================================
-# Three-Stage Search Protocol (Table from paper)  
+# Three-Stage Search Protocol (Table from paper)
 # ============================================================================
 
 SEARCH_STAGES = {
@@ -52,7 +52,7 @@ SEARCH_STAGES = {
         "purpose": "Coarse global sweep"
     },
     "refinement": {
-        "trials": 40, 
+        "trials": 40,
         "epochs": 60,
         "purpose": "Zoom on top quartile"
     },
@@ -83,14 +83,14 @@ SEARCH_STAGES_EXTENDED = {
 }
 
 # ============================================================================
-# Fixed Model Architecture 
+# Fixed Model Architecture
 # ============================================================================
 
 FIXED_ARCHITECTURE = {
     "input_shape": (10, 9),    # (timesteps, features)
     "ff_dim": 256,             # feedforward dimension
     "num_heads": 4,            # attention heads
-    
+
     # Ablation flags (set based on study requirements)
     "use_attention_bottleneck": True,
     "use_evidential": True,
@@ -129,10 +129,10 @@ HPO_OUTPUT_CONFIG = {
 OPTUNA_CONFIG = {
     "study_name": "everest_hpo_v4.1",
     "direction": "maximize",     # maximize TSS
-    "sampler": "TPESampler",     # Tree-structured Parzen Estimator  
+    "sampler": "TPESampler",     # Tree-structured Parzen Estimator
     "pruner": "MedianPruner",    # median-stopping pruner
     "storage": "sqlite:///models/hpo/optuna_studies.db",
-    
+
     # Pruner configuration
     "pruner_config": {
         "n_startup_trials": 10,     # min trials before pruning
@@ -183,7 +183,7 @@ REPRODUCIBILITY_CONFIG = {
 # Output directories
 OUTPUT_DIRS = {
     "base": "models/hpo",
-    "studies": "models/hpo/studies", 
+    "studies": "models/hpo/studies",
     "results": "models/hpo/results",
     "logs": "models/hpo/logs",
     "plots": "models/hpo/plots",
@@ -198,7 +198,7 @@ PRIMARY_METRIC = "TSS"  # True Skill Statistic - main optimization target
 
 SECONDARY_METRICS = [
     "accuracy",
-    "precision", 
+    "precision",
     "recall",
     "roc_auc",
     "brier_score",
@@ -214,13 +214,13 @@ PERFORMANCE_THRESHOLDS = {
 }
 
 # ============================================================================
-# Loss Configuration 
+# Loss Configuration
 # ============================================================================
 
 LOSS_WEIGHTS_CONFIG = {
     # 3-phase schedule as in the model
     "phase_1": {"focal": 0.9, "evid": 0.1, "evt": 0.0, "prec": 0.05},  # epochs 0-19
-    "phase_2": {"focal": 0.8, "evid": 0.1, "evt": 0.1, "prec": 0.05},  # epochs 20-39  
+    "phase_2": {"focal": 0.8, "evid": 0.1, "evt": 0.1, "prec": 0.05},  # epochs 20-39
     "phase_3": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05}   # epochs 40+
 }
 
@@ -228,10 +228,12 @@ LOSS_WEIGHTS_CONFIG = {
 # Utility Functions
 # ============================================================================
 
+
 def create_output_dirs() -> None:
     """Create all necessary output directories."""
     for dir_path in OUTPUT_DIRS.values():
         os.makedirs(dir_path, exist_ok=True)
+
 
 def get_stage_config(stage_name: str) -> Dict[str, Any]:
     """Get configuration for a specific optimization stage."""
@@ -239,9 +241,11 @@ def get_stage_config(stage_name: str) -> Dict[str, Any]:
         raise ValueError(f"Unknown stage: {stage_name}. Choose from {list(SEARCH_STAGES.keys())}")
     return SEARCH_STAGES[stage_name]
 
+
 def get_total_trials() -> int:
     """Get total number of trials across all stages."""
     return sum(stage["trials"] for stage in SEARCH_STAGES.values())
+
 
 def get_search_space_size() -> int:
     """Estimate the discrete search space size."""
@@ -253,6 +257,7 @@ def get_search_space_size() -> int:
             size *= 100  # rough approximation
     return size
 
+
 def validate_config() -> bool:
     """Validate the configuration for consistency."""
     # Check that all required directories can be created
@@ -261,32 +266,32 @@ def validate_config() -> bool:
     except Exception as e:
         print(f"Error creating directories: {e}")
         return False
-    
+
     # Test database write permissions
     try:
         import sqlite3
         db_path = OPTUNA_CONFIG["storage"].replace("sqlite:///", "")
-        
+
         # Create parent directory if needed
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        
+
         # Test database connection and write
         conn = sqlite3.connect(db_path)
         conn.execute("CREATE TABLE IF NOT EXISTS test_table (id INTEGER)")
         conn.execute("DROP TABLE IF EXISTS test_table")
         conn.close()
         print(f"✅ Database write permissions validated: {db_path}")
-        
+
     except Exception as e:
         print(f"❌ Database validation failed: {e}")
         return False
-    
+
     # Check that best config is within search space
     for param, value in BEST_CONFIG.items():
         if param not in HPO_SEARCH_SPACE:
             print(f"Best config parameter {param} not in search space")
             return False
-            
+
         space_values = HPO_SEARCH_SPACE[param]
         if isinstance(space_values, list):
             if value not in space_values:
@@ -296,12 +301,14 @@ def validate_config() -> bool:
             if not (space_values[0] <= value <= space_values[1]):
                 print(f"Best config value {value} not in range {space_values}")
                 return False
-    
+
     return True
+
 
 def validate_hpo_config() -> bool:
     """Validate HPO configuration for consistency."""
     return validate_config()
+
 
 def validate_hpo_parameters(params: Dict[str, Any]) -> bool:
     """Validate HPO parameter values."""
@@ -310,25 +317,26 @@ def validate_hpo_parameters(params: Dict[str, Any]) -> bool:
         if "learning_rate" in params:
             if params["learning_rate"] <= 0:
                 return False
-        
+
         # Check batch size
         if "batch_size" in params:
             if params["batch_size"] <= 0:
                 return False
-        
+
         # Check dropout
         if "dropout" in params:
             if not (0.0 <= params["dropout"] <= 1.0):
                 return False
-        
+
         # Check embed_dim
         if "embed_dim" in params:
             if params["embed_dim"] <= 0:
                 return False
-        
+
         return True
     except Exception:
         return False
+
 
 if __name__ == "__main__":
     # Validate configuration when run directly
@@ -338,4 +346,4 @@ if __name__ == "__main__":
         print(f"Total trials across all stages: {get_total_trials()}")
         print(f"Estimated search space size: {get_search_space_size():,}")
     else:
-        print("❌ Configuration validation failed") 
+        print("❌ Configuration validation failed")

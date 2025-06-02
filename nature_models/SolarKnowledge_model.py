@@ -18,20 +18,20 @@
  @author: Yasser Abduallah (modified)
 '''
 
+import shutil
+import numpy as np
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras import layers, models, regularizers
+import tensorflow as tf
+import os
 import warnings
 warnings.filterwarnings("ignore")
-import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-import tensorflow as tf
 # Set up mixed precision (for improved performance on MPS/M2)
 tf.keras.mixed_precision.set_global_policy('mixed_float16')
 print("Mixed precision enabled. Current policy:", tf.keras.mixed_precision.global_policy())
 
-from tensorflow.keras import layers, models, regularizers
-from tensorflow.keras.callbacks import EarlyStopping
-import numpy as np
-import shutil
 
 # Set GPU memory growth (this works for both GPU/MPS on Apple Silicon)
 physical_devices = tf.config.list_physical_devices('GPU')
@@ -45,6 +45,8 @@ else:
 # -----------------------------
 # Positional Encoding Layer
 # -----------------------------
+
+
 class PositionalEncoding(layers.Layer):
     def __init__(self, max_len, embed_dim):
         super(PositionalEncoding, self).__init__()
@@ -75,6 +77,8 @@ class PositionalEncoding(layers.Layer):
 # -----------------------------
 # Improved Transformer Block
 # -----------------------------
+
+
 class TransformerBlock(layers.Layer):
     def __init__(self, embed_dim, num_heads, ff_dim, dropout_rate=0.2):
         super(TransformerBlock, self).__init__()
@@ -101,6 +105,8 @@ class TransformerBlock(layers.Layer):
 # -----------------------------
 # Improved SolarKnowledge Model Class
 # -----------------------------
+
+
 class SolarKnowledge:
     model = None
     model_name = "SolarKnowledge"
@@ -111,9 +117,9 @@ class SolarKnowledge:
         self.model_name = "SolarKnowledge"
         self.callbacks = [EarlyStopping(monitor='loss', patience=early_stopping_patience, restore_best_weights=True)]
 
-    def build_base_model(self, input_shape, 
+    def build_base_model(self, input_shape,
                          embed_dim=128,        # Increased embedding dimension
-                         num_heads=4, 
+                         num_heads=4,
                          ff_dim=256,           # Increased feed-forward dimension
                          num_transformer_blocks=6,  # Use more transformer blocks
                          dropout_rate=0.2,
@@ -129,7 +135,7 @@ class SolarKnowledge:
         x = layers.Dense(embed_dim)(inputs)
         x = layers.LayerNormalization(epsilon=1e-6)(x)
         x = layers.Dropout(dropout_rate)(x)
-        
+
         # Add positional encoding.
         x = PositionalEncoding(max_len=input_shape[0], embed_dim=embed_dim)(x)
 
@@ -173,8 +179,8 @@ class SolarKnowledge:
 
     def predict(self, X_test, batch_size=1024, verbose=0):
         predictions = self.model.predict(X_test,
-                                           verbose=verbose,
-                                           batch_size=batch_size)
+                                         verbose=verbose,
+                                         batch_size=batch_size)
         return predictions
 
     def save_weights(self, flare_class=None, w_dir=None, verbose=True):
@@ -230,4 +236,4 @@ if __name__ == '__main__':
     model_instance = SolarKnowledge(early_stopping_patience=3)
     model_instance.build_base_model(example_input_shape)
     model_instance.compile()
-    model_instance.summary() 
+    model_instance.summary()

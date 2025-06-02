@@ -155,7 +155,7 @@ class GOESDataset(Dataset):
         valid_indices = [
             i
             for i in self.indices
-            if not np.isnan(self.data[i : i + window_length]).any()
+            if not np.isnan(self.data[i: i + window_length]).any()
         ]
         logging.info(
             f"Filtered sliding-window samples (without NaN): {len(valid_indices)} out of {len(self.indices)}"
@@ -176,7 +176,7 @@ class GOESDataset(Dataset):
         start = self.indices[idx]
         end = start + self.lookback_len
         x_seq = self.data[start:end]
-        y_seq = self.data[end : end + self.forecast_len]
+        y_seq = self.data[end: end + self.forecast_len]
 
         x_tensor = torch.tensor(x_seq, dtype=torch.float32)
         y_tensor = torch.tensor(y_seq, dtype=torch.float32)
@@ -251,7 +251,7 @@ class GOESParquetDataset(Dataset):
         valid_indices = [
             i
             for i in self.indices
-            if not np.isnan(self.data[i : i + window_length]).any()
+            if not np.isnan(self.data[i: i + window_length]).any()
         ]
         logging.info(
             f"[ParquetDataset] Filtered sliding-window samples (without NaN): {len(valid_indices)} out of {len(self.indices)}"
@@ -274,7 +274,7 @@ class GOESParquetDataset(Dataset):
         start = self.indices[idx]
         end = start + self.lookback_len
         x_seq = self.data[start:end]
-        y_seq = self.data[end : end + self.forecast_len]
+        y_seq = self.data[end: end + self.forecast_len]
 
         x_tensor = torch.tensor(x_seq, dtype=torch.float32)
         y_tensor = torch.tensor(y_seq, dtype=torch.float32)
@@ -993,5 +993,5 @@ if __name__ == "__main__":
     # )
 
     # Optionally, script and save the model for faster deployment.
-    scripted_model = torch.jit.script(model)
-    torch.jit.save(scripted_model, "informer_scripted.pth")
+    # scripted_model = torch.jit.script(model)  # TODO: define model variable
+    # torch.jit.save(scripted_model, "informer_scripted.pth")

@@ -6,6 +6,8 @@ This version properly saves ablation variant and seed information in model metad
 to distinguish between different ablation experiments.
 """
 
+from models.utils import get_training_data, get_testing_data
+from models.solarknowledge_ret_plus import RETPlusWrapper
 import sys
 import os
 import argparse
@@ -18,25 +20,22 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from models.solarknowledge_ret_plus import RETPlusWrapper
-from models.utils import get_training_data, get_testing_data
-
 
 class AblationObjectiveWithMetadata:
     """Enhanced ablation objective that properly tracks metadata."""
-    
+
     def __init__(self, variant_name: str, seed: int):
         self.variant_name = variant_name
         self.seed = seed
         self.input_shape = (10, 9)
-        
+
         # Setup reproducibility
         self._setup_reproducibility()
-        
+
         # Load data once (EXACT same as HPO pattern)
         print(f"Loading data for ablation study...")
         self._load_data()
-        
+
     def _setup_reproducibility(self):
         """Setup reproducible training (EXACT same as HPO)."""
         torch.manual_seed(self.seed)
@@ -47,7 +46,7 @@ class AblationObjectiveWithMetadata:
             torch.cuda.manual_seed_all(self.seed)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-        
+
     def _load_data(self):
         """Load training and validation data (EXACT same as HPO)."""
         try:
@@ -55,18 +54,18 @@ class AblationObjectiveWithMetadata:
             self.X_train, self.y_train = get_training_data('72', 'M5')
             if self.X_train is None or self.y_train is None:
                 raise ValueError("Training data not found")
-            
-            # Load validation data  
+
+            # Load validation data
             self.X_val, self.y_val = get_testing_data('72', 'M5')
             if self.X_val is None or self.y_val is None:
                 raise ValueError("Validation data not found")
-                
+
             print(f"✅ Data loaded: {len(self.X_train)} train, {len(self.X_val)} val samples")
-            
+
         except Exception as e:
             print(f"❌ Data loading failed: {e}")
             raise
-            
+
     def _get_ablation_config(self):
         """Get ablation configuration for the specified variant."""
         variants = {
@@ -127,12 +126,12 @@ class AblationObjectiveWithMetadata:
                 "description": "EVEREST model trained with FP32 precision (no mixed precision)"
             }
         }
-        
+
         return variants[self.variant_name]
-        
+
     def _create_enhanced_wrapper(self):
         """Create model wrapper with enhanced metadata tracking."""
-        
+
         # Get optimal hyperparameters from HPO study
         optimal_hyperparams = {
             "embed_dim": 128,
@@ -142,14 +141,14 @@ class AblationObjectiveWithMetadata:
             "learning_rate": 0.0005337429672856022,
             "batch_size": 512
         }
-        
+
         # Get ablation configuration
         ablation_config = self._get_ablation_config()
-        
+
         # Create model with optimal hyperparameters
         from models.solarknowledge_ret_plus import RETPlusModel
         import torch
-        
+
         model = RETPlusModel(
             input_shape=self.input_shape,
             embed_dim=optimal_hyperparams["embed_dim"],
@@ -162,7 +161,7 @@ class AblationObjectiveWithMetadata:
             use_evt=ablation_config["use_evt"],
             use_precursor=ablation_config["use_precursor"]
         )
-        
+
         # Create wrapper and manually set the model
         wrapper = RETPlusWrapper(
             input_shape=self.input_shape,
@@ -172,11 +171,11 @@ class AblationObjectiveWithMetadata:
             use_precursor=ablation_config["use_precursor"],
             loss_weights=ablation_config["loss_weights"]
         )
-        
+
         # Replace the default model with our optimized one
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         wrapper.model = model.to(device)
-        
+
         # Update optimizer with optimal learning rate
         wrapper.optimizer = torch.optim.AdamW(
             wrapper.model.parameters(),
@@ -184,28 +183,28 @@ class AblationObjectiveWithMetadata:
             weight_decay=1e-4,
             fused=True
         )
-        
+
         return wrapper, optimal_hyperparams
-        
+
     def run_experiment(self):
         """Run ablation experiment with enhanced metadata tracking."""
         print(f"\n🔬 Running component ablation: {self.variant_name}, seed {self.seed}")
         print(f"   Input shape: {self.input_shape}")
-        
+
         try:
             # Create enhanced model wrapper
             model, hyperparams = self._create_enhanced_wrapper()
-            
+
             ablation_config = self._get_ablation_config()
             print(f"Model created with ablation config:")
             print(f"  Attention: {ablation_config['use_attention_bottleneck']}")
             print(f"  Evidential: {ablation_config['use_evidential']}")
             print(f"  EVT: {ablation_config['use_evt']}")
             print(f"  Precursor: {ablation_config['use_precursor']}")
-            
+
             # Train model with original wrapper (no monkey-patching)
             print(f"Training for 50 epochs with early stopping...")
-            
+
             model_dir = model.train(
                 X_train=self.X_train,
                 y_train=self.y_train,
@@ -218,58 +217,58 @@ class AblationObjectiveWithMetadata:
                 in_memory_dataset=True,
                 track_emissions=False
             )
-            
+
             print(f"✅ Training completed. Model saved to: {model_dir}")
-            
+
             # Now evaluate on validation set and update metadata
             print(f"Evaluating on validation set...")
             y_pred_proba = model.predict_proba(self.X_val)
             y_pred = (y_pred_proba >= 0.5).astype(int).squeeze()
-            
+
             # Debug: Show class distribution
             val_pos_count = np.sum(self.y_val)
             val_total = len(self.y_val)
             pred_pos_count = np.sum(y_pred)
-            
+
             print(f"   • Validation set: {val_pos_count}/{val_total} positive ({val_pos_count/val_total:.1%})")
             print(f"   • Predictions: {pred_pos_count}/{val_total} positive ({pred_pos_count/val_total:.1%})")
-            
+
             # Calculate comprehensive metrics
             from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
             from sklearn.metrics import roc_auc_score, average_precision_score
-            
+
             accuracy = accuracy_score(self.y_val, y_pred)
             precision = precision_score(self.y_val, y_pred, zero_division=0)
             recall = recall_score(self.y_val, y_pred, zero_division=0)
             f1 = f1_score(self.y_val, y_pred, zero_division=0)
-            
+
             # Calculate TSS properly using confusion matrix
             cm = confusion_matrix(self.y_val, y_pred)
             tn, fp, fn, tp = cm.ravel() if cm.size == 4 else (0, 0, 0, 0)
-            
+
             sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
             specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
             tss = sensitivity + specificity - 1
-            
+
             try:
                 auc_roc = roc_auc_score(self.y_val, y_pred_proba)
                 auc_pr = average_precision_score(self.y_val, y_pred_proba)
-            except:
+            except BaseException:
                 auc_roc = 0.0
                 auc_pr = 0.0
-            
+
             print(f"   • TSS: {tss:.4f}, Accuracy: {accuracy:.4f}, AUC: {auc_roc:.4f}")
-            
+
             # Update the saved metadata with enhanced metrics
             import json
             import os
             metadata_path = os.path.join(model_dir, "metadata.json")
-            
+
             try:
                 # Read existing metadata
                 with open(metadata_path, 'r') as f:
                     metadata = json.load(f)
-                
+
                 # Update with comprehensive validation metrics
                 metadata["performance"].update({
                     "accuracy": accuracy,
@@ -288,7 +287,7 @@ class AblationObjectiveWithMetadata:
                     "positive_rate": float(np.mean(self.y_val)),
                     "prediction_rate": float(np.mean(y_pred))
                 })
-                
+
                 # Add ablation-specific metadata
                 metadata["hyperparameters"].update({
                     "ablation_variant": self.variant_name,
@@ -297,7 +296,7 @@ class AblationObjectiveWithMetadata:
                     "focal_gamma": hyperparams["focal_gamma"],
                     "batch_size": hyperparams["batch_size"]
                 })
-                
+
                 metadata["ablation_metadata"] = {
                     "experiment_type": "component_ablation",
                     "variant": self.variant_name,
@@ -306,20 +305,20 @@ class AblationObjectiveWithMetadata:
                     "optimal_hyperparams": hyperparams,
                     "description": ablation_config["description"]
                 }
-                
+
                 # Update description
                 metadata["description"] = f"EVEREST Ablation Study - {ablation_config['description']} (seed {self.seed})"
-                
+
                 # Save updated metadata
                 with open(metadata_path, 'w') as f:
                     json.dump(metadata, f, indent=2)
-                
+
                 print(f"✅ Enhanced metadata saved to: {metadata_path}")
-                
+
             except Exception as e:
                 print(f"⚠️ Warning: Could not update metadata: {e}")
                 # Continue anyway - the model is still saved
-            
+
             results = {
                 "experiment_type": "component_ablation",
                 "variant": self.variant_name,
@@ -346,7 +345,7 @@ class AblationObjectiveWithMetadata:
                 },
                 "training_history": model.history
             }
-            
+
             print(f"✅ Experiment completed successfully!")
             print(f"   • Variant: {self.variant_name} (seed {self.seed})")
             print(f"   • Accuracy: {accuracy:.4f}")
@@ -358,9 +357,9 @@ class AblationObjectiveWithMetadata:
             print(f"   • Confusion Matrix: TP={tp}, FP={fp}, TN={tn}, FN={fn}")
             print(f"   • Positive Rate: {float(np.mean(self.y_val)):.4f} | Prediction Rate: {float(np.mean(y_pred)):.4f}")
             print(f"   • Model saved to: {model_dir}")
-            
+
             return results
-            
+
         except Exception as e:
             print(f"❌ Experiment failed: {e}")
             import traceback
@@ -382,7 +381,7 @@ def validate_gpu():
     try:
         import torch
         print(f"   • Validating GPU configuration...")
-        
+
         if torch.cuda.is_available():
             gpu_count = torch.cuda.device_count()
             current_gpu = torch.cuda.current_device()
@@ -399,7 +398,7 @@ def validate_gpu():
             else:
                 print(f"   ❌ GPU not available on cluster - ablation requires GPU")
                 return False
-            
+
     except Exception as e:
         print(f"   ❌ GPU validation failed: {e}")
         return False
@@ -408,28 +407,28 @@ def validate_gpu():
 def main():
     """Main function."""
     parser = argparse.ArgumentParser(description="EVEREST Component Ablation Study - Enhanced Metadata")
-    
-    parser.add_argument("--variant", 
-                       choices=["full_model", "no_evidential", "no_evt", "mean_pool", 
-                               "cross_entropy", "no_precursor", "fp32_training"],
-                       required=True,
-                       help="Component ablation variant to run")
-    
+
+    parser.add_argument("--variant",
+                        choices=["full_model", "no_evidential", "no_evt", "mean_pool",
+                                 "cross_entropy", "no_precursor", "fp32_training"],
+                        required=True,
+                        help="Component ablation variant to run")
+
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
-    
+
     args = parser.parse_args()
-    
+
     print_banner()
-    
+
     # Validate GPU
     if not validate_gpu():
         print("\n❌ GPU validation failed!")
         return 1
-    
+
     # Create and run ablation objective
     objective = AblationObjectiveWithMetadata(args.variant, args.seed)
     results = objective.run_experiment()
-    
+
     if results:
         print(f"\n🎉 Ablation completed successfully!")
         print(f"📁 Results saved to: {results['model_dir']}")
@@ -441,4 +440,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main()) 
+    sys.exit(main())

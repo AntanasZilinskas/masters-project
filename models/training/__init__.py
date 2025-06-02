@@ -14,10 +14,10 @@ Key Components:
 Usage:
     # Train single model
     python -m training.trainer --flare_class M5 --time_window 72 --seed 0
-    
+
     # Run all experiments
     python models/training/run_production_training.py --mode all
-    
+
     # Cluster submission
     cd models/training/cluster && ./submit_jobs.sh
 """
@@ -41,7 +41,7 @@ __author__ = "EVEREST Team"
 
 __all__ = [
     "TRAINING_TARGETS",
-    "RANDOM_SEEDS", 
+    "RANDOM_SEEDS",
     "FIXED_ARCHITECTURE",
     "TRAINING_HYPERPARAMS",
     "THRESHOLD_CONFIG",
@@ -51,4 +51,4 @@ __all__ = [
     "ProductionTrainer",
     "train_production_model",
     "ProductionAnalyzer"
-] 
+]

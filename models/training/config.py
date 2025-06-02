@@ -16,7 +16,7 @@ from typing import Dict, List, Any, Tuple
 # All 9 combinations of flare class × time window
 TRAINING_TARGETS = [
     {"flare_class": "C", "time_window": "24"},
-    {"flare_class": "C", "time_window": "48"}, 
+    {"flare_class": "C", "time_window": "48"},
     {"flare_class": "C", "time_window": "72"},
     {"flare_class": "M", "time_window": "24"},
     {"flare_class": "M", "time_window": "48"},
@@ -86,9 +86,9 @@ THRESHOLD_CONFIG = {
 BALANCED_WEIGHTS = {
     "tss": 0.4,        # True Skill Statistic (primary)
     "f1": 0.2,         # F1 score
-    "precision": 0.15, # Precision
+    "precision": 0.15,  # Precision
     "recall": 0.15,    # Recall/Sensitivity
-    "specificity": 0.1 # Specificity
+    "specificity": 0.1  # Specificity
 }
 
 # ============================================================================
@@ -145,7 +145,7 @@ CLUSTER_CONFIG = {
 STATISTICAL_CONFIG = {
     "confidence_level": 0.95,       # 95% confidence intervals
     "bootstrap_samples": 10000,     # Bootstrap resamples for CI
-    "significance_threshold": 0.05, # p < 0.05 for significance
+    "significance_threshold": 0.05,  # p < 0.05 for significance
     "effect_size_threshold": 0.02   # Minimum meaningful TSS difference
 }
 
@@ -153,9 +153,11 @@ STATISTICAL_CONFIG = {
 # HELPER FUNCTIONS
 # ============================================================================
 
+
 def get_experiment_name(flare_class: str, time_window: str, seed: int) -> str:
     """Generate standardized experiment name."""
     return f"everest_{flare_class}_{time_window}h_seed{seed}"
+
 
 def get_all_experiments() -> List[Dict[str, Any]]:
     """Get list of all experiment configurations."""
@@ -172,6 +174,7 @@ def get_all_experiments() -> List[Dict[str, Any]]:
             })
     return experiments
 
+
 def get_experiments_by_target(flare_class: str, time_window: str) -> List[Dict[str, Any]]:
     """Get all experiments for a specific target."""
     return [
@@ -179,11 +182,13 @@ def get_experiments_by_target(flare_class: str, time_window: str) -> List[Dict[s
         if exp["flare_class"] == flare_class and exp["time_window"] == time_window
     ]
 
+
 def get_threshold_search_points() -> List[float]:
     """Get threshold values to search over."""
     start, end = THRESHOLD_CONFIG["search_range"]
     n_points = THRESHOLD_CONFIG["search_points"]
     return [start + i * (end - start) / (n_points - 1) for i in range(n_points)]
+
 
 def calculate_balanced_score(metrics: Dict[str, float]) -> float:
     """Calculate balanced score for threshold optimization."""
@@ -193,11 +198,13 @@ def calculate_balanced_score(metrics: Dict[str, float]) -> float:
             score += weight * metrics[metric]
     return score
 
+
 def create_output_directories():
     """Create all necessary output directories."""
     for dir_path in OUTPUT_CONFIG.values():
         if isinstance(dir_path, str) and ("/" in dir_path):
             os.makedirs(dir_path, exist_ok=True)
+
 
 def validate_config():
     """Validate configuration consistency."""
@@ -205,21 +212,23 @@ def validate_config():
     total_weight = sum(BALANCED_WEIGHTS.values())
     if abs(total_weight - 1.0) > 1e-6:
         print(f"Warning: Balanced weights sum to {total_weight:.6f}, not 1.0")
-    
+
     # Check that all required directories can be created
     create_output_directories()
-    
+
     # Validate threshold configuration
     start, end = THRESHOLD_CONFIG["search_range"]
     if not (0.0 <= start < end <= 1.0):
         raise ValueError(f"Invalid threshold range: {THRESHOLD_CONFIG['search_range']}")
-    
+
     print("✅ Production training configuration validated successfully")
+
 
 def get_array_job_mapping() -> Dict[int, Dict[str, Any]]:
     """Get mapping from array job index to experiment configuration."""
     experiments = get_all_experiments()
     return {i + 1: exp for i, exp in enumerate(experiments)}  # PBS arrays start at 1
+
 
 if __name__ == "__main__":
     validate_config()
@@ -227,10 +236,10 @@ if __name__ == "__main__":
     print(f"🎲 Using {len(RANDOM_SEEDS)} random seeds")
     print(f"🔬 Total experiments: {TOTAL_EXPERIMENTS}")
     print(f"🎯 Threshold search points: {THRESHOLD_CONFIG['search_points']}")
-    
+
     # Show experiment mapping
     mapping = get_array_job_mapping()
     print(f"\n📋 Array job mapping (first 5):")
     for i in range(1, min(6, len(mapping) + 1)):
         exp = mapping[i]
-        print(f"   Job {i}: {exp['experiment_name']}") 
+        print(f"   Job {i}: {exp['experiment_name']}")

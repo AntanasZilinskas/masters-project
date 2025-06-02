@@ -14,11 +14,11 @@ from .visualization import HPOVisualizer
 
 __all__ = [
     'HPOObjective',
-    'StudyManager', 
+    'StudyManager',
     'HPOVisualizer',
     'HPO_SEARCH_SPACE',
     'SEARCH_STAGES',
     'BEST_CONFIG',
     'EXPERIMENT_TARGETS',
     'OUTPUT_DIRS'
-] 
+]
