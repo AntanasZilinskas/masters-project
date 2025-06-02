@@ -1,7 +1,7 @@
 # EVEREST: Solar Flare Prediction System
 
 ![CI](https://github.com/antanaszilinskas/masters-project/actions/workflows/ci.yml/badge.svg?branch=pytorch-rewrite)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15570398.svg)](https://doi.org/10.5281/zenodo.15570398)
 
@@ -272,7 +272,7 @@ If you use EVEREST in your research, please cite:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the CC BY 4.0 License - see the LICENSE file for details.
 
 Raw solar data from NASA/SDO and NOAA are in the public domain.
 
