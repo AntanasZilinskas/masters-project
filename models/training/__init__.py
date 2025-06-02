@@ -30,7 +30,7 @@ from .config import (
     THRESHOLD_CONFIG,
     EVALUATION_METRICS,
     get_experiment_name,
-    get_all_experiments
+    get_all_experiments,
 )
 
 from .trainer import ProductionTrainer, train_production_model
@@ -50,5 +50,5 @@ __all__ = [
     "get_all_experiments",
     "ProductionTrainer",
     "train_production_model",
-    "ProductionAnalyzer"
+    "ProductionAnalyzer",
 ]

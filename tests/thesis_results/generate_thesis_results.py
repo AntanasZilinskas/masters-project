@@ -2,6 +2,7 @@ from models.create_missing_analysis import MissingAnalysisGenerator
 from models.generate_publication_results import PublicationResultsGenerator
 from models.extract_actual_results import ActualResultsExtractor
 import pandas as pd
+
 #!/usr/bin/env python3
 """
 EVEREST Thesis Results Generator - Master Script
@@ -30,7 +31,8 @@ import json
 from pathlib import Path
 from typing import Dict, List, Any
 import warnings
-warnings.filterwarnings('ignore')
+
+warnings.filterwarnings("ignore")
 
 # Add models directory to path
 sys.path.append(str(Path(__file__).parent / "models"))
@@ -50,8 +52,12 @@ class ThesisResultsOrchestrator:
         self.missing_analysis_dir = self.output_dir / "missing_analysis"
         self.validation_dir = self.output_dir / "validation"
 
-        for dir_path in [self.actual_results_dir, self.publication_dir,
-                         self.missing_analysis_dir, self.validation_dir]:
+        for dir_path in [
+            self.actual_results_dir,
+            self.publication_dir,
+            self.missing_analysis_dir,
+            self.validation_dir,
+        ]:
             dir_path.mkdir(exist_ok=True)
 
         print("🎓 EVEREST Thesis Results Generator")
@@ -102,6 +108,7 @@ class ThesisResultsOrchestrator:
         except Exception as e:
             print(f"\n❌ Error during results generation: {e}")
             import traceback
+
             traceback.print_exc()
             sys.exit(1)
 
@@ -120,10 +127,13 @@ class ThesisResultsOrchestrator:
             # Load summary
             summary_file = self.actual_results_dir / "comprehensive_summary.json"
             if summary_file.exists():
-                with open(summary_file, 'r') as f:
+                with open(summary_file, "r") as f:
                     summary = json.load(f)
             else:
-                summary = {"status": "no_actual_data", "message": "Using simulated data"}
+                summary = {
+                    "status": "no_actual_data",
+                    "message": "Using simulated data",
+                }
 
             return summary
 
@@ -151,7 +161,7 @@ class ThesisResultsOrchestrator:
                 "status": "success",
                 "tables_generated": tables_count,
                 "figures_generated": figures_count,
-                "data_files_generated": data_count
+                "data_files_generated": data_count,
             }
 
         except Exception as e:
@@ -168,13 +178,15 @@ class ThesisResultsOrchestrator:
             generator.generate_all_missing_components()
 
             # Count generated files
-            figures_count = len(list((self.missing_analysis_dir / "figures").glob("*.pdf")))
+            figures_count = len(
+                list((self.missing_analysis_dir / "figures").glob("*.pdf"))
+            )
             data_count = len(list((self.missing_analysis_dir / "data").glob("*")))
 
             return {
                 "status": "success",
                 "additional_figures": figures_count,
-                "additional_data": data_count
+                "additional_data": data_count,
             }
 
         except Exception as e:
@@ -192,14 +204,14 @@ class ThesisResultsOrchestrator:
             "data_completeness": {},
             "missing_items": [],
             "warnings": [],
-            "overall_status": "unknown"
+            "overall_status": "unknown",
         }
 
         # Required tables for thesis
         required_tables = [
             "run_matrix_table.tex",
             "main_performance_table.tex",
-            "ablation_table.tex"
+            "ablation_table.tex",
         ]
 
         # Required figures for thesis
@@ -212,7 +224,7 @@ class ThesisResultsOrchestrator:
             "ui_dashboard.pdf",
             "environmental_analysis.pdf",
             "cost_benefit_analysis.pdf",
-            "architecture_evolution.pdf"
+            "architecture_evolution.pdf",
         ]
 
         # Check tables
@@ -221,7 +233,7 @@ class ThesisResultsOrchestrator:
             table_path = tables_dir / table
             validation_report["required_tables"][table] = {
                 "exists": table_path.exists(),
-                "size_bytes": table_path.stat().st_size if table_path.exists() else 0
+                "size_bytes": table_path.stat().st_size if table_path.exists() else 0,
             }
 
             if not table_path.exists():
@@ -230,7 +242,7 @@ class ThesisResultsOrchestrator:
         # Check figures (both publication and missing analysis)
         figures_dirs = [
             self.publication_dir / "figures",
-            self.missing_analysis_dir / "figures"
+            self.missing_analysis_dir / "figures",
         ]
 
         for figure in required_figures:
@@ -242,7 +254,7 @@ class ThesisResultsOrchestrator:
                     validation_report["required_figures"][figure] = {
                         "exists": True,
                         "location": str(figures_dir),
-                        "size_bytes": figure_path.stat().st_size
+                        "size_bytes": figure_path.stat().st_size,
                     }
                     break
 
@@ -254,7 +266,7 @@ class ThesisResultsOrchestrator:
         data_dirs = [
             self.publication_dir / "data",
             self.missing_analysis_dir / "data",
-            self.actual_results_dir
+            self.actual_results_dir,
         ]
 
         required_data = [
@@ -262,7 +274,7 @@ class ThesisResultsOrchestrator:
             "baseline_comparison.csv",
             "significance_tests.json",
             "environmental_impact.csv",
-            "cost_benefit_analysis.csv"
+            "cost_benefit_analysis.csv",
         ]
 
         for data_file in required_data:
@@ -274,7 +286,7 @@ class ThesisResultsOrchestrator:
                     validation_report["data_completeness"][data_file] = {
                         "exists": True,
                         "location": str(data_dir),
-                        "size_bytes": data_path.stat().st_size
+                        "size_bytes": data_path.stat().st_size,
                     }
                     break
 
@@ -291,16 +303,23 @@ class ThesisResultsOrchestrator:
             validation_report["warnings"].append(f"{missing_count} items missing")
         else:
             validation_report["overall_status"] = "incomplete"
-            validation_report["warnings"].append(f"{missing_count} items missing - significant gaps")
+            validation_report["warnings"].append(
+                f"{missing_count} items missing - significant gaps"
+            )
 
         # Save validation report
-        with open(self.validation_dir / "completeness_report.json", 'w') as f:
+        with open(self.validation_dir / "completeness_report.json", "w") as f:
             json.dump(validation_report, f, indent=2)
 
         return validation_report
 
-    def _generate_final_summary(self, actual_data: Dict, publication_results: Dict,
-                                missing_components: Dict, validation_report: Dict) -> Dict[str, Any]:
+    def _generate_final_summary(
+        self,
+        actual_data: Dict,
+        publication_results: Dict,
+        missing_components: Dict,
+        validation_report: Dict,
+    ) -> Dict[str, Any]:
         """Generate final comprehensive summary."""
         print("📋 Generating final summary...")
 
@@ -311,16 +330,20 @@ class ThesisResultsOrchestrator:
                 "actual_data_extraction": actual_data.get("status", "unknown"),
                 "publication_materials": publication_results.get("status", "unknown"),
                 "missing_components": missing_components.get("status", "unknown"),
-                "validation": validation_report.get("overall_status", "unknown")
+                "validation": validation_report.get("overall_status", "unknown"),
             },
             "statistics": {
                 "total_tables": publication_results.get("tables_generated", 0),
-                "total_figures": (publication_results.get("figures_generated", 0)
-                                  + missing_components.get("additional_figures", 0)),
-                "total_data_files": (publication_results.get("data_files_generated", 0)
-                                     + missing_components.get("additional_data", 0)),
+                "total_figures": (
+                    publication_results.get("figures_generated", 0)
+                    + missing_components.get("additional_figures", 0)
+                ),
+                "total_data_files": (
+                    publication_results.get("data_files_generated", 0)
+                    + missing_components.get("additional_data", 0)
+                ),
                 "missing_items": len(validation_report.get("missing_items", [])),
-                "warnings": len(validation_report.get("warnings", []))
+                "warnings": len(validation_report.get("warnings", [])),
             },
             "thesis_readiness": self._assess_thesis_readiness(validation_report),
             "next_steps": self._generate_next_steps(validation_report),
@@ -328,19 +351,19 @@ class ThesisResultsOrchestrator:
                 "tables": str(self.publication_dir / "tables"),
                 "figures": [
                     str(self.publication_dir / "figures"),
-                    str(self.missing_analysis_dir / "figures")
+                    str(self.missing_analysis_dir / "figures"),
                 ],
                 "data": [
                     str(self.publication_dir / "data"),
                     str(self.missing_analysis_dir / "data"),
-                    str(self.actual_results_dir)
+                    str(self.actual_results_dir),
                 ],
-                "validation": str(self.validation_dir)
-            }
+                "validation": str(self.validation_dir),
+            },
         }
 
         # Save final summary
-        with open(self.output_dir / "final_summary.json", 'w') as f:
+        with open(self.output_dir / "final_summary.json", "w") as f:
             json.dump(final_summary, f, indent=2)
 
         return final_summary
@@ -354,19 +377,19 @@ class ThesisResultsOrchestrator:
             readiness = {
                 "status": "ready",
                 "confidence": "high",
-                "message": "All required components generated successfully"
+                "message": "All required components generated successfully",
             }
         elif status == "mostly_complete":
             readiness = {
                 "status": "nearly_ready",
                 "confidence": "medium",
-                "message": f"Minor gaps ({missing_count} items) - can proceed with thesis"
+                "message": f"Minor gaps ({missing_count} items) - can proceed with thesis",
             }
         else:
             readiness = {
                 "status": "not_ready",
                 "confidence": "low",
-                "message": f"Significant gaps ({missing_count} items) - need to address missing components"
+                "message": f"Significant gaps ({missing_count} items) - need to address missing components",
             }
 
         return readiness
@@ -383,7 +406,7 @@ class ThesisResultsOrchestrator:
                 "📝 Review generated tables and figures for accuracy",
                 "📊 Replace any simulated data with actual experimental results",
                 "📖 Integrate results into thesis document",
-                "🔍 Perform final quality check before submission"
+                "🔍 Perform final quality check before submission",
             ]
         else:
             next_steps = [
@@ -396,11 +419,13 @@ class ThesisResultsOrchestrator:
             if len(missing_items) > 5:
                 next_steps.append(f"   - ... and {len(missing_items) - 5} more")
 
-            next_steps.extend([
-                "🔄 Re-run generation after addressing missing data",
-                "📊 Verify all experimental data is available",
-                "🔍 Check cluster job completion status"
-            ])
+            next_steps.extend(
+                [
+                    "🔄 Re-run generation after addressing missing data",
+                    "📊 Verify all experimental data is available",
+                    "🔍 Check cluster job completion status",
+                ]
+            )
 
         return next_steps
 
@@ -457,20 +482,20 @@ Examples:
     python generate_thesis_results.py --mode publish     # Publication materials only
     python generate_thesis_results.py --mode missing     # Missing components only
     python generate_thesis_results.py --mode validate    # Validation only
-        """
+        """,
     )
 
     parser.add_argument(
         "--mode",
         choices=["full", "extract", "publish", "missing", "validate"],
         default="full",
-        help="Generation mode (default: full)"
+        help="Generation mode (default: full)",
     )
 
     parser.add_argument(
         "--output-dir",
         default="thesis_results",
-        help="Output directory (default: thesis_results)"
+        help="Output directory (default: thesis_results)",
     )
 
     args = parser.parse_args()
@@ -492,8 +517,10 @@ Examples:
             orchestrator._create_missing_components()
         elif args.mode == "validate":
             validation_report = orchestrator._validate_completeness()
-            print(f"\nValidation complete. Status: {validation_report['overall_status']}")
-            if validation_report['missing_items']:
+            print(
+                f"\nValidation complete. Status: {validation_report['overall_status']}"
+            )
+            if validation_report["missing_items"]:
                 print(f"Missing items: {validation_report['missing_items']}")
 
     except KeyboardInterrupt:
@@ -502,6 +529,7 @@ Examples:
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

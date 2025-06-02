@@ -12,9 +12,14 @@ This script orchestrates the complete ablation study including:
 from ablation.analysis import AblationAnalyzer
 from ablation.trainer import train_ablation_variant
 from ablation.config import (
-    ABLATION_VARIANTS, SEQUENCE_LENGTH_VARIANTS, RANDOM_SEEDS,
-    PRIMARY_TARGET, OUTPUT_CONFIG, get_all_variant_names,
-    get_all_sequence_variants, validate_config
+    ABLATION_VARIANTS,
+    SEQUENCE_LENGTH_VARIANTS,
+    RANDOM_SEEDS,
+    PRIMARY_TARGET,
+    OUTPUT_CONFIG,
+    get_all_variant_names,
+    get_all_sequence_variants,
+    validate_config,
 )
 import os
 import sys
@@ -52,28 +57,28 @@ def run_single_experiment(args: Tuple[str, int, Optional[str]]) -> dict:
         print(f"   F1: {results['final_metrics']['f1']:.4f}")
 
         return {
-            'status': 'success',
-            'variant_name': variant_name,
-            'seed': seed,
-            'sequence_variant': sequence_variant,
-            'results': results
+            "status": "success",
+            "variant_name": variant_name,
+            "seed": seed,
+            "sequence_variant": sequence_variant,
+            "results": results,
         }
 
     except Exception as e:
         print(f"❌ Failed: {variant_name}, seed {seed}: {str(e)}")
         return {
-            'status': 'failed',
-            'variant_name': variant_name,
-            'seed': seed,
-            'sequence_variant': sequence_variant,
-            'error': str(e)
+            "status": "failed",
+            "variant_name": variant_name,
+            "seed": seed,
+            "sequence_variant": sequence_variant,
+            "error": str(e),
         }
 
 
 def generate_experiment_list(
     variants: List[str] = None,
     seeds: List[int] = None,
-    include_sequence_study: bool = True
+    include_sequence_study: bool = True,
 ) -> List[Tuple[str, int, Optional[str]]]:
     """
     Generate list of all experiments to run.
@@ -114,7 +119,7 @@ def run_ablation_study(
     seeds: List[int] = None,
     include_sequence_study: bool = True,
     max_workers: int = None,
-    run_analysis: bool = True
+    run_analysis: bool = True,
 ):
     """
     Run complete ablation study.
@@ -128,7 +133,9 @@ def run_ablation_study(
     """
     print("🔬 EVEREST Ablation Study")
     print("=" * 50)
-    print(f"Target: {PRIMARY_TARGET['flare_class']}-class, {PRIMARY_TARGET['time_window']}h")
+    print(
+        f"Target: {PRIMARY_TARGET['flare_class']}-class, {PRIMARY_TARGET['time_window']}h"
+    )
     print()
 
     # Validate configuration
@@ -140,7 +147,9 @@ def run_ablation_study(
     print(f"📊 Total experiments: {len(experiments)}")
     print(f"   Component ablations: {len(get_all_variant_names()) * len(RANDOM_SEEDS)}")
     if include_sequence_study:
-        print(f"   Sequence length ablations: {len(get_all_sequence_variants()) * len(RANDOM_SEEDS)}")
+        print(
+            f"   Sequence length ablations: {len(get_all_sequence_variants()) * len(RANDOM_SEEDS)}"
+        )
     print(f"   Parallel workers: {max_workers or mp.cpu_count()}")
     print()
 
@@ -162,8 +171,7 @@ def run_ablation_study(
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             # Submit all experiments
             future_to_experiment = {
-                executor.submit(run_single_experiment, exp): exp
-                for exp in experiments
+                executor.submit(run_single_experiment, exp): exp for exp in experiments
             }
 
             # Collect results as they complete
@@ -173,15 +181,17 @@ def run_ablation_study(
                 results.append(result)
                 completed += 1
 
-                print(f"[{completed}/{len(experiments)}] Completed: "
-                      f"{result['variant_name']}, seed {result['seed']}")
+                print(
+                    f"[{completed}/{len(experiments)}] Completed: "
+                    f"{result['variant_name']}, seed {result['seed']}"
+                )
 
-                if result['status'] == 'failed':
+                if result["status"] == "failed":
                     print(f"   ❌ Error: {result['error']}")
 
     # Summary
     elapsed = time.time() - start_time
-    successful = sum(1 for r in results if r['status'] == 'success')
+    successful = sum(1 for r in results if r["status"] == "success")
     failed = len(results) - successful
 
     print(f"\n🏁 Ablation study completed!")
@@ -192,9 +202,15 @@ def run_ablation_study(
     if failed > 0:
         print(f"\n❌ Failed experiments:")
         for result in results:
-            if result['status'] == 'failed':
-                seq_info = f", {result['sequence_variant']}" if result['sequence_variant'] else ""
-                print(f"   {result['variant_name']}, seed {result['seed']}{seq_info}: {result['error']}")
+            if result["status"] == "failed":
+                seq_info = (
+                    f", {result['sequence_variant']}"
+                    if result["sequence_variant"]
+                    else ""
+                )
+                print(
+                    f"   {result['variant_name']}, seed {result['seed']}{seq_info}: {result['error']}"
+                )
 
     # Run statistical analysis
     if run_analysis and successful > 0:
@@ -232,14 +248,14 @@ Examples:
 
   # Only run analysis (no training)
   python run_ablation_study.py --analysis-only
-        """
+        """,
     )
 
     parser.add_argument(
         "--variants",
         nargs="+",
         choices=get_all_variant_names(),
-        help="Specific variants to run (default: all)"
+        help="Specific variants to run (default: all)",
     )
 
     parser.add_argument(
@@ -247,32 +263,30 @@ Examples:
         nargs="+",
         type=int,
         default=RANDOM_SEEDS,
-        help=f"Random seeds to use (default: {RANDOM_SEEDS})"
+        help=f"Random seeds to use (default: {RANDOM_SEEDS})",
     )
 
     parser.add_argument(
         "--max-workers",
         type=int,
         default=None,
-        help="Maximum number of parallel workers (default: CPU count)"
+        help="Maximum number of parallel workers (default: CPU count)",
     )
 
     parser.add_argument(
         "--no-sequence-study",
         action="store_true",
-        help="Skip sequence length ablation study"
+        help="Skip sequence length ablation study",
     )
 
     parser.add_argument(
         "--no-analysis",
         action="store_true",
-        help="Skip statistical analysis after training"
+        help="Skip statistical analysis after training",
     )
 
     parser.add_argument(
-        "--analysis-only",
-        action="store_true",
-        help="Only run analysis (skip training)"
+        "--analysis-only", action="store_true", help="Only run analysis (skip training)"
     )
 
     args = parser.parse_args()
@@ -289,7 +303,7 @@ Examples:
         seeds=args.seeds,
         include_sequence_study=not args.no_sequence_study,
         max_workers=args.max_workers,
-        run_analysis=not args.no_analysis
+        run_analysis=not args.no_analysis,
     )
 
     print(f"\n✅ Ablation study complete!")

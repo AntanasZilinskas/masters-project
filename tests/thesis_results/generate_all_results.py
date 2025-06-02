@@ -21,7 +21,8 @@ import sys
 import argparse
 from pathlib import Path
 import warnings
-warnings.filterwarnings('ignore')
+
+warnings.filterwarnings("ignore")
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -29,11 +30,14 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 def main():
     """Main function to generate all thesis results."""
-    parser = argparse.ArgumentParser(description='Generate EVEREST thesis results')
-    parser.add_argument('--mode', choices=['simple', 'full', 'extract', 'validate'],
-                        default='simple', help='Generation mode')
-    parser.add_argument('--output-dir', default='output',
-                        help='Output directory name')
+    parser = argparse.ArgumentParser(description="Generate EVEREST thesis results")
+    parser.add_argument(
+        "--mode",
+        choices=["simple", "full", "extract", "validate"],
+        default="simple",
+        help="Generation mode",
+    )
+    parser.add_argument("--output-dir", default="output", help="Output directory name")
 
     args = parser.parse_args()
 
@@ -43,7 +47,7 @@ def main():
     print(f"Output directory: {args.output_dir}")
     print(f"Working directory: {os.getcwd()}")
 
-    if args.mode == 'simple':
+    if args.mode == "simple":
         print("\n🚀 Running simple publication generator...")
         print("   (No torch dependencies required)")
 
@@ -61,13 +65,13 @@ def main():
         print(f"\n✅ Simple generation complete!")
         print(f"📁 Results saved to: {generator.output_dir}")
 
-    elif args.mode == 'full':
+    elif args.mode == "full":
         print("\n🚀 Running full thesis generator...")
         print("   (Requires torch and actual experimental data)")
 
         try:
             # Import the full generator
-            sys.path.append('.')
+            sys.path.append(".")
             from generate_thesis_results import ThesisResultsOrchestrator
 
             orchestrator = ThesisResultsOrchestrator(output_dir=args.output_dir)
@@ -78,7 +82,7 @@ def main():
             print("💡 Try running with --mode simple instead")
             sys.exit(1)
 
-    elif args.mode == 'extract':
+    elif args.mode == "extract":
         print("\n🔍 Extracting actual experimental results...")
 
         try:
@@ -92,7 +96,7 @@ def main():
             print(f"❌ Error: Cannot import extractor: {e}")
             sys.exit(1)
 
-    elif args.mode == 'validate':
+    elif args.mode == "validate":
         print("\n✅ Validating thesis results completeness...")
 
         output_path = Path(args.output_dir)
@@ -101,8 +105,16 @@ def main():
             sys.exit(1)
 
         # Check for required files
-        required_tables = ['main_performance_table.tex', 'run_matrix_table.tex', 'ablation_table.tex']
-        required_figures = ['roc_tss_curves.pdf', 'reliability_diagrams.pdf', 'attention_heatmaps.pdf']
+        required_tables = [
+            "main_performance_table.tex",
+            "run_matrix_table.tex",
+            "ablation_table.tex",
+        ]
+        required_figures = [
+            "roc_tss_curves.pdf",
+            "reliability_diagrams.pdf",
+            "attention_heatmaps.pdf",
+        ]
 
         tables_dir = output_path / "tables"
         figures_dir = output_path / "figures"

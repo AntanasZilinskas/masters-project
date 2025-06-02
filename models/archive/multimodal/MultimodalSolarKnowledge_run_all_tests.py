@@ -68,9 +68,7 @@ def test_model(time_window, flare_class):
     model.compile()
 
     # Define the weights directory
-    weight_dir = os.path.join(
-        "models", "multimodal", str(time_window), flare_class
-    )
+    weight_dir = os.path.join("models", "multimodal", str(time_window), flare_class)
     if not os.path.exists(weight_dir):
         print(
             f"Warning: Model weights directory: {weight_dir} does not exist! Skipping test for time window {time_window} and flare class {flare_class}."
@@ -103,12 +101,8 @@ def test_model(time_window, flare_class):
 
     # Compute TSS
     cm = confusion_matrix(y_true, predicted_classes)
-    sensitivity = (
-        cm[1, 1] / (cm[1, 1] + cm[1, 0]) if (cm[1, 1] + cm[1, 0]) > 0 else 0
-    )
-    specificity = (
-        cm[0, 0] / (cm[0, 0] + cm[0, 1]) if (cm[0, 0] + cm[0, 1]) > 0 else 0
-    )
+    sensitivity = cm[1, 1] / (cm[1, 1] + cm[1, 0]) if (cm[1, 1] + cm[1, 0]) > 0 else 0
+    specificity = cm[0, 0] / (cm[0, 0] + cm[0, 1]) if (cm[0, 0] + cm[0, 1]) > 0 else 0
     TSS = sensitivity + specificity - 1
 
     print("==============================================")

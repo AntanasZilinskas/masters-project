@@ -23,11 +23,13 @@ from typing import Dict, List, Any, Tuple, Optional
 from pathlib import Path
 import pickle
 import warnings
-warnings.filterwarnings('ignore')
+
+warnings.filterwarnings("ignore")
 
 # Optional torch import
 try:
     import torch
+
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
@@ -68,8 +70,11 @@ class ActualResultsExtractor:
 
         # 6. Generate comprehensive summary
         self._generate_comprehensive_summary(
-            production_results, ablation_results, hpo_results,
-            prediction_results, dataset_stats
+            production_results,
+            ablation_results,
+            hpo_results,
+            prediction_results,
+            dataset_stats,
         )
 
         print(f"\n✅ All actual results extracted to {self.output_dir}")
@@ -88,33 +93,43 @@ class ActualResultsExtractor:
 
         for result_file in results_dir.glob("*.json"):
             try:
-                with open(result_file, 'r') as f:
+                with open(result_file, "r") as f:
                     result = json.load(f)
 
                 # Extract key metrics
                 experiment_data = {
-                    'experiment_name': result.get('experiment_name', result_file.stem),
-                    'flare_class': self._extract_flare_class(result_file.stem),
-                    'time_window': self._extract_time_window(result_file.stem),
-                    'seed': self._extract_seed(result_file.stem),
-                    'final_epoch': result.get('final_epoch', 0),
-                    'training_time': result.get('training_time', 0),
-                    'best_val_tss': result.get('best_val_tss', 0),
-                    'test_metrics': result.get('test_metrics', {}),
-                    'threshold_analysis': result.get('threshold_analysis', {}),
-                    'model_path': result.get('model_path', ''),
-                    'config': result.get('config', {})
+                    "experiment_name": result.get("experiment_name", result_file.stem),
+                    "flare_class": self._extract_flare_class(result_file.stem),
+                    "time_window": self._extract_time_window(result_file.stem),
+                    "seed": self._extract_seed(result_file.stem),
+                    "final_epoch": result.get("final_epoch", 0),
+                    "training_time": result.get("training_time", 0),
+                    "best_val_tss": result.get("best_val_tss", 0),
+                    "test_metrics": result.get("test_metrics", {}),
+                    "threshold_analysis": result.get("threshold_analysis", {}),
+                    "model_path": result.get("model_path", ""),
+                    "config": result.get("config", {}),
                 }
 
                 # Extract test metrics
-                test_metrics = result.get('test_metrics', {})
-                for metric in ['tss', 'f1', 'precision', 'recall', 'roc_auc', 'brier', 'ece']:
+                test_metrics = result.get("test_metrics", {})
+                for metric in [
+                    "tss",
+                    "f1",
+                    "precision",
+                    "recall",
+                    "roc_auc",
+                    "brier",
+                    "ece",
+                ]:
                     experiment_data[metric] = test_metrics.get(metric, 0)
 
                 # Extract optimal threshold
-                threshold_analysis = result.get('threshold_analysis', {})
-                experiment_data['optimal_threshold'] = threshold_analysis.get('optimal_threshold', 0.5)
-                experiment_data['latency_ms'] = result.get('inference_latency_ms', 0)
+                threshold_analysis = result.get("threshold_analysis", {})
+                experiment_data["optimal_threshold"] = threshold_analysis.get(
+                    "optimal_threshold", 0.5
+                )
+                experiment_data["latency_ms"] = result.get("inference_latency_ms", 0)
 
                 production_data.append(experiment_data)
 
@@ -129,7 +144,7 @@ class ActualResultsExtractor:
         df_production.to_csv(self.output_dir / "production_results.csv", index=False)
 
         print(f"✅ Extracted {len(df_production)} production experiments")
-        return {'dataframe': df_production, 'raw_data': production_data}
+        return {"dataframe": df_production, "raw_data": production_data}
 
     def _extract_ablation_results(self) -> Dict[str, Any]:
         """Extract ablation study results."""
@@ -149,14 +164,14 @@ class ActualResultsExtractor:
 
             # Extract key results
             ablation_data = {
-                'raw_results': analyzer.results,
-                'aggregated_results': analyzer.aggregated_results,
-                'statistical_tests': analyzer.statistical_tests,
-                'summary_stats': self._compute_ablation_summary(analyzer)
+                "raw_results": analyzer.results,
+                "aggregated_results": analyzer.aggregated_results,
+                "statistical_tests": analyzer.statistical_tests,
+                "summary_stats": self._compute_ablation_summary(analyzer),
             }
 
             # Save extracted data
-            with open(self.output_dir / "ablation_results.json", 'w') as f:
+            with open(self.output_dir / "ablation_results.json", "w") as f:
                 json.dump(ablation_data, f, indent=2, default=str)
 
             print(f"✅ Extracted ablation results for {len(analyzer.results)} variants")
@@ -180,18 +195,18 @@ class ActualResultsExtractor:
         # Load HPO study results
         for result_file in hpo_dir.glob("*.json"):
             try:
-                with open(result_file, 'r') as f:
+                with open(result_file, "r") as f:
                     result = json.load(f)
 
                 target = result_file.stem
                 hpo_data[target] = {
-                    'best_params': result.get('best_params', {}),
-                    'best_score': result.get('best_score', 0),
-                    'n_trials': result.get('n_trials', 0),
-                    'study_duration': result.get('study_duration', 0),
-                    'convergence_trial': result.get('convergence_trial', 0),
-                    'param_importance': result.get('param_importance', {}),
-                    'optimization_history': result.get('optimization_history', [])
+                    "best_params": result.get("best_params", {}),
+                    "best_score": result.get("best_score", 0),
+                    "n_trials": result.get("n_trials", 0),
+                    "study_duration": result.get("study_duration", 0),
+                    "convergence_trial": result.get("convergence_trial", 0),
+                    "param_importance": result.get("param_importance", {}),
+                    "optimization_history": result.get("optimization_history", []),
                 }
 
             except Exception as e:
@@ -199,7 +214,7 @@ class ActualResultsExtractor:
                 continue
 
         # Save extracted data
-        with open(self.output_dir / "hpo_results.json", 'w') as f:
+        with open(self.output_dir / "hpo_results.json", "w") as f:
             json.dump(hpo_data, f, indent=2, default=str)
 
         print(f"✅ Extracted HPO results for {len(hpo_data)} targets")
@@ -216,17 +231,17 @@ class ActualResultsExtractor:
         if predictions_dir.exists():
             for pred_file in predictions_dir.glob("*.pkl"):
                 try:
-                    with open(pred_file, 'rb') as f:
+                    with open(pred_file, "rb") as f:
                         predictions = pickle.load(f)
 
                     target = pred_file.stem
                     prediction_data[target] = {
-                        'predictions': predictions.get('predictions', []),
-                        'true_labels': predictions.get('true_labels', []),
-                        'probabilities': predictions.get('probabilities', []),
-                        'attention_weights': predictions.get('attention_weights', []),
-                        'sample_ids': predictions.get('sample_ids', []),
-                        'metadata': predictions.get('metadata', {})
+                        "predictions": predictions.get("predictions", []),
+                        "true_labels": predictions.get("true_labels", []),
+                        "probabilities": predictions.get("probabilities", []),
+                        "attention_weights": predictions.get("attention_weights", []),
+                        "sample_ids": predictions.get("sample_ids", []),
+                        "metadata": predictions.get("metadata", {}),
                     }
 
                 except Exception as e:
@@ -237,14 +252,17 @@ class ActualResultsExtractor:
         attention_analysis = self._analyze_attention_patterns(prediction_data)
 
         # Save extracted data
-        with open(self.output_dir / "prediction_results.json", 'w') as f:
+        with open(self.output_dir / "prediction_results.json", "w") as f:
             json.dump(prediction_data, f, indent=2, default=str)
 
-        with open(self.output_dir / "attention_analysis.json", 'w') as f:
+        with open(self.output_dir / "attention_analysis.json", "w") as f:
             json.dump(attention_analysis, f, indent=2, default=str)
 
         print(f"✅ Extracted predictions for {len(prediction_data)} targets")
-        return {'predictions': prediction_data, 'attention_analysis': attention_analysis}
+        return {
+            "predictions": prediction_data,
+            "attention_analysis": attention_analysis,
+        }
 
     def _extract_dataset_statistics(self) -> Dict[str, Any]:
         """Extract dataset statistics for run matrix table."""
@@ -255,14 +273,14 @@ class ActualResultsExtractor:
         stats_file = data_dir / "dataset_statistics.json"
 
         if stats_file.exists():
-            with open(stats_file, 'r') as f:
+            with open(stats_file, "r") as f:
                 dataset_stats = json.load(f)
         else:
             # Generate from available data files
             dataset_stats = self._compute_dataset_statistics()
 
         # Save extracted data
-        with open(self.output_dir / "dataset_statistics.json", 'w') as f:
+        with open(self.output_dir / "dataset_statistics.json", "w") as f:
             json.dump(dataset_stats, f, indent=2)
 
         print(f"✅ Extracted dataset statistics")
@@ -273,7 +291,7 @@ class ActualResultsExtractor:
         # This would analyze your actual data files
         # For now, return structure with placeholders
 
-        flare_classes = ['C', 'M', 'M5']
+        flare_classes = ["C", "M", "M5"]
         time_windows = [24, 48, 72]
 
         stats = {}
@@ -284,29 +302,31 @@ class ActualResultsExtractor:
 
                 # These would be computed from actual data
                 stats[key] = {
-                    'train_positive': 0,
-                    'train_negative': 0,
-                    'val_positive': 0,
-                    'val_negative': 0,
-                    'test_positive': 0,
-                    'test_negative': 0,
-                    'class_ratio': 0.0,
-                    'total_samples': 0
+                    "train_positive": 0,
+                    "train_negative": 0,
+                    "val_positive": 0,
+                    "val_negative": 0,
+                    "test_positive": 0,
+                    "test_negative": 0,
+                    "class_ratio": 0.0,
+                    "total_samples": 0,
                 }
 
         return stats
 
-    def _analyze_attention_patterns(self, prediction_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _analyze_attention_patterns(
+        self, prediction_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Analyze attention patterns for key samples."""
         attention_analysis = {}
 
         for target, data in prediction_data.items():
-            if 'attention_weights' not in data or not data['attention_weights']:
+            if "attention_weights" not in data or not data["attention_weights"]:
                 continue
 
-            attention_weights = np.array(data['attention_weights'])
-            predictions = np.array(data['predictions'])
-            true_labels = np.array(data['true_labels'])
+            attention_weights = np.array(data["attention_weights"])
+            predictions = np.array(data["predictions"])
+            true_labels = np.array(data["true_labels"])
 
             # Find representative samples
             tp_indices = np.where((predictions == 1) & (true_labels == 1))[0]
@@ -317,10 +337,10 @@ class ActualResultsExtractor:
             analysis = {}
 
             for sample_type, indices in [
-                ('true_positive', tp_indices),
-                ('true_negative', tn_indices),
-                ('false_positive', fp_indices),
-                ('false_negative', fn_indices)
+                ("true_positive", tp_indices),
+                ("true_negative", tn_indices),
+                ("false_positive", fp_indices),
+                ("false_negative", fn_indices),
             ]:
                 if len(indices) > 0:
                     # Take first few samples
@@ -328,10 +348,10 @@ class ActualResultsExtractor:
                     sample_attention = attention_weights[sample_indices]
 
                     analysis[sample_type] = {
-                        'sample_indices': sample_indices.tolist(),
-                        'attention_patterns': sample_attention.tolist(),
-                        'mean_attention': np.mean(sample_attention, axis=0).tolist(),
-                        'std_attention': np.std(sample_attention, axis=0).tolist()
+                        "sample_indices": sample_indices.tolist(),
+                        "attention_patterns": sample_attention.tolist(),
+                        "mean_attention": np.mean(sample_attention, axis=0).tolist(),
+                        "std_attention": np.std(sample_attention, axis=0).tolist(),
                     }
 
             attention_analysis[target] = analysis
@@ -341,92 +361,125 @@ class ActualResultsExtractor:
     def _compute_ablation_summary(self, analyzer) -> Dict[str, Any]:
         """Compute summary statistics for ablation study."""
         summary = {
-            'total_variants': len(analyzer.results),
-            'total_experiments': sum(len(variant_results) for variant_results in analyzer.results.values()),
-            'significant_effects': 0,
-            'largest_effect': {'variant': '', 'effect_size': 0, 'metric': ''},
-            'most_important_components': []
+            "total_variants": len(analyzer.results),
+            "total_experiments": sum(
+                len(variant_results) for variant_results in analyzer.results.values()
+            ),
+            "significant_effects": 0,
+            "largest_effect": {"variant": "", "effect_size": 0, "metric": ""},
+            "most_important_components": [],
         }
 
         # Count significant effects
-        if hasattr(analyzer, 'statistical_tests'):
+        if hasattr(analyzer, "statistical_tests"):
             for variant, tests in analyzer.statistical_tests.items():
                 for metric, test_result in tests.items():
-                    if test_result.get('is_significant', False):
-                        summary['significant_effects'] += 1
+                    if test_result.get("is_significant", False):
+                        summary["significant_effects"] += 1
 
                         # Track largest effect
-                        effect_size = abs(test_result.get('observed_diff', 0))
-                        if effect_size > summary['largest_effect']['effect_size']:
-                            summary['largest_effect'] = {
-                                'variant': variant,
-                                'effect_size': effect_size,
-                                'metric': metric
+                        effect_size = abs(test_result.get("observed_diff", 0))
+                        if effect_size > summary["largest_effect"]["effect_size"]:
+                            summary["largest_effect"] = {
+                                "variant": variant,
+                                "effect_size": effect_size,
+                                "metric": metric,
                             }
 
         return summary
 
     def _extract_flare_class(self, filename: str) -> str:
         """Extract flare class from filename."""
-        if 'M5' in filename:
-            return 'M5'
-        elif 'M_' in filename or '_M_' in filename:
-            return 'M'
-        elif 'C_' in filename or '_C_' in filename:
-            return 'C'
-        return 'unknown'
+        if "M5" in filename:
+            return "M5"
+        elif "M_" in filename or "_M_" in filename:
+            return "M"
+        elif "C_" in filename or "_C_" in filename:
+            return "C"
+        return "unknown"
 
     def _extract_time_window(self, filename: str) -> int:
         """Extract time window from filename."""
-        if '72h' in filename:
+        if "72h" in filename:
             return 72
-        elif '48h' in filename:
+        elif "48h" in filename:
             return 48
-        elif '24h' in filename:
+        elif "24h" in filename:
             return 24
         return 0
 
     def _extract_seed(self, filename: str) -> int:
         """Extract seed from filename."""
         import re
-        match = re.search(r'seed(\d+)', filename)
+
+        match = re.search(r"seed(\d+)", filename)
         return int(match.group(1)) if match else 0
 
-    def _generate_comprehensive_summary(self, production_results, ablation_results,
-                                        hpo_results, prediction_results, dataset_stats):
+    def _generate_comprehensive_summary(
+        self,
+        production_results,
+        ablation_results,
+        hpo_results,
+        prediction_results,
+        dataset_stats,
+    ):
         """Generate comprehensive summary of all results."""
         print("\n📋 Generating comprehensive summary...")
 
         summary = {
-            'extraction_timestamp': pd.Timestamp.now().isoformat(),
-            'production_training': {
-                'total_experiments': len(production_results.get('dataframe', [])),
-                'completed_targets': len(production_results.get('dataframe', pd.DataFrame()).groupby(['flare_class', 'time_window'])) if 'dataframe' in production_results else 0,
-                'best_performance': self._get_best_performance(production_results),
-                'average_training_time': self._get_average_training_time(production_results)
+            "extraction_timestamp": pd.Timestamp.now().isoformat(),
+            "production_training": {
+                "total_experiments": len(production_results.get("dataframe", [])),
+                "completed_targets": len(
+                    production_results.get("dataframe", pd.DataFrame()).groupby(
+                        ["flare_class", "time_window"]
+                    )
+                )
+                if "dataframe" in production_results
+                else 0,
+                "best_performance": self._get_best_performance(production_results),
+                "average_training_time": self._get_average_training_time(
+                    production_results
+                ),
             },
-            'ablation_study': {
-                'total_variants': len(ablation_results.get('raw_results', {})),
-                'significant_effects': ablation_results.get('summary_stats', {}).get('significant_effects', 0),
-                'largest_effect': ablation_results.get('summary_stats', {}).get('largest_effect', {})
+            "ablation_study": {
+                "total_variants": len(ablation_results.get("raw_results", {})),
+                "significant_effects": ablation_results.get("summary_stats", {}).get(
+                    "significant_effects", 0
+                ),
+                "largest_effect": ablation_results.get("summary_stats", {}).get(
+                    "largest_effect", {}
+                ),
             },
-            'hpo_study': {
-                'total_targets': len(hpo_results),
-                'average_trials': np.mean([target_data.get('n_trials', 0) for target_data in hpo_results.values()]) if hpo_results else 0,
-                'best_hyperparameters': self._get_best_hyperparameters(hpo_results)
+            "hpo_study": {
+                "total_targets": len(hpo_results),
+                "average_trials": np.mean(
+                    [
+                        target_data.get("n_trials", 0)
+                        for target_data in hpo_results.values()
+                    ]
+                )
+                if hpo_results
+                else 0,
+                "best_hyperparameters": self._get_best_hyperparameters(hpo_results),
             },
-            'predictions': {
-                'total_targets': len(prediction_results.get('predictions', {})),
-                'attention_samples': sum(len(target_data.get('attention_weights', [])) for target_data in prediction_results.get('predictions', {}).values())
+            "predictions": {
+                "total_targets": len(prediction_results.get("predictions", {})),
+                "attention_samples": sum(
+                    len(target_data.get("attention_weights", []))
+                    for target_data in prediction_results.get(
+                        "predictions", {}
+                    ).values()
+                ),
             },
-            'dataset': {
-                'total_targets': len(dataset_stats),
-                'class_imbalance_range': self._get_class_imbalance_range(dataset_stats)
-            }
+            "dataset": {
+                "total_targets": len(dataset_stats),
+                "class_imbalance_range": self._get_class_imbalance_range(dataset_stats),
+            },
         }
 
         # Save comprehensive summary
-        with open(self.output_dir / "comprehensive_summary.json", 'w') as f:
+        with open(self.output_dir / "comprehensive_summary.json", "w") as f:
             json.dump(summary, f, indent=2, default=str)
 
         print(f"✅ Comprehensive summary saved")
@@ -434,27 +487,33 @@ class ActualResultsExtractor:
 
     def _get_best_performance(self, production_results) -> Dict[str, Any]:
         """Get best performance across all experiments."""
-        if 'dataframe' not in production_results or len(production_results['dataframe']) == 0:
+        if (
+            "dataframe" not in production_results
+            or len(production_results["dataframe"]) == 0
+        ):
             return {}
 
-        df = production_results['dataframe']
-        best_tss_idx = df['tss'].idxmax()
+        df = production_results["dataframe"]
+        best_tss_idx = df["tss"].idxmax()
         best_experiment = df.loc[best_tss_idx]
 
         return {
-            'experiment': best_experiment['experiment_name'],
-            'tss': best_experiment['tss'],
-            'flare_class': best_experiment['flare_class'],
-            'time_window': best_experiment['time_window']
+            "experiment": best_experiment["experiment_name"],
+            "tss": best_experiment["tss"],
+            "flare_class": best_experiment["flare_class"],
+            "time_window": best_experiment["time_window"],
         }
 
     def _get_average_training_time(self, production_results) -> float:
         """Get average training time."""
-        if 'dataframe' not in production_results or len(production_results['dataframe']) == 0:
+        if (
+            "dataframe" not in production_results
+            or len(production_results["dataframe"]) == 0
+        ):
             return 0.0
 
-        df = production_results['dataframe']
-        return df['training_time'].mean() if 'training_time' in df.columns else 0.0
+        df = production_results["dataframe"]
+        return df["training_time"].mean() if "training_time" in df.columns else 0.0
 
     def _get_best_hyperparameters(self, hpo_results) -> Dict[str, Any]:
         """Get best hyperparameters across targets."""
@@ -462,26 +521,27 @@ class ActualResultsExtractor:
             return {}
 
         # Find target with best score
-        best_target = max(hpo_results.keys(),
-                          key=lambda k: hpo_results[k].get('best_score', 0))
+        best_target = max(
+            hpo_results.keys(), key=lambda k: hpo_results[k].get("best_score", 0)
+        )
 
-        return hpo_results[best_target].get('best_params', {})
+        return hpo_results[best_target].get("best_params", {})
 
     def _get_class_imbalance_range(self, dataset_stats) -> Dict[str, float]:
         """Get range of class imbalance ratios."""
         if not dataset_stats:
             return {}
 
-        ratios = [stats.get('class_ratio', 0) for stats in dataset_stats.values()]
+        ratios = [stats.get("class_ratio", 0) for stats in dataset_stats.values()]
         ratios = [r for r in ratios if r > 0]
 
         if not ratios:
             return {}
 
         return {
-            'min_ratio': min(ratios),
-            'max_ratio': max(ratios),
-            'mean_ratio': np.mean(ratios)
+            "min_ratio": min(ratios),
+            "max_ratio": max(ratios),
+            "mean_ratio": np.mean(ratios),
         }
 
 

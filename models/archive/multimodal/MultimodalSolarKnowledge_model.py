@@ -94,9 +94,7 @@ class ImageEncoder(layers.Layer):
 class MultimodalFusion(layers.Layer):
     def __init__(self, embed_dim):
         super(MultimodalFusion, self).__init__()
-        self.attention = layers.MultiHeadAttention(
-            num_heads=4, key_dim=embed_dim
-        )
+        self.attention = layers.MultiHeadAttention(num_heads=4, key_dim=embed_dim)
         self.layernorm = layers.LayerNormalization(epsilon=1e-6)
         self.dense1 = layers.Dense(embed_dim * 2, activation="relu")
         self.dense2 = layers.Dense(embed_dim)
@@ -113,9 +111,7 @@ class MultimodalFusion(layers.Layer):
         image_features = tf.repeat(image_features, seq_len, axis=1)
 
         # Concatenate time series and image features
-        combined_features = tf.concat(
-            [time_series_features, image_features], axis=-1
-        )
+        combined_features = tf.concat([time_series_features, image_features], axis=-1)
 
         # Apply self-attention to learn cross-modal interactions
         attention_output = self.attention(
@@ -271,9 +267,7 @@ class MultimodalSolarKnowledge:
             Target labels (one-hot encoded)
         """
         if self.model is None:
-            raise ValueError(
-                "Model must be built and compiled before training"
-            )
+            raise ValueError("Model must be built and compiled before training")
 
         history = self.model.fit(
             {"time_series_input": X_time_series, "image_input": X_images},
@@ -312,14 +306,10 @@ class MultimodalSolarKnowledge:
     def save_weights(self, flare_class=None, w_dir=None, verbose=True):
         """Save model weights to disk."""
         if w_dir is None and flare_class is None:
-            print(
-                "You must specify flare_class or w_dir to save the model weights."
-            )
+            print("You must specify flare_class or w_dir to save the model weights.")
             exit()
         if w_dir is None:
-            weight_dir = os.path.join(
-                "models", self.model_name, str(flare_class)
-            )
+            weight_dir = os.path.join("models", self.model_name, str(flare_class))
         else:
             weight_dir = w_dir
         if os.path.exists(weight_dir):
@@ -333,14 +323,10 @@ class MultimodalSolarKnowledge:
     def load_weights(self, flare_class=None, w_dir=None, verbose=True):
         """Load model weights from disk."""
         if w_dir is None and flare_class is None:
-            print(
-                "You must specify flare_class or w_dir to load the model weights."
-            )
+            print("You must specify flare_class or w_dir to load the model weights.")
             exit()
         if w_dir is None:
-            weight_dir = os.path.join(
-                "models", self.model_name, str(flare_class)
-            )
+            weight_dir = os.path.join("models", self.model_name, str(flare_class))
         else:
             weight_dir = w_dir
         if verbose:

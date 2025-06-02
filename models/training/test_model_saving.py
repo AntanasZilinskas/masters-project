@@ -10,7 +10,7 @@ import shutil
 from pathlib import Path
 
 # Add project root to path
-sys.path.append('.')
+sys.path.append(".")
 
 
 def test_directory_creation():
@@ -28,7 +28,7 @@ def test_directory_creation():
         "models/training/trained_models",
         "models/training/logs",
         "models/training/plots",
-        "models/training/analysis"
+        "models/training/analysis",
     ]
 
     for dir_path in required_dirs:
@@ -109,10 +109,10 @@ def test_copy_mechanism():
         os.makedirs(source_dir, exist_ok=True)
 
         # Create dummy model files
-        with open(os.path.join(source_dir, "model_weights.pt"), 'w') as f:
+        with open(os.path.join(source_dir, "model_weights.pt"), "w") as f:
             f.write("dummy model weights")
 
-        with open(os.path.join(source_dir, "metadata.json"), 'w') as f:
+        with open(os.path.join(source_dir, "metadata.json"), "w") as f:
             f.write('{"version": "test", "accuracy": 0.95}')
 
         # Test copy

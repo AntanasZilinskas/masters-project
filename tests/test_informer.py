@@ -53,9 +53,7 @@ except ImportError as e:
 
     # Try to find the module file directly
     for base_path in possible_model_dirs:
-        module_path = os.path.join(
-            base_path, "models", "archive", "informer.py"
-        )
+        module_path = os.path.join(base_path, "models", "archive", "informer.py")
         if os.path.exists(module_path):
             print(f"Found module at {module_path}")
             spec = importlib.util.spec_from_file_location(
@@ -72,9 +70,7 @@ except ImportError as e:
     if models_archive_informer is None:
         print("Could not find the module file anywhere. Paths checked:")
         for base_path in possible_model_dirs:
-            print(
-                f"  - {os.path.join(base_path, 'models', 'archive', 'informer.py')}"
-            )
+            print(f"  - {os.path.join(base_path, 'models', 'archive', 'informer.py')}")
         raise ImportError("Could not import models.archive.informer")
 
 
@@ -145,9 +141,7 @@ def plot_results(x, y_true, y_pred):
     plt.plot(forecast_time, y_pred, label="Prediction", marker="x")
     plt.xlabel("Time step")
     plt.ylabel("Value (Original Scale)")
-    plt.title(
-        "Informer Forecast: Context, Ground Truth, and Prediction (Unscaled)"
-    )
+    plt.title("Informer Forecast: Context, Ground Truth, and Prediction (Unscaled)")
     plt.legend()
     plt.grid(True)
     plt.show()

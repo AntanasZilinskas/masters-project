@@ -1,4 +1,4 @@
-'''
+"""
  (c) Copyright 2023
  All rights reserved
  Programs written by Yasser Abduallah
@@ -16,7 +16,7 @@
 
  Alternative transformer-based model with improved capacity for time-series classification.
  @author: Yasser Abduallah (modified)
-'''
+"""
 
 import shutil
 import numpy as np
@@ -25,20 +25,25 @@ from tensorflow.keras import layers, models, regularizers
 import tensorflow as tf
 import os
 import warnings
+
 warnings.filterwarnings("ignore")
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 # Set up mixed precision (for improved performance on MPS/M2)
-tf.keras.mixed_precision.set_global_policy('mixed_float16')
-print("Mixed precision enabled. Current policy:", tf.keras.mixed_precision.global_policy())
+tf.keras.mixed_precision.set_global_policy("mixed_float16")
+print(
+    "Mixed precision enabled. Current policy:", tf.keras.mixed_precision.global_policy()
+)
 
 
 # Set GPU memory growth (this works for both GPU/MPS on Apple Silicon)
-physical_devices = tf.config.list_physical_devices('GPU')
+physical_devices = tf.config.list_physical_devices("GPU")
 if physical_devices:
     for device in physical_devices:
         tf.config.experimental.set_memory_growth(device, enable=True)
-    print(f"SUCCESS: Found and set memory growth for {len(physical_devices)} GPU device(s).")
+    print(
+        f"SUCCESS: Found and set memory growth for {len(physical_devices)} GPU device(s)."
+    )
 else:
     print("WARNING: GPU device not found.")
 
@@ -58,9 +63,11 @@ class PositionalEncoding(layers.Layer):
         return pos * angle_rates
 
     def positional_encoding(self, position, d_model):
-        angle_rads = self.get_angles(np.arange(position)[:, np.newaxis],
-                                     np.arange(d_model)[np.newaxis, :],
-                                     d_model)
+        angle_rads = self.get_angles(
+            np.arange(position)[:, np.newaxis],
+            np.arange(d_model)[np.newaxis, :],
+            d_model,
+        )
         # apply sin to even indices; cos to odd indices
         sines = np.sin(angle_rads[:, 0::2])
         cosines = np.cos(angle_rads[:, 1::2])
@@ -74,6 +81,7 @@ class PositionalEncoding(layers.Layer):
         pos_encoding = tf.cast(self.pos_encoding[:, :seq_len, :], dtype=inputs.dtype)
         return inputs + pos_encoding
 
+
 # -----------------------------
 # Improved Transformer Block
 # -----------------------------
@@ -84,11 +92,13 @@ class TransformerBlock(layers.Layer):
         super(TransformerBlock, self).__init__()
         self.att = layers.MultiHeadAttention(num_heads=num_heads, key_dim=embed_dim)
         # Use GELU activation in the feed-forward network for smoother nonlinearities.
-        self.ffn = models.Sequential([
-            layers.Dense(ff_dim, activation=tf.keras.activations.gelu),
-            layers.Dropout(dropout_rate),
-            layers.Dense(embed_dim)
-        ])
+        self.ffn = models.Sequential(
+            [
+                layers.Dense(ff_dim, activation=tf.keras.activations.gelu),
+                layers.Dropout(dropout_rate),
+                layers.Dense(embed_dim),
+            ]
+        )
         self.layernorm1 = layers.LayerNormalization(epsilon=1e-6)
         self.layernorm2 = layers.LayerNormalization(epsilon=1e-6)
         self.dropout1 = layers.Dropout(dropout_rate)
@@ -101,6 +111,7 @@ class TransformerBlock(layers.Layer):
         ffn_output = self.ffn(out1)
         ffn_output = self.dropout2(ffn_output, training=training)
         return self.layernorm2(out1 + ffn_output)
+
 
 # -----------------------------
 # Improved SolarKnowledge Model Class
@@ -115,15 +126,24 @@ class SolarKnowledge:
 
     def __init__(self, early_stopping_patience=3):
         self.model_name = "SolarKnowledge"
-        self.callbacks = [EarlyStopping(monitor='loss', patience=early_stopping_patience, restore_best_weights=True)]
+        self.callbacks = [
+            EarlyStopping(
+                monitor="loss",
+                patience=early_stopping_patience,
+                restore_best_weights=True,
+            )
+        ]
 
-    def build_base_model(self, input_shape,
-                         embed_dim=128,        # Increased embedding dimension
-                         num_heads=4,
-                         ff_dim=256,           # Increased feed-forward dimension
-                         num_transformer_blocks=6,  # Use more transformer blocks
-                         dropout_rate=0.2,
-                         num_classes=2):
+    def build_base_model(
+        self,
+        input_shape,
+        embed_dim=128,  # Increased embedding dimension
+        num_heads=4,
+        ff_dim=256,  # Increased feed-forward dimension
+        num_transformer_blocks=6,  # Use more transformer blocks
+        dropout_rate=0.2,
+        num_classes=2,
+    ):
         """
         Build a transformer-based model for time-series classification.
         input_shape: tuple (timesteps, features)
@@ -146,11 +166,17 @@ class SolarKnowledge:
         # Global average pooling and a dense classification head.
         x = layers.GlobalAveragePooling1D()(x)
         x = layers.Dropout(dropout_rate)(x)
-        x = layers.Dense(128, activation=tf.keras.activations.gelu,
-                         kernel_regularizer=regularizers.l1_l2(l1=1e-5, l2=1e-4))(x)
+        x = layers.Dense(
+            128,
+            activation=tf.keras.activations.gelu,
+            kernel_regularizer=regularizers.l1_l2(l1=1e-5, l2=1e-4),
+        )(x)
         x = layers.Dropout(dropout_rate)(x)
-        outputs = layers.Dense(num_classes, activation='softmax',
-                               activity_regularizer=regularizers.l2(1e-5))(x)
+        outputs = layers.Dense(
+            num_classes,
+            activation="softmax",
+            activity_regularizer=regularizers.l2(1e-5),
+        )(x)
 
         self.model = models.Model(inputs=inputs, outputs=outputs)
         return self.model
@@ -161,26 +187,40 @@ class SolarKnowledge:
         else:
             print("Model is not built yet!")
 
-    def compile(self, loss='categorical_crossentropy', metrics=['accuracy'], learning_rate=1e-4):
-        self.model.compile(optimizer=tf.optimizers.Adam(learning_rate=learning_rate),
-                           loss=loss,
-                           metrics=metrics)
+    def compile(
+        self, loss="categorical_crossentropy", metrics=["accuracy"], learning_rate=1e-4
+    ):
+        self.model.compile(
+            optimizer=tf.optimizers.Adam(learning_rate=learning_rate),
+            loss=loss,
+            metrics=metrics,
+        )
 
-    def fit(self, X_train, y_train, X_valid=None, y_valid=None, epochs=100, verbose=2, batch_size=512):
+    def fit(
+        self,
+        X_train,
+        y_train,
+        X_valid=None,
+        y_valid=None,
+        epochs=100,
+        verbose=2,
+        batch_size=512,
+    ):
         validation_data = None
         if (X_valid is not None) and (y_valid is not None):
             validation_data = (X_valid, y_valid)
-        self.model.fit(X_train, y_train,
-                       epochs=epochs,
-                       verbose=verbose,
-                       batch_size=batch_size,
-                       callbacks=self.callbacks,
-                       validation_data=validation_data)
+        self.model.fit(
+            X_train,
+            y_train,
+            epochs=epochs,
+            verbose=verbose,
+            batch_size=batch_size,
+            callbacks=self.callbacks,
+            validation_data=validation_data,
+        )
 
     def predict(self, X_test, batch_size=1024, verbose=0):
-        predictions = self.model.predict(X_test,
-                                         verbose=verbose,
-                                         batch_size=batch_size)
+        predictions = self.model.predict(X_test, verbose=verbose, batch_size=batch_size)
         return predictions
 
     def save_weights(self, flare_class=None, w_dir=None, verbose=True):
@@ -188,15 +228,15 @@ class SolarKnowledge:
             print("You must specify flare_class or w_dir to save the model weights.")
             exit()
         if w_dir is None:
-            weight_dir = os.path.join('models', self.model_name, str(flare_class))
+            weight_dir = os.path.join("models", self.model_name, str(flare_class))
         else:
             weight_dir = w_dir
         if os.path.exists(weight_dir):
             shutil.rmtree(weight_dir)
         os.makedirs(weight_dir)
         if verbose:
-            print('Saving model weights to directory:', weight_dir)
-        weight_file = os.path.join(weight_dir, 'model_weights.weights.h5')
+            print("Saving model weights to directory:", weight_dir)
+        weight_file = os.path.join(weight_dir, "model_weights.weights.h5")
         self.model.save_weights(weight_file)
 
     def load_weights(self, flare_class=None, w_dir=None, verbose=True):
@@ -204,18 +244,18 @@ class SolarKnowledge:
             print("You must specify flare_class or w_dir to load the model weights.")
             exit()
         if w_dir is None:
-            weight_dir = os.path.join('models', self.model_name, str(flare_class))
+            weight_dir = os.path.join("models", self.model_name, str(flare_class))
         else:
             weight_dir = w_dir
         if verbose:
-            print('Loading weights from model dir:', weight_dir)
+            print("Loading weights from model dir:", weight_dir)
         if not os.path.exists(weight_dir):
-            print('Model weights directory:', weight_dir, 'does not exist!')
+            print("Model weights directory:", weight_dir, "does not exist!")
             exit()
         if self.model is None:
             print("You must build the model first before loading weights.")
             exit()
-        filepath = os.path.join(weight_dir, 'model_weights.weights.h5')
+        filepath = os.path.join(weight_dir, "model_weights.weights.h5")
         status = self.model.load_weights(filepath)
         if status is not None:
             status.expect_partial()
@@ -229,7 +269,7 @@ class SolarKnowledge:
         return self.model
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Example usage for debugging: build, compile, and show summary.
     # For example, input_shape is (timesteps, features) e.g., (100, 14)
     example_input_shape = (100, 14)

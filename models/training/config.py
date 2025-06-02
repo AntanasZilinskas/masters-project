@@ -23,7 +23,7 @@ TRAINING_TARGETS = [
     {"flare_class": "M", "time_window": "72"},
     {"flare_class": "M5", "time_window": "24"},
     {"flare_class": "M5", "time_window": "48"},
-    {"flare_class": "M5", "time_window": "72"}
+    {"flare_class": "M5", "time_window": "72"},
 ]
 
 # Random seeds for statistical analysis (5 runs per target)
@@ -47,7 +47,7 @@ FIXED_ARCHITECTURE = {
     "use_attention_bottleneck": True,
     "use_evidential": True,
     "use_evt": True,
-    "use_precursor": True
+    "use_precursor": True,
 }
 
 # Training hyperparameters (from HPO results)
@@ -60,14 +60,14 @@ TRAINING_HYPERPARAMS = {
     "focal_gamma_max": 2.803,
     "warmup_epochs": 50,
     "use_amp": True,  # Mixed precision training
-    "in_memory_dataset": True  # GPU memory optimization
+    "in_memory_dataset": True,  # GPU memory optimization
 }
 
 # Dynamic loss weight schedule (3-phase)
 LOSS_WEIGHT_SCHEDULE = {
     "phase_1": {"focal": 0.9, "evid": 0.1, "evt": 0.0, "prec": 0.05},  # epochs 0-19
     "phase_2": {"focal": 0.8, "evid": 0.1, "evt": 0.1, "prec": 0.05},  # epochs 20-39
-    "phase_3": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05}   # epochs 40+
+    "phase_3": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05},  # epochs 40+
 }
 
 # ============================================================================
@@ -76,19 +76,19 @@ LOSS_WEIGHT_SCHEDULE = {
 
 # Threshold search configuration
 THRESHOLD_CONFIG = {
-    "search_range": (0.1, 0.9),     # Search between 10% and 90%
-    "search_points": 81,            # 0.1, 0.11, 0.12, ..., 0.9 (0.01 steps)
+    "search_range": (0.1, 0.9),  # Search between 10% and 90%
+    "search_points": 81,  # 0.1, 0.11, 0.12, ..., 0.9 (0.01 steps)
     "optimization_metric": "balanced_score",  # Custom balanced metric
-    "fallback_threshold": 0.5       # Default if optimization fails
+    "fallback_threshold": 0.5,  # Default if optimization fails
 }
 
 # Balanced scoring weights for threshold optimization
 BALANCED_WEIGHTS = {
-    "tss": 0.4,        # True Skill Statistic (primary)
-    "f1": 0.2,         # F1 score
+    "tss": 0.4,  # True Skill Statistic (primary)
+    "f1": 0.2,  # F1 score
     "precision": 0.15,  # Precision
-    "recall": 0.15,    # Recall/Sensitivity
-    "specificity": 0.1  # Specificity
+    "recall": 0.15,  # Recall/Sensitivity
+    "specificity": 0.1,  # Specificity
 }
 
 # ============================================================================
@@ -96,16 +96,16 @@ BALANCED_WEIGHTS = {
 # ============================================================================
 
 EVALUATION_METRICS = [
-    "tss",           # True Skill Statistic (primary)
-    "accuracy",      # Overall accuracy
-    "precision",     # Precision
-    "recall",        # Recall (sensitivity)
-    "specificity",   # Specificity
-    "f1",            # F1 score
-    "roc_auc",       # ROC AUC
-    "brier",         # Brier score
-    "ece",           # Expected Calibration Error (15-bin)
-    "latency_ms"     # Inference latency (milliseconds)
+    "tss",  # True Skill Statistic (primary)
+    "accuracy",  # Overall accuracy
+    "precision",  # Precision
+    "recall",  # Recall (sensitivity)
+    "specificity",  # Specificity
+    "f1",  # F1 score
+    "roc_auc",  # ROC AUC
+    "brier",  # Brier score
+    "ece",  # Expected Calibration Error (15-bin)
+    "latency_ms",  # Inference latency (milliseconds)
 ]
 
 # ============================================================================
@@ -122,7 +122,7 @@ OUTPUT_CONFIG = {
     "git_tag": "v4.1-production",
     "save_raw_predictions": True,
     "save_threshold_curves": True,
-    "save_model_artifacts": True
+    "save_model_artifacts": True,
 }
 
 # ============================================================================
@@ -135,7 +135,7 @@ CLUSTER_CONFIG = {
     "gpu_type": "Any available GPU",
     "cpus_per_task": 4,
     "array_job_limit": 20,  # Max concurrent jobs
-    "partition": "gpu"
+    "partition": "gpu",
 }
 
 # ============================================================================
@@ -143,10 +143,10 @@ CLUSTER_CONFIG = {
 # ============================================================================
 
 STATISTICAL_CONFIG = {
-    "confidence_level": 0.95,       # 95% confidence intervals
-    "bootstrap_samples": 10000,     # Bootstrap resamples for CI
+    "confidence_level": 0.95,  # 95% confidence intervals
+    "bootstrap_samples": 10000,  # Bootstrap resamples for CI
     "significance_threshold": 0.05,  # p < 0.05 for significance
-    "effect_size_threshold": 0.02   # Minimum meaningful TSS difference
+    "effect_size_threshold": 0.02,  # Minimum meaningful TSS difference
 }
 
 # ============================================================================
@@ -164,21 +164,26 @@ def get_all_experiments() -> List[Dict[str, Any]]:
     experiments = []
     for target in TRAINING_TARGETS:
         for seed in RANDOM_SEEDS:
-            experiments.append({
-                "flare_class": target["flare_class"],
-                "time_window": target["time_window"],
-                "seed": seed,
-                "experiment_name": get_experiment_name(
-                    target["flare_class"], target["time_window"], seed
-                )
-            })
+            experiments.append(
+                {
+                    "flare_class": target["flare_class"],
+                    "time_window": target["time_window"],
+                    "seed": seed,
+                    "experiment_name": get_experiment_name(
+                        target["flare_class"], target["time_window"], seed
+                    ),
+                }
+            )
     return experiments
 
 
-def get_experiments_by_target(flare_class: str, time_window: str) -> List[Dict[str, Any]]:
+def get_experiments_by_target(
+    flare_class: str, time_window: str
+) -> List[Dict[str, Any]]:
     """Get all experiments for a specific target."""
     return [
-        exp for exp in get_all_experiments()
+        exp
+        for exp in get_all_experiments()
         if exp["flare_class"] == flare_class and exp["time_window"] == time_window
     ]
 

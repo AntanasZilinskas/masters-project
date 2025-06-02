@@ -24,13 +24,13 @@ def analyze_existing_results():
         "no_precursor_head.json": "No Precursor Head",
         "mean_pooling.json": "Mean Pooling",
         "focal_only_loss.json": "Focal Only",
-        "no_gamma_annealing.json": "No Gamma Annealing"
+        "no_gamma_annealing.json": "No Gamma Annealing",
     }
 
     for filename, variant_name in file_mapping.items():
         filepath = os.path.join(results_dir, filename)
         if os.path.exists(filepath):
-            with open(filepath, 'r') as f:
+            with open(filepath, "r") as f:
                 data = json.load(f)
             results[variant_name] = data
             print(f"✅ {variant_name}: TSS={data['tss']:.4f}")
@@ -43,8 +43,8 @@ def analyze_existing_results():
 
         for variant, data in results.items():
             if variant != "Full Model":
-                tss_change = baseline['tss'] - data['tss']
-                brier_change = baseline['brier'] - data['brier']
+                tss_change = baseline["tss"] - data["tss"]
+                brier_change = baseline["brier"] - data["brier"]
                 print(f"{variant:20}: TSS {tss_change:+.4f}, Brier {brier_change:+.4f}")
 
     return results

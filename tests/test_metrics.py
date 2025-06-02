@@ -24,9 +24,7 @@ class TrueSkillStatistic(tf.keras.metrics.Metric):
         self.true_positives.assign_add(
             tf.reduce_sum(
                 tf.cast(
-                    tf.logical_and(
-                        tf.equal(y_true, 1), tf.equal(y_pred_binary, 1)
-                    ),
+                    tf.logical_and(tf.equal(y_true, 1), tf.equal(y_pred_binary, 1)),
                     tf.float32,
                 )
             )
@@ -34,9 +32,7 @@ class TrueSkillStatistic(tf.keras.metrics.Metric):
         self.false_positives.assign_add(
             tf.reduce_sum(
                 tf.cast(
-                    tf.logical_and(
-                        tf.equal(y_true, 0), tf.equal(y_pred_binary, 1)
-                    ),
+                    tf.logical_and(tf.equal(y_true, 0), tf.equal(y_pred_binary, 1)),
                     tf.float32,
                 )
             )
@@ -44,9 +40,7 @@ class TrueSkillStatistic(tf.keras.metrics.Metric):
         self.true_negatives.assign_add(
             tf.reduce_sum(
                 tf.cast(
-                    tf.logical_and(
-                        tf.equal(y_true, 0), tf.equal(y_pred_binary, 0)
-                    ),
+                    tf.logical_and(tf.equal(y_true, 0), tf.equal(y_pred_binary, 0)),
                     tf.float32,
                 )
             )
@@ -54,9 +48,7 @@ class TrueSkillStatistic(tf.keras.metrics.Metric):
         self.false_negatives.assign_add(
             tf.reduce_sum(
                 tf.cast(
-                    tf.logical_and(
-                        tf.equal(y_true, 1), tf.equal(y_pred_binary, 0)
-                    ),
+                    tf.logical_and(tf.equal(y_true, 1), tf.equal(y_pred_binary, 0)),
                     tf.float32,
                 )
             )
@@ -66,14 +58,10 @@ class TrueSkillStatistic(tf.keras.metrics.Metric):
         # Calculate True Skill Statistic (TSS)
         # TSS = (TP/(TP+FN)) - (FP/(FP+TN))
         pod = self.true_positives / (
-            self.true_positives
-            + self.false_negatives
-            + tf.keras.backend.epsilon()
+            self.true_positives + self.false_negatives + tf.keras.backend.epsilon()
         )
         pofd = self.false_positives / (
-            self.false_positives
-            + self.true_negatives
-            + tf.keras.backend.epsilon()
+            self.false_positives + self.true_negatives + tf.keras.backend.epsilon()
         )
         return pod - pofd
 

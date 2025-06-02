@@ -12,8 +12,12 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 try:
     from training.config import (
-        TRAINING_TARGETS, RANDOM_SEEDS, TOTAL_EXPERIMENTS,
-        get_all_experiments, get_array_job_mapping, validate_config
+        TRAINING_TARGETS,
+        RANDOM_SEEDS,
+        TOTAL_EXPERIMENTS,
+        get_all_experiments,
+        get_array_job_mapping,
+        validate_config,
     )
 
     print("🧪 Testing EVEREST Production Training Configuration")

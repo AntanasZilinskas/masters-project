@@ -110,16 +110,12 @@ def train(
         elif flare_class == "M":
             # Moderate weight for M-class flares (rare)
             class_weight[i] = (
-                n_samples / (n_classes * class_counts[i]) * 0.8
-                if i == 1
-                else 1.0
+                n_samples / (n_classes * class_counts[i]) * 0.8 if i == 1 else 1.0
             )
         else:
             # Lower weight for C-class flares (more common)
             class_weight[i] = (
-                n_samples / (n_classes * class_counts[i]) * 0.6
-                if i == 1
-                else 1.0
+                n_samples / (n_classes * class_counts[i]) * 0.6 if i == 1 else 1.0
             )
 
     log(f"Class distribution: {class_counts}", verbose=True)
@@ -130,24 +126,26 @@ def train(
         model = custom_model
     else:
         # Create an instance of the SolarKnowledge transformer-based model
-        model = SolarKnowledge(early_stopping_patience=15)  # Increased patience to allow longer training
+        model = SolarKnowledge(
+            early_stopping_patience=15
+        )  # Increased patience to allow longer training
 
         # Build the model with provided parameters
         model.build_base_model(
             input_shape=input_shape,
-            embed_dim=128,           # Fixed to exactly match TensorFlow model
-            num_heads=4,             # Fixed to exactly match TensorFlow model
-            ff_dim=256,              # Fixed to exactly match TensorFlow model
+            embed_dim=128,  # Fixed to exactly match TensorFlow model
+            num_heads=4,  # Fixed to exactly match TensorFlow model
+            ff_dim=256,  # Fixed to exactly match TensorFlow model
             num_transformer_blocks=6,  # Changed from 4 to 6 to match TensorFlow exactly
             dropout_rate=0.2,
-            num_classes=2
+            num_classes=2,
         )
 
         # Compile model with specified settings
         model.compile(
             use_focal_loss=use_focal_loss,
             learning_rate=learning_rate,
-            weight_decay=1e-4
+            weight_decay=1e-4,
         )
 
     # Train the model and store the history
@@ -168,14 +166,14 @@ def train(
 
     # Get performance metrics from training history
     metrics = {}
-    if history and 'accuracy' in history:
-        metrics["final_training_accuracy"] = history['accuracy'][-1]
-        metrics["final_training_loss"] = history['loss'][-1]
-        metrics["epochs_trained"] = len(history['accuracy'])
+    if history and "accuracy" in history:
+        metrics["final_training_accuracy"] = history["accuracy"][-1]
+        metrics["final_training_loss"] = history["loss"][-1]
+        metrics["epochs_trained"] = len(history["accuracy"])
 
         # Add TSS if available
-        if 'tss' in history and history['tss'] is not None:
-            metrics["final_training_tss"] = history['tss'][-1]
+        if "tss" in history and history["tss"] is not None:
+            metrics["final_training_tss"] = history["tss"][-1]
 
     # Use custom hyperparams if provided, otherwise create new ones
     if custom_hyperparams is not None:
@@ -184,7 +182,7 @@ def train(
         # Create hyperparameters dictionary
         hyperparams = {
             "learning_rate": learning_rate,
-            "weight_decay": 0.0,        # Match TensorFlow Adam (no weight decay)
+            "weight_decay": 0.0,  # Match TensorFlow Adam (no weight decay)
             "batch_size": batch_size,
             "early_stopping_patience": 5,  # Exactly match TensorFlow default
             "early_stopping_metric": "loss",  # Use loss like TensorFlow
@@ -193,13 +191,13 @@ def train(
                 "monitor": "loss",
                 "factor": 0.5,
                 "patience": 3,
-                "min_lr": 1e-6
+                "min_lr": 1e-6,
             },
             "epochs": epochs,
             "num_transformer_blocks": 6,  # Exactly match TensorFlow model
-            "embed_dim": 128,             # Exactly match TensorFlow model
-            "num_heads": 4,               # Exactly match TensorFlow model
-            "ff_dim": 256,                # Exactly match TensorFlow model
+            "embed_dim": 128,  # Exactly match TensorFlow model
+            "num_heads": 4,  # Exactly match TensorFlow model
+            "ff_dim": 256,  # Exactly match TensorFlow model
             "dropout_rate": 0.2,
             "focal_loss": use_focal_loss,
             "focal_loss_alpha": 0.25,
@@ -210,10 +208,7 @@ def train(
             "gradient_clipping": True,
             "max_grad_norm": 1.0,
             "random_seed": RANDOM_SEED,
-            "regularization": {
-                "l1": 1e-5,
-                "l2": 1e-4
-            }
+            "regularization": {"l1": 1e-5, "l2": 1e-4},
         }
 
     # Include information about previous version in metadata if it exists
@@ -292,12 +287,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Determine which flare classes and time windows to train for
-    flare_classes = (
-        [args.specific_flare] if args.specific_flare else ["C", "M", "M5"]
-    )
-    time_windows = (
-        [args.specific_window] if args.specific_window else [24, 48, 72]
-    )
+    flare_classes = [args.specific_flare] if args.specific_flare else ["C", "M", "M5"]
+    time_windows = [args.specific_window] if args.specific_window else [24, 48, 72]
 
     # Train models
     trained_models = []

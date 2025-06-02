@@ -20,10 +20,7 @@ def find_recent_everest_models(hours_back=24):
     cutoff_time = datetime.now() - timedelta(hours=hours_back)
 
     # Look in both models/ and models/models/ directories
-    search_patterns = [
-        "models/EVEREST-v*",
-        "EVEREST-v*"
-    ]
+    search_patterns = ["models/EVEREST-v*", "EVEREST-v*"]
 
     recent_models = []
 
@@ -35,14 +32,16 @@ def find_recent_everest_models(hours_back=24):
                 creation_time = datetime.fromtimestamp(stat.st_mtime)
 
                 if creation_time > cutoff_time:
-                    recent_models.append({
-                        'path': model_dir,
-                        'name': os.path.basename(model_dir),
-                        'created': creation_time,
-                        'size_mb': get_dir_size(model_dir) / (1024 * 1024)
-                    })
+                    recent_models.append(
+                        {
+                            "path": model_dir,
+                            "name": os.path.basename(model_dir),
+                            "created": creation_time,
+                            "size_mb": get_dir_size(model_dir) / (1024 * 1024),
+                        }
+                    )
 
-    return sorted(recent_models, key=lambda x: x['created'], reverse=True)
+    return sorted(recent_models, key=lambda x: x["created"], reverse=True)
 
 
 def get_dir_size(path):
@@ -67,18 +66,18 @@ def analyze_model_metadata(model_dir):
         return None
 
     try:
-        with open(metadata_path, 'r') as f:
+        with open(metadata_path, "r") as f:
             metadata = json.load(f)
 
         return {
-            'version': metadata.get('version', 'unknown'),
-            'timestamp': metadata.get('timestamp', 'unknown'),
-            'flare_class': metadata.get('flare_class', 'unknown'),
-            'time_window': metadata.get('time_window', 'unknown'),
-            'description': metadata.get('description', ''),
-            'performance': metadata.get('performance', {}),
-            'hyperparameters': metadata.get('hyperparameters', {}),
-            'training_metrics': metadata.get('training_metrics', {})
+            "version": metadata.get("version", "unknown"),
+            "timestamp": metadata.get("timestamp", "unknown"),
+            "flare_class": metadata.get("flare_class", "unknown"),
+            "time_window": metadata.get("time_window", "unknown"),
+            "description": metadata.get("description", ""),
+            "performance": metadata.get("performance", {}),
+            "hyperparameters": metadata.get("hyperparameters", {}),
+            "training_metrics": metadata.get("training_metrics", {}),
         }
     except (json.JSONDecodeError, FileNotFoundError):
         return None
@@ -89,23 +88,23 @@ def identify_ablation_models(recent_models):
     ablation_models = []
 
     for model_info in recent_models:
-        metadata = analyze_model_metadata(model_info['path'])
+        metadata = analyze_model_metadata(model_info["path"])
 
         if metadata:
             # Check if this looks like an ablation experiment
             # Ablation models should be M5-class, 72h window, recent timestamp
-            if (metadata['flare_class'] == 'M5'
-                and metadata['time_window'] == '72'
-                    and 'ablation' in metadata.get('description', '').lower()):
-
-                model_info['metadata'] = metadata
-                model_info['experiment_type'] = 'ablation'
+            if (
+                metadata["flare_class"] == "M5"
+                and metadata["time_window"] == "72"
+                and "ablation" in metadata.get("description", "").lower()
+            ):
+                model_info["metadata"] = metadata
+                model_info["experiment_type"] = "ablation"
                 ablation_models.append(model_info)
-            elif (metadata['flare_class'] == 'M5'
-                  and metadata['time_window'] == '72'):
+            elif metadata["flare_class"] == "M5" and metadata["time_window"] == "72":
                 # Might be ablation even without explicit description
-                model_info['metadata'] = metadata
-                model_info['experiment_type'] = 'possible_ablation'
+                model_info["metadata"] = metadata
+                model_info["experiment_type"] = "possible_ablation"
                 ablation_models.append(model_info)
 
     return ablation_models
@@ -128,24 +127,26 @@ def organize_ablation_results(ablation_models):
     summary_data = []
 
     for model_info in ablation_models:
-        metadata = model_info.get('metadata', {})
+        metadata = model_info.get("metadata", {})
 
         # Extract experiment details from model name or metadata
-        model_name = model_info['name']
+        model_name = model_info["name"]
 
         # Try to infer variant and seed from timing or version
-        summary_data.append({
-            'model_name': model_name,
-            'model_path': model_info['path'],
-            'version': metadata.get('version', 'unknown'),
-            'created': model_info['created'].isoformat(),
-            'size_mb': round(model_info['size_mb'], 2),
-            'accuracy': metadata.get('performance', {}).get('accuracy', 'unknown'),
-            'tss': metadata.get('performance', {}).get('TSS', 'unknown'),
-            'flare_class': metadata.get('flare_class', 'unknown'),
-            'time_window': metadata.get('time_window', 'unknown'),
-            'experiment_type': model_info.get('experiment_type', 'unknown')
-        })
+        summary_data.append(
+            {
+                "model_name": model_name,
+                "model_path": model_info["path"],
+                "version": metadata.get("version", "unknown"),
+                "created": model_info["created"].isoformat(),
+                "size_mb": round(model_info["size_mb"], 2),
+                "accuracy": metadata.get("performance", {}).get("accuracy", "unknown"),
+                "tss": metadata.get("performance", {}).get("TSS", "unknown"),
+                "flare_class": metadata.get("flare_class", "unknown"),
+                "time_window": metadata.get("time_window", "unknown"),
+                "experiment_type": model_info.get("experiment_type", "unknown"),
+            }
+        )
 
         # Copy model to trained_models directory with descriptive name
         dest_name = f"{model_name}_ablation"
@@ -153,7 +154,7 @@ def organize_ablation_results(ablation_models):
 
         if not dest_path.exists():
             try:
-                shutil.copytree(model_info['path'], dest_path)
+                shutil.copytree(model_info["path"], dest_path)
                 print(f"✅ Copied {model_name} to {dest_path}")
             except Exception as e:
                 print(f"❌ Failed to copy {model_name}: {e}")
@@ -181,13 +182,17 @@ def main():
     print(f"📁 Found {len(recent_models)} recent EVEREST models")
 
     if not recent_models:
-        print("❌ No recent models found. Check if ablation jobs completed successfully.")
+        print(
+            "❌ No recent models found. Check if ablation jobs completed successfully."
+        )
         return
 
     # Show all recent models
     print("\n📋 Recent EVEREST models:")
     for model in recent_models:
-        print(f"   • {model['name']} ({model['created'].strftime('%H:%M:%S')}, {model['size_mb']:.1f}MB)")
+        print(
+            f"   • {model['name']} ({model['created'].strftime('%H:%M:%S')}, {model['size_mb']:.1f}MB)"
+        )
 
     # Identify ablation models
     ablation_models = identify_ablation_models(recent_models)
@@ -196,10 +201,12 @@ def main():
     if ablation_models:
         print("\n🔬 Ablation models found:")
         for model in ablation_models:
-            metadata = model.get('metadata', {})
-            acc = metadata.get('performance', {}).get('accuracy', 'N/A')
-            tss = metadata.get('performance', {}).get('TSS', 'N/A')
-            print(f"   • {model['name']}: acc={acc}, tss={tss} ({model['experiment_type']})")
+            metadata = model.get("metadata", {})
+            acc = metadata.get("performance", {}).get("accuracy", "N/A")
+            tss = metadata.get("performance", {}).get("TSS", "N/A")
+            print(
+                f"   • {model['name']}: acc={acc}, tss={tss} ({model['experiment_type']})"
+            )
 
         # Organize results
         print(f"\n📂 Organizing ablation results...")

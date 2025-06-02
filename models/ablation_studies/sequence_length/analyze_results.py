@@ -94,9 +94,7 @@ def analyze_results():
             "balanced_accuracy",
             "TSS",
         ]:
-            best_length, best_value = find_best_sequence_length(
-                metrics, metric
-            )
+            best_length, best_value = find_best_sequence_length(metrics, metric)
             if best_length is not None:
                 metrics_by_config[key][metric] = {
                     "best_length": best_length,
@@ -148,9 +146,7 @@ def analyze_results():
                     f"({values['best_value']:.4f})\n"
                 )
 
-    print(
-        f"Generated summary report at {os.path.join(output_dir, 'summary.txt')}"
-    )
+    print(f"Generated summary report at {os.path.join(output_dir, 'summary.txt')}")
 
     # Create visualizations
 
@@ -197,9 +193,7 @@ def analyze_results():
     plt.ylabel("Optimal Sequence Length")
     plt.xticks(rotation=45)
     plt.tight_layout()
-    plt.savefig(
-        os.path.join(output_dir, "optimal_sequence_lengths.png"), dpi=300
-    )
+    plt.savefig(os.path.join(output_dir, "optimal_sequence_lengths.png"), dpi=300)
     plt.close()
 
     # 2. Heatmap of best metric values
@@ -216,9 +210,7 @@ def analyze_results():
         pivot = pivot.reindex(columns=time_window_order)
 
         plt.figure(figsize=(8, 6))
-        sns.heatmap(
-            pivot, annot=True, cmap="viridis", fmt=".4f", vmin=0, vmax=1
-        )
+        sns.heatmap(pivot, annot=True, cmap="viridis", fmt=".4f", vmin=0, vmax=1)
         plt.title(f"Best {metric.capitalize()} by Flare Class and Time Window")
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f"best_{metric}.png"), dpi=300)

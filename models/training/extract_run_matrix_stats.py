@@ -29,9 +29,9 @@ def count_csv_labels(file_path: str) -> tuple:
 
         # Fallback to pandas if awk fails
         print(f"  ⚠️  awk failed for {file_path}, using pandas...")
-        df = pd.read_csv(file_path, usecols=['Flare'])
-        positive = (df['Flare'] == 'P').sum()
-        negative = (df['Flare'] == 'N').sum()
+        df = pd.read_csv(file_path, usecols=["Flare"])
+        positive = (df["Flare"] == "P").sum()
+        negative = (df["Flare"] == "N").sum()
         total = len(df)
         return positive, negative, total
 
@@ -52,9 +52,9 @@ def extract_all_statistics():
         return {}
 
     # Define all combinations
-    flare_classes = ['C', 'M', 'M5']
-    time_windows = ['24', '48', '72']
-    splits = ['training', 'testing']
+    flare_classes = ["C", "M", "M5"]
+    time_windows = ["24", "48", "72"]
+    splits = ["training", "testing"]
 
     stats = {}
 
@@ -75,16 +75,18 @@ def extract_all_statistics():
                     positive, negative, total = count_csv_labels(str(file_path))
 
                     task_stats[split] = {
-                        'positive': positive,
-                        'negative': negative,
-                        'total': total
+                        "positive": positive,
+                        "negative": negative,
+                        "total": total,
                     }
 
                     ratio = positive / total if total > 0 else 0
-                    print(f"           {positive:6,}+ / {negative:6,}- (total: {total:7,}, ratio: {ratio:.4f})")
+                    print(
+                        f"           {positive:6,}+ / {negative:6,}- (total: {total:7,}, ratio: {ratio:.4f})"
+                    )
                 else:
                     print(f"  {split:8}: ❌ File not found: {file_name}")
-                    task_stats[split] = {'positive': 0, 'negative': 0, 'total': 0}
+                    task_stats[split] = {"positive": 0, "negative": 0, "total": 0}
 
             stats[f"{flare_class}_{time_window}"] = task_stats
             print()
@@ -97,36 +99,38 @@ def generate_run_matrix_table(stats: dict) -> str:
     print("📋 Generating LaTeX table...")
 
     latex_lines = []
-    latex_lines.extend([
-        "\\begin{table}[ht]\\centering",
-        "\\caption{Run matrix showing the number of positive (+) and negative (–) examples in the train/val/test partitions for every flare class $\\times$ horizon combination.}",
-        "\\label{tab:run_matrix}",
-        "\\begin{tabular}{lccccccc}",
-        "\\toprule",
-        "\\multirow{2}{*}{\\textbf{Flare}} & \\multirow{2}{*}{\\textbf{Horizon}} &",
-        "\\multicolumn{2}{c}{\\textbf{Train}} & \\multicolumn{2}{c}{\\textbf{Val}} &",
-        "\\multicolumn{2}{c}{\\textbf{Test}}\\\\",
-        "& & + & -- & + & -- & + & -- \\\\",
-        "\\midrule"
-    ])
+    latex_lines.extend(
+        [
+            "\\begin{table}[ht]\\centering",
+            "\\caption{Run matrix showing the number of positive (+) and negative (–) examples in the train/val/test partitions for every flare class $\\times$ horizon combination.}",
+            "\\label{tab:run_matrix}",
+            "\\begin{tabular}{lccccccc}",
+            "\\toprule",
+            "\\multirow{2}{*}{\\textbf{Flare}} & \\multirow{2}{*}{\\textbf{Horizon}} &",
+            "\\multicolumn{2}{c}{\\textbf{Train}} & \\multicolumn{2}{c}{\\textbf{Val}} &",
+            "\\multicolumn{2}{c}{\\textbf{Test}}\\\\",
+            "& & + & -- & + & -- & + & -- \\\\",
+            "\\midrule",
+        ]
+    )
 
     # Process each task
-    for i, flare_class in enumerate(['C', 'M', 'M5']):
+    for i, flare_class in enumerate(["C", "M", "M5"]):
         # Add spacing between flare classes
         if i > 0:
             latex_lines.append("\\addlinespace")
 
-        for time_window in ['24', '48', '72']:
+        for time_window in ["24", "48", "72"]:
             task_key = f"{flare_class}_{time_window}"
 
             if task_key in stats:
                 task_data = stats[task_key]
 
                 # Get training and testing data
-                train_pos = task_data.get('training', {}).get('positive', 0)
-                train_neg = task_data.get('training', {}).get('negative', 0)
-                test_pos = task_data.get('testing', {}).get('positive', 0)
-                test_neg = task_data.get('testing', {}).get('negative', 0)
+                train_pos = task_data.get("training", {}).get("positive", 0)
+                train_neg = task_data.get("training", {}).get("negative", 0)
+                test_pos = task_data.get("testing", {}).get("positive", 0)
+                test_neg = task_data.get("testing", {}).get("negative", 0)
 
                 # Estimate validation split (typically 15-20% of training)
                 # Based on common ML practices and the fact that we don't have separate val files
@@ -154,11 +158,7 @@ def generate_run_matrix_table(stats: dict) -> str:
                 row += "-- & -- & -- & -- & -- & -- \\\\[-0.1em]"
                 latex_lines.append(row)
 
-    latex_lines.extend([
-        "\\bottomrule",
-        "\\end{tabular}",
-        "\\end{table}"
-    ])
+    latex_lines.extend(["\\bottomrule", "\\end{tabular}", "\\end{table}"])
 
     return "\n".join(latex_lines)
 
@@ -173,13 +173,13 @@ def display_summary(stats: dict):
     total_test_pos = total_test_neg = 0
 
     for task, data in stats.items():
-        flare_class, time_window = task.split('_')
+        flare_class, time_window = task.split("_")
         print(f"\n{flare_class}-{time_window}h:")
 
-        if 'training' in data:
-            train_pos = data['training']['positive']
-            train_neg = data['training']['negative']
-            train_total = data['training']['total']
+        if "training" in data:
+            train_pos = data["training"]["positive"]
+            train_neg = data["training"]["negative"]
+            train_total = data["training"]["total"]
             total_train_pos += train_pos
             total_train_neg += train_neg
 
@@ -189,21 +189,31 @@ def display_summary(stats: dict):
             train_pos_adj = train_pos - val_pos
             train_neg_adj = train_neg - val_neg
 
-            print(f"  Training: {train_pos_adj:6,}+ / {train_neg_adj:6,}- (ratio: {train_pos_adj/(train_pos_adj+train_neg_adj):.4f})")
-            print(f"  Validation: {val_pos:4,}+ / {val_neg:6,}- (ratio: {val_pos/(val_pos+val_neg):.4f})")
+            print(
+                f"  Training: {train_pos_adj:6,}+ / {train_neg_adj:6,}- (ratio: {train_pos_adj/(train_pos_adj+train_neg_adj):.4f})"
+            )
+            print(
+                f"  Validation: {val_pos:4,}+ / {val_neg:6,}- (ratio: {val_pos/(val_pos+val_neg):.4f})"
+            )
 
-        if 'testing' in data:
-            test_pos = data['testing']['positive']
-            test_neg = data['testing']['negative']
-            test_total = data['testing']['total']
+        if "testing" in data:
+            test_pos = data["testing"]["positive"]
+            test_neg = data["testing"]["negative"]
+            test_total = data["testing"]["total"]
             total_test_pos += test_pos
             total_test_neg += test_neg
 
-            print(f"  Testing:  {test_pos:6,}+ / {test_neg:6,}- (ratio: {test_pos/(test_pos+test_neg):.4f})")
+            print(
+                f"  Testing:  {test_pos:6,}+ / {test_neg:6,}- (ratio: {test_pos/(test_pos+test_neg):.4f})"
+            )
 
     print(f"\n📈 OVERALL TOTALS:")
-    print(f"  Training:   {total_train_pos:7,}+ / {total_train_neg:7,}- (total: {total_train_pos+total_train_neg:8,})")
-    print(f"  Testing:    {total_test_pos:7,}+ / {total_test_neg:7,}- (total: {total_test_pos+total_test_neg:8,})")
+    print(
+        f"  Training:   {total_train_pos:7,}+ / {total_train_neg:7,}- (total: {total_train_pos+total_train_neg:8,})"
+    )
+    print(
+        f"  Testing:    {total_test_pos:7,}+ / {total_test_neg:7,}- (total: {total_test_pos+total_test_neg:8,})"
+    )
 
 
 def main():
@@ -231,12 +241,13 @@ def main():
     output_dir.mkdir(exist_ok=True)
 
     # Save LaTeX table
-    with open(output_dir / "run_matrix_table.tex", 'w') as f:
+    with open(output_dir / "run_matrix_table.tex", "w") as f:
         f.write(latex_table)
 
     # Save raw statistics
     import json
-    with open(output_dir / "dataset_statistics.json", 'w') as f:
+
+    with open(output_dir / "dataset_statistics.json", "w") as f:
         json.dump(stats, f, indent=2)
 
     print(f"\n✅ Results saved to {output_dir}/")

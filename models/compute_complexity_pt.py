@@ -14,9 +14,9 @@ import torch
 from ptflops import get_model_complexity_info
 
 # TensorFlow imports for the other models
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 warnings.filterwarnings("ignore")
-tf.get_logger().setLevel('ERROR')
+tf.get_logger().setLevel("ERROR")
 
 # Make repo root importable
 repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
@@ -25,10 +25,10 @@ if repo_root not in sys.path:
 
 
 # Fix for old TensorFlow syntax in SolarFlareNet
-if not hasattr(tf, 'enable_v2_behavior'):
+if not hasattr(tf, "enable_v2_behavior"):
     tf.enable_v2_behavior = lambda: None
 
-sys.path.append(os.path.join(repo_root, 'archive', 'nature_models'))
+sys.path.append(os.path.join(repo_root, "archive", "nature_models"))
 
 # Group definitions aligned with the thesis table
 GROUPS: Dict[str, list] = {
@@ -54,7 +54,9 @@ def format_count(count: int, unit: str = "") -> str:
         return f"{count:8.0f}  {unit}"
 
 
-def estimate_memory_usage(params: int, flops: int, batch_size: int, precision: str = "fp32") -> int:
+def estimate_memory_usage(
+    params: int, flops: int, batch_size: int, precision: str = "fp32"
+) -> int:
     """Estimate peak GPU memory usage in MB."""
     bytes_per_param = 4 if precision == "fp32" else 2  # fp16
 
@@ -71,7 +73,9 @@ def estimate_memory_usage(params: int, flops: int, batch_size: int, precision: s
     return int(total_bytes / (1024 * 1024))  # Convert to MB
 
 
-def calculate_efficiency_metrics(params: int, flops: int, accuracy: float = None) -> Dict[str, float]:
+def calculate_efficiency_metrics(
+    params: int, flops: int, accuracy: float = None
+) -> Dict[str, float]:
     """Calculate various efficiency metrics."""
     metrics = {
         "params_per_gflop": params / (flops / 1e9) if flops > 0 else 0,
@@ -158,7 +162,12 @@ def analyze_everest_model(T: int, F: int, batch: int):
             macs_by_group[group] = 0
 
     total_flops = 2 * macs_total * batch
-    return params_total, total_flops, params_by_group, {k: 2 * v * batch for k, v in macs_by_group.items()}
+    return (
+        params_total,
+        total_flops,
+        params_by_group,
+        {k: 2 * v * batch for k, v in macs_by_group.items()},
+    )
 
 
 def analyze_solarknowledge_model(T: int, F: int, batch: int):
@@ -172,7 +181,7 @@ def analyze_solarknowledge_model(T: int, F: int, batch: int):
         ff_dim=256,
         num_transformer_blocks=6,
         dropout_rate=0.2,
-        num_classes=2
+        num_classes=2,
     )
 
     params_total = model.count_params()
@@ -190,7 +199,7 @@ def analyze_solarflarenet_model(T: int, F: int, batch: int):
         dropout=0.4,
         b=4,  # 4 transformer blocks
         nclass=2,
-        verbose=False
+        verbose=False,
     )
     sfn_model.models()  # Finalize the model
 
@@ -200,7 +209,9 @@ def analyze_solarflarenet_model(T: int, F: int, batch: int):
     return params_total, flops_total
 
 
-def save_results_to_csv(models_data: Dict, T: int, F: int, batch: int, output_file: str = None):
+def save_results_to_csv(
+    models_data: Dict, T: int, F: int, batch: int, output_file: str = None
+):
     """Save analysis results to CSV file for thesis documentation."""
     if output_file is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -209,16 +220,25 @@ def save_results_to_csv(models_data: Dict, T: int, F: int, batch: int, output_fi
     os.makedirs("results", exist_ok=True)
     output_path = os.path.join("results", output_file)
 
-    with open(output_path, 'w', newline='') as csvfile:
-        fieldnames = ['Model', 'Input_Config', 'Parameters', 'FLOPs', 'Memory_MB_fp32', 'Memory_MB_fp16',
-                      'Params_per_GFLOP', 'FLOPs_per_Param', 'Architecture_Type']
+    with open(output_path, "w", newline="") as csvfile:
+        fieldnames = [
+            "Model",
+            "Input_Config",
+            "Parameters",
+            "FLOPs",
+            "Memory_MB_fp32",
+            "Memory_MB_fp16",
+            "Params_per_GFLOP",
+            "FLOPs_per_Param",
+            "Architecture_Type",
+        ]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
         writer.writeheader()
 
         for model_name, data in models_data.items():
-            params = data['params']
-            flops = data['flops']
+            params = data["params"]
+            flops = data["flops"]
             memory_fp32 = estimate_memory_usage(params, flops, batch, "fp32")
             memory_fp16 = estimate_memory_usage(params, flops, batch, "fp16")
             efficiency = calculate_efficiency_metrics(params, flops)
@@ -231,17 +251,19 @@ def save_results_to_csv(models_data: Dict, T: int, F: int, batch: int, output_fi
             else:  # SolarFlareNet
                 arch_type = "CNN + LSTM + Transformer"
 
-            writer.writerow({
-                'Model': model_name,
-                'Input_Config': f"T={T}_F={F}_B={batch}",
-                'Parameters': params,
-                'FLOPs': flops,
-                'Memory_MB_fp32': memory_fp32,
-                'Memory_MB_fp16': memory_fp16,
-                'Params_per_GFLOP': round(efficiency['params_per_gflop'], 2),
-                'FLOPs_per_Param': round(efficiency['flops_per_param'], 2),
-                'Architecture_Type': arch_type
-            })
+            writer.writerow(
+                {
+                    "Model": model_name,
+                    "Input_Config": f"T={T}_F={F}_B={batch}",
+                    "Parameters": params,
+                    "FLOPs": flops,
+                    "Memory_MB_fp32": memory_fp32,
+                    "Memory_MB_fp16": memory_fp16,
+                    "Params_per_GFLOP": round(efficiency["params_per_gflop"], 2),
+                    "FLOPs_per_Param": round(efficiency["flops_per_param"], 2),
+                    "Architecture_Type": arch_type,
+                }
+            )
 
     print(f"\n📊 Results saved to: {output_path}")
     return output_path
@@ -255,12 +277,14 @@ def print_efficiency_analysis(models_data: Dict, batch: int):
     print("-" * 60)
 
     for model_name, data in models_data.items():
-        params = data['params']
-        flops = data['flops']
+        params = data["params"]
+        flops = data["flops"]
         memory = estimate_memory_usage(params, flops, batch)
         efficiency = calculate_efficiency_metrics(params, flops)
 
-        print(f"{model_name:<15s} {memory:<10d} {efficiency['params_per_gflop']:<12.1f} {efficiency['flops_per_param']:<12.1f}")
+        print(
+            f"{model_name:<15s} {memory:<10d} {efficiency['params_per_gflop']:<12.1f} {efficiency['flops_per_param']:<12.1f}"
+        )
 
     print("-" * 60)
     print("\nKEY INSIGHTS:")
@@ -281,29 +305,28 @@ def main(T: int, F: int, batch: int, save_csv: bool = False):
 
     # 1. EVEREST (RETPlusModel)
     print("Analyzing EVEREST (RETPlusModel)...")
-    everest_params, everest_flops, everest_groups, everest_flops_groups = analyze_everest_model(T, F, batch)
-    models_data['EVEREST'] = {
-        'params': everest_params,
-        'flops': everest_flops,
-        'groups': everest_groups,
-        'flops_groups': everest_flops_groups
+    (
+        everest_params,
+        everest_flops,
+        everest_groups,
+        everest_flops_groups,
+    ) = analyze_everest_model(T, F, batch)
+    models_data["EVEREST"] = {
+        "params": everest_params,
+        "flops": everest_flops,
+        "groups": everest_groups,
+        "flops_groups": everest_flops_groups,
     }
 
     # 2. SolarKnowledge
     print("Analyzing SolarKnowledge...")
     sk_params, sk_flops = analyze_solarknowledge_model(T, F, batch)
-    models_data['SolarKnowledge'] = {
-        'params': sk_params,
-        'flops': sk_flops
-    }
+    models_data["SolarKnowledge"] = {"params": sk_params, "flops": sk_flops}
 
     # 3. SolarFlareNet
     print("Analyzing SolarFlareNet...")
     sfn_params, sfn_flops = analyze_solarflarenet_model(T, F, batch)
-    models_data['SolarFlareNet'] = {
-        'params': sfn_params,
-        'flops': sfn_flops
-    }
+    models_data["SolarFlareNet"] = {"params": sfn_params, "flops": sfn_flops}
 
     print()
 
@@ -314,8 +337,8 @@ def main(T: int, F: int, batch: int, save_csv: bool = False):
     print("-" * 60)
 
     for model_name, data in models_data.items():
-        params_str = format_count(data['params'])
-        flops_str = format_count(data['flops'])
+        params_str = format_count(data["params"])
+        flops_str = format_count(data["flops"])
         print(f"{model_name:<20s} {params_str:>15s} {flops_str:>20s}")
 
     print("-" * 60)
@@ -329,8 +352,8 @@ def main(T: int, F: int, batch: int, save_csv: bool = False):
 
     total_p = total_f = 0
     for group in GROUPS:
-        p = models_data['EVEREST']['groups'][group]
-        f = models_data['EVEREST']['flops_groups'][group]
+        p = models_data["EVEREST"]["groups"][group]
+        f = models_data["EVEREST"]["flops_groups"][group]
         total_p += p
         total_f += f
 
@@ -355,10 +378,20 @@ def main(T: int, F: int, batch: int, save_csv: bool = False):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Compute complexity for all solar flare prediction models.")
-    parser.add_argument("--timesteps", "-T", type=int, default=10, help="Sequence length")
-    parser.add_argument("--features", "-F", type=int, default=9, help="Number of input features")
-    parser.add_argument("--batch", "-B", type=int, default=1, help="Batch size for FLOP scaling")
-    parser.add_argument("--save-csv", action="store_true", help="Save results to CSV file")
+    parser = argparse.ArgumentParser(
+        description="Compute complexity for all solar flare prediction models."
+    )
+    parser.add_argument(
+        "--timesteps", "-T", type=int, default=10, help="Sequence length"
+    )
+    parser.add_argument(
+        "--features", "-F", type=int, default=9, help="Number of input features"
+    )
+    parser.add_argument(
+        "--batch", "-B", type=int, default=1, help="Batch size for FLOP scaling"
+    )
+    parser.add_argument(
+        "--save-csv", action="store_true", help="Save results to CSV file"
+    )
     args = parser.parse_args()
     main(args.timesteps, args.features, args.batch, args.save_csv)

@@ -15,8 +15,13 @@ import torch
 import torch.nn as nn
 from typing import Dict, List, Any, Tuple, Optional
 from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score,
-    roc_auc_score, brier_score_loss, confusion_matrix
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
+    brier_score_loss,
+    confusion_matrix,
 )
 
 # Add parent directory to path for imports
@@ -26,18 +31,38 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 try:
     # Relative imports (when used as module)
     from .config import (
-        TRAINING_TARGETS, RANDOM_SEEDS, FIXED_ARCHITECTURE, TRAINING_HYPERPARAMS,
-        LOSS_WEIGHT_SCHEDULE, THRESHOLD_CONFIG, BALANCED_WEIGHTS, EVALUATION_METRICS,
-        OUTPUT_CONFIG, STATISTICAL_CONFIG, get_experiment_name, get_threshold_search_points,
-        calculate_balanced_score, create_output_directories
+        TRAINING_TARGETS,
+        RANDOM_SEEDS,
+        FIXED_ARCHITECTURE,
+        TRAINING_HYPERPARAMS,
+        LOSS_WEIGHT_SCHEDULE,
+        THRESHOLD_CONFIG,
+        BALANCED_WEIGHTS,
+        EVALUATION_METRICS,
+        OUTPUT_CONFIG,
+        STATISTICAL_CONFIG,
+        get_experiment_name,
+        get_threshold_search_points,
+        calculate_balanced_score,
+        create_output_directories,
     )
 except ImportError:
     # Absolute imports (when used as script)
     from config import (
-        TRAINING_TARGETS, RANDOM_SEEDS, FIXED_ARCHITECTURE, TRAINING_HYPERPARAMS,
-        LOSS_WEIGHT_SCHEDULE, THRESHOLD_CONFIG, BALANCED_WEIGHTS, EVALUATION_METRICS,
-        OUTPUT_CONFIG, STATISTICAL_CONFIG, get_experiment_name, get_threshold_search_points,
-        calculate_balanced_score, create_output_directories
+        TRAINING_TARGETS,
+        RANDOM_SEEDS,
+        FIXED_ARCHITECTURE,
+        TRAINING_HYPERPARAMS,
+        LOSS_WEIGHT_SCHEDULE,
+        THRESHOLD_CONFIG,
+        BALANCED_WEIGHTS,
+        EVALUATION_METRICS,
+        OUTPUT_CONFIG,
+        STATISTICAL_CONFIG,
+        get_experiment_name,
+        get_threshold_search_points,
+        calculate_balanced_score,
+        create_output_directories,
     )
 
 # Import EVEREST model components - try multiple paths
@@ -88,13 +113,15 @@ class ProductionTrainer:
         torch.backends.cudnn.benchmark = False
 
         # Set environment variables for reproducibility
-        os.environ['PYTHONHASHSEED'] = str(self.seed)
+        os.environ["PYTHONHASHSEED"] = str(self.seed)
 
         print(f"🎲 Reproducibility configured with seed {self.seed}")
 
     def _setup_directories(self):
         """Create experiment-specific directories."""
-        self.experiment_dir = os.path.join(OUTPUT_CONFIG["results_dir"], self.experiment_name)
+        self.experiment_dir = os.path.join(
+            OUTPUT_CONFIG["results_dir"], self.experiment_name
+        )
         self.model_dir = os.path.join(OUTPUT_CONFIG["models_dir"], self.experiment_name)
         self.log_dir = os.path.join(OUTPUT_CONFIG["logs_dir"], self.experiment_name)
 
@@ -110,10 +137,14 @@ class ProductionTrainer:
         X_test, y_test = get_testing_data(self.time_window, self.flare_class)
 
         if X_train is None or y_train is None:
-            raise ValueError(f"Training data not found for {self.flare_class}/{self.time_window}h")
+            raise ValueError(
+                f"Training data not found for {self.flare_class}/{self.time_window}h"
+            )
 
         if X_test is None or y_test is None:
-            raise ValueError(f"Testing data not found for {self.flare_class}/{self.time_window}h")
+            raise ValueError(
+                f"Testing data not found for {self.flare_class}/{self.time_window}h"
+            )
 
         # Convert to numpy arrays
         X_train = np.array(X_train)
@@ -140,7 +171,7 @@ class ProductionTrainer:
             use_attention_bottleneck=FIXED_ARCHITECTURE["use_attention_bottleneck"],
             use_evidential=FIXED_ARCHITECTURE["use_evidential"],
             use_evt=FIXED_ARCHITECTURE["use_evt"],
-            use_precursor=FIXED_ARCHITECTURE["use_precursor"]
+            use_precursor=FIXED_ARCHITECTURE["use_precursor"],
         )
 
         # Update optimizer with production learning rate
@@ -148,7 +179,7 @@ class ProductionTrainer:
             wrapper.model.parameters(),
             lr=TRAINING_HYPERPARAMS["learning_rate"],
             weight_decay=TRAINING_HYPERPARAMS["weight_decay"],
-            fused=True
+            fused=True,
         )
 
         device = next(wrapper.model.parameters()).device
@@ -157,7 +188,9 @@ class ProductionTrainer:
 
         return wrapper
 
-    def train_model(self, model: RETPlusWrapper, X_train: np.ndarray, y_train: np.ndarray) -> Dict[str, Any]:
+    def train_model(
+        self, model: RETPlusWrapper, X_train: np.ndarray, y_train: np.ndarray
+    ) -> Dict[str, Any]:
         """Train the model using production configuration."""
         print("\n🏋️ Training model...")
 
@@ -174,7 +207,7 @@ class ProductionTrainer:
             flare_class=self.flare_class,
             time_window=self.time_window,
             in_memory_dataset=TRAINING_HYPERPARAMS["in_memory_dataset"],
-            track_emissions=True
+            track_emissions=True,
         )
 
         # Store reference to trained model for potential manual saving
@@ -182,16 +215,20 @@ class ProductionTrainer:
 
         training_time = time.time() - start_time
 
-        print(f"✅ Training completed in {training_time:.1f}s ({training_time/60:.1f} min)")
+        print(
+            f"✅ Training completed in {training_time:.1f}s ({training_time/60:.1f} min)"
+        )
         print(f"📁 Model saved to: {model_dir}")
 
         return {
             "model_dir": model_dir,
             "training_time": training_time,
-            "training_history": model.history
+            "training_history": model.history,
         }
 
-    def optimize_threshold(self, model: RETPlusWrapper, X_test: np.ndarray, y_test: np.ndarray) -> Dict[str, Any]:
+    def optimize_threshold(
+        self, model: RETPlusWrapper, X_test: np.ndarray, y_test: np.ndarray
+    ) -> Dict[str, Any]:
         """Optimize classification threshold on test set."""
         print("\n🎯 Optimizing classification threshold...")
 
@@ -216,11 +253,9 @@ class ProductionTrainer:
             # Calculate balanced score
             balanced_score = calculate_balanced_score(metrics)
 
-            threshold_results.append({
-                "threshold": threshold,
-                "balanced_score": balanced_score,
-                **metrics
-            })
+            threshold_results.append(
+                {"threshold": threshold, "balanced_score": balanced_score, **metrics}
+            )
 
             # Track best threshold
             if balanced_score > best_score:
@@ -238,11 +273,16 @@ class ProductionTrainer:
             "optimal_score": best_score,
             "optimal_metrics": best_metrics,
             "threshold_curve": threshold_results,
-            "probabilities": y_probs.tolist()
+            "probabilities": y_probs.tolist(),
         }
 
-    def evaluate_model(self, model: RETPlusWrapper, X_test: np.ndarray, y_test: np.ndarray,
-                       optimal_threshold: float) -> Dict[str, Any]:
+    def evaluate_model(
+        self,
+        model: RETPlusWrapper,
+        X_test: np.ndarray,
+        y_test: np.ndarray,
+        optimal_threshold: float,
+    ) -> Dict[str, Any]:
         """Comprehensive model evaluation on test set."""
         print(f"\n📊 Evaluating model with threshold {optimal_threshold:.3f}...")
 
@@ -268,7 +308,7 @@ class ProductionTrainer:
                 "true_positives": int(tp),
                 "total_samples": len(y_test),
                 "positive_samples": int(np.sum(y_test)),
-                "negative_samples": int(len(y_test) - np.sum(y_test))
+                "negative_samples": int(len(y_test) - np.sum(y_test)),
             }
         else:
             confusion_details = {"error": "Invalid confusion matrix"}
@@ -288,11 +328,13 @@ class ProductionTrainer:
             "predictions": {
                 "y_true": y_test.tolist(),
                 "y_pred": y_pred.tolist(),
-                "y_probs": y_probs.tolist()
-            }
+                "y_probs": y_probs.tolist(),
+            },
         }
 
-    def _calculate_metrics(self, y_true: np.ndarray, y_pred: np.ndarray, y_probs: np.ndarray) -> Dict[str, float]:
+    def _calculate_metrics(
+        self, y_true: np.ndarray, y_pred: np.ndarray, y_probs: np.ndarray
+    ) -> Dict[str, float]:
         """Calculate comprehensive evaluation metrics."""
         # Basic metrics
         accuracy = accuracy_score(y_true, y_pred)
@@ -312,7 +354,9 @@ class ProductionTrainer:
 
         # Probabilistic metrics
         try:
-            roc_auc = roc_auc_score(y_true, y_probs) if len(np.unique(y_true)) > 1 else 0.5
+            roc_auc = (
+                roc_auc_score(y_true, y_probs) if len(np.unique(y_true)) > 1 else 0.5
+            )
             brier = brier_score_loss(y_true, y_probs)
             ece = self._calculate_ece(y_true, y_probs, n_bins=15)
         except BaseException:
@@ -329,10 +373,12 @@ class ProductionTrainer:
             "f1": f1,
             "roc_auc": roc_auc,
             "brier": brier,
-            "ece": ece
+            "ece": ece,
         }
 
-    def _calculate_ece(self, y_true: np.ndarray, y_probs: np.ndarray, n_bins: int = 15) -> float:
+    def _calculate_ece(
+        self, y_true: np.ndarray, y_probs: np.ndarray, n_bins: int = 15
+    ) -> float:
         """Calculate Expected Calibration Error (15-bin protocol)."""
         bin_boundaries = np.linspace(0, 1, n_bins + 1)
         bin_lowers = bin_boundaries[:-1]
@@ -350,7 +396,9 @@ class ProductionTrainer:
 
         return ece
 
-    def _measure_latency(self, model: RETPlusWrapper, X_sample: np.ndarray, n_runs: int = 1000) -> float:
+    def _measure_latency(
+        self, model: RETPlusWrapper, X_sample: np.ndarray, n_runs: int = 1000
+    ) -> float:
         """Measure inference latency in milliseconds."""
         model.model.eval()
         device = next(model.model.parameters()).device
@@ -381,8 +429,12 @@ class ProductionTrainer:
 
         return latency_per_sample
 
-    def save_results(self, training_results: Dict[str, Any], threshold_results: Dict[str, Any],
-                     evaluation_results: Dict[str, Any]):
+    def save_results(
+        self,
+        training_results: Dict[str, Any],
+        threshold_results: Dict[str, Any],
+        evaluation_results: Dict[str, Any],
+    ):
         """Save comprehensive experiment results."""
         print("\n💾 Saving results...")
 
@@ -397,23 +449,23 @@ class ProductionTrainer:
                 "time_window": self.time_window,
                 "seed": self.seed,
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "git_tag": OUTPUT_CONFIG["git_tag"]
+                "git_tag": OUTPUT_CONFIG["git_tag"],
             },
             "configuration": {
                 "architecture": FIXED_ARCHITECTURE,
                 "hyperparameters": TRAINING_HYPERPARAMS,
                 "loss_schedule": LOSS_WEIGHT_SCHEDULE,
                 "threshold_config": THRESHOLD_CONFIG,
-                "balanced_weights": BALANCED_WEIGHTS
+                "balanced_weights": BALANCED_WEIGHTS,
             },
             "training": training_results,
             "threshold_optimization": threshold_results,
-            "evaluation": evaluation_results
+            "evaluation": evaluation_results,
         }
 
         # Save main results as JSON
         results_file = os.path.join(self.experiment_dir, "results.json")
-        with open(results_file, 'w') as f:
+        with open(results_file, "w") as f:
             json.dump(complete_results, f, indent=2, default=str)
 
         # Save training history as CSV
@@ -425,7 +477,9 @@ class ProductionTrainer:
         # Save threshold curve as CSV
         if "threshold_curve" in threshold_results:
             threshold_df = pd.DataFrame(threshold_results["threshold_curve"])
-            threshold_file = os.path.join(self.experiment_dir, "threshold_optimization.csv")
+            threshold_file = os.path.join(
+                self.experiment_dir, "threshold_optimization.csv"
+            )
             threshold_df.to_csv(threshold_file, index=False)
 
         # Save final metrics summary
@@ -435,7 +489,7 @@ class ProductionTrainer:
             "time_window": self.time_window,
             "seed": self.seed,
             "optimal_threshold": threshold_results["optimal_threshold"],
-            **evaluation_results["test_metrics"]
+            **evaluation_results["test_metrics"],
         }
 
         metrics_df = pd.DataFrame([final_metrics])
@@ -451,7 +505,9 @@ class ProductionTrainer:
         # Create comprehensive model artifacts using the full tracking system
         if OUTPUT_CONFIG["save_model_artifacts"]:
             print(f"\n🎯 Creating comprehensive model artifacts...")
-            self._create_comprehensive_model_artifacts(training_results, threshold_results, evaluation_results)
+            self._create_comprehensive_model_artifacts(
+                training_results, threshold_results, evaluation_results
+            )
 
         print(f"📊 Results saved:")
         print(f"   Main: {results_file}")
@@ -459,13 +515,21 @@ class ProductionTrainer:
         print(f"   Thresholds: {threshold_file}")
         print(f"   Metrics: {metrics_file}")
 
-    def _create_comprehensive_model_artifacts(self, training_results: Dict[str, Any],
-                                              threshold_results: Dict[str, Any],
-                                              evaluation_results: Dict[str, Any]):
+    def _create_comprehensive_model_artifacts(
+        self,
+        training_results: Dict[str, Any],
+        threshold_results: Dict[str, Any],
+        evaluation_results: Dict[str, Any],
+    ):
         """Create comprehensive model artifacts using the established model tracking system."""
         try:
-            if not hasattr(self, '_last_trained_model') or self._last_trained_model is None:
-                print(f"⚠️ No trained model reference available for comprehensive saving")
+            if (
+                not hasattr(self, "_last_trained_model")
+                or self._last_trained_model is None
+            ):
+                print(
+                    f"⚠️ No trained model reference available for comprehensive saving"
+                )
                 return
 
             from models.model_tracking import save_model_with_metadata, get_next_version
@@ -483,21 +547,28 @@ class ProductionTrainer:
             # Enhanced metrics combining training and evaluation results
             comprehensive_metrics = {
                 # Training metrics
-                "final_training_accuracy": self._last_trained_model.history.get("accuracy", [0])[-1] if self._last_trained_model.history.get("accuracy") else 0,
-                "final_training_tss": self._last_trained_model.history.get("tss", [0])[-1] if self._last_trained_model.history.get("tss") else 0,
-                "training_epochs": len(self._last_trained_model.history.get("loss", [])),
-
+                "final_training_accuracy": self._last_trained_model.history.get(
+                    "accuracy", [0]
+                )[-1]
+                if self._last_trained_model.history.get("accuracy")
+                else 0,
+                "final_training_tss": self._last_trained_model.history.get("tss", [0])[
+                    -1
+                ]
+                if self._last_trained_model.history.get("tss")
+                else 0,
+                "training_epochs": len(
+                    self._last_trained_model.history.get("loss", [])
+                ),
                 # Threshold optimization results
                 "optimal_threshold": threshold_results.get("optimal_threshold", 0.5),
                 "optimal_balanced_score": threshold_results.get("optimal_score", 0),
-
                 # Final test set evaluation
                 **evaluation_results.get("test_metrics", {}),
-
                 # Production training metadata
                 "production_training": True,
                 "experiment_name": self.experiment_name,
-                "seed": self.seed
+                "seed": self.seed,
             }
 
             # Enhanced hyperparameters
@@ -508,14 +579,26 @@ class ProductionTrainer:
                 "production_training": True,
                 "threshold_optimization": THRESHOLD_CONFIG,
                 "loss_schedule": LOSS_WEIGHT_SCHEDULE,
-                "balanced_weights": BALANCED_WEIGHTS
+                "balanced_weights": BALANCED_WEIGHTS,
             }
 
             # Use evaluation predictions if available
             eval_predictions = evaluation_results.get("predictions", {})
-            y_true = np.array(eval_predictions.get("y_true", [])) if eval_predictions.get("y_true") else y_sample
-            y_pred = np.array(eval_predictions.get("y_pred", [])) if eval_predictions.get("y_pred") else None
-            y_scores = np.array(eval_predictions.get("y_probs", [])) if eval_predictions.get("y_probs") else None
+            y_true = (
+                np.array(eval_predictions.get("y_true", []))
+                if eval_predictions.get("y_true")
+                else y_sample
+            )
+            y_pred = (
+                np.array(eval_predictions.get("y_pred", []))
+                if eval_predictions.get("y_pred")
+                else None
+            )
+            y_scores = (
+                np.array(eval_predictions.get("y_probs", []))
+                if eval_predictions.get("y_probs")
+                else None
+            )
 
             # Create comprehensive model directory using the established system
             print(f"🎯 Using comprehensive model tracking system...")
@@ -534,12 +617,22 @@ class ProductionTrainer:
                 y_scores=y_scores,
                 sample_input=X_sample if X_sample is not None else None,
                 # Attention artifacts for interpretability
-                att_X_batch=X_sample[:10] if X_sample is not None and len(X_sample) >= 10 else None,
-                att_y_true=y_true[:10] if y_true is not None and len(y_true) >= 10 else None,
-                att_y_pred=y_pred[:10] if y_pred is not None and len(y_pred) >= 10 else None,
-                att_y_score=y_scores[:10] if y_scores is not None and len(y_scores) >= 10 else None,
+                att_X_batch=X_sample[:10]
+                if X_sample is not None and len(X_sample) >= 10
+                else None,
+                att_y_true=y_true[:10]
+                if y_true is not None and len(y_true) >= 10
+                else None,
+                att_y_pred=y_pred[:10]
+                if y_pred is not None and len(y_pred) >= 10
+                else None,
+                att_y_score=y_scores[:10]
+                if y_scores is not None and len(y_scores) >= 10
+                else None,
                 # Training efficiency metrics
-                training_metrics=getattr(self._last_trained_model, 'training_metrics', None)
+                training_metrics=getattr(
+                    self._last_trained_model, "training_metrics", None
+                ),
             )
 
             if comprehensive_model_dir:
@@ -575,9 +668,13 @@ class ProductionTrainer:
                 print(f"   Saved to: {self.model_dir}")
 
                 # Create reference to original comprehensive save
-                ref_file = os.path.join(self.experiment_dir, "comprehensive_model_dir.txt")
-                with open(ref_file, 'w') as f:
-                    f.write(f"Comprehensive model saved to: {comprehensive_model_dir}\n")
+                ref_file = os.path.join(
+                    self.experiment_dir, "comprehensive_model_dir.txt"
+                )
+                with open(ref_file, "w") as f:
+                    f.write(
+                        f"Comprehensive model saved to: {comprehensive_model_dir}\n"
+                    )
                     f.write(f"Production copy located at: {self.model_dir}\n")
                     f.write(f"Created: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
@@ -625,7 +722,10 @@ class ProductionTrainer:
     def _save_basic_model_weights(self):
         """Fallback method to save basic model weights."""
         try:
-            if hasattr(self, '_last_trained_model') and self._last_trained_model is not None:
+            if (
+                hasattr(self, "_last_trained_model")
+                and self._last_trained_model is not None
+            ):
                 os.makedirs(self.model_dir, exist_ok=True)
                 weights_path = os.path.join(self.model_dir, "model_weights.pt")
                 torch.save(self._last_trained_model.model.state_dict(), weights_path)
@@ -642,12 +742,12 @@ class ProductionTrainer:
                     "training_config": {
                         "epochs": TRAINING_HYPERPARAMS["epochs"],
                         "batch_size": TRAINING_HYPERPARAMS["batch_size"],
-                        "learning_rate": TRAINING_HYPERPARAMS["learning_rate"]
-                    }
+                        "learning_rate": TRAINING_HYPERPARAMS["learning_rate"],
+                    },
                 }
 
                 metadata_path = os.path.join(self.model_dir, "metadata.json")
-                with open(metadata_path, 'w') as f:
+                with open(metadata_path, "w") as f:
                     json.dump(basic_metadata, f, indent=2, default=str)
 
                 print(f"💾 Basic model weights and metadata saved to: {self.model_dir}")
@@ -680,18 +780,22 @@ class ProductionTrainer:
         self.save_results(training_results, threshold_results, evaluation_results)
 
         total_time = time.time() - start_time
-        print(f"\n✅ Production training completed in {total_time:.1f}s ({total_time/60:.1f} min)")
+        print(
+            f"\n✅ Production training completed in {total_time:.1f}s ({total_time/60:.1f} min)"
+        )
         print(f"📁 Results saved to: {self.experiment_dir}")
 
         return {
             "experiment_name": self.experiment_name,
             "total_time": total_time,
             "optimal_threshold": threshold_results["optimal_threshold"],
-            "final_metrics": evaluation_results["test_metrics"]
+            "final_metrics": evaluation_results["test_metrics"],
         }
 
 
-def train_production_model(flare_class: str, time_window: str, seed: int) -> Dict[str, Any]:
+def train_production_model(
+    flare_class: str, time_window: str, seed: int
+) -> Dict[str, Any]:
     """
     Train a single production model.
 
@@ -712,10 +816,18 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Train production EVEREST model")
-    parser.add_argument("--flare_class", required=True, choices=["C", "M", "M5"],
-                        help="Flare class to train")
-    parser.add_argument("--time_window", required=True, choices=["24", "48", "72"],
-                        help="Time window in hours")
+    parser.add_argument(
+        "--flare_class",
+        required=True,
+        choices=["C", "M", "M5"],
+        help="Flare class to train",
+    )
+    parser.add_argument(
+        "--time_window",
+        required=True,
+        choices=["24", "48", "72"],
+        help="Time window in hours",
+    )
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
 
     args = parser.parse_args()

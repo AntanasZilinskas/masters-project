@@ -18,8 +18,13 @@ from datetime import datetime
 from typing import Dict, Any, Optional, Tuple, List
 from pathlib import Path
 from sklearn.metrics import (
-    confusion_matrix, accuracy_score, precision_score,
-    recall_score, f1_score, brier_score_loss, roc_auc_score
+    confusion_matrix,
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    brier_score_loss,
+    roc_auc_score,
 )
 
 # Add parent directory to path for imports
@@ -29,18 +34,30 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 # Import config - handle both direct script execution and module import
 try:
     from .config import (
-        OPTIMAL_HYPERPARAMS, FIXED_ARCHITECTURE, PRIMARY_TARGET,
-        TRAINING_CONFIG, ABLATION_VARIANTS, SEQUENCE_LENGTH_VARIANTS,
-        OUTPUT_CONFIG, get_variant_config, get_sequence_config,
-        get_experiment_name
+        OPTIMAL_HYPERPARAMS,
+        FIXED_ARCHITECTURE,
+        PRIMARY_TARGET,
+        TRAINING_CONFIG,
+        ABLATION_VARIANTS,
+        SEQUENCE_LENGTH_VARIANTS,
+        OUTPUT_CONFIG,
+        get_variant_config,
+        get_sequence_config,
+        get_experiment_name,
     )
 except ImportError:
     # Direct script execution - import from same directory
     from config import (
-        OPTIMAL_HYPERPARAMS, FIXED_ARCHITECTURE, PRIMARY_TARGET,
-        TRAINING_CONFIG, ABLATION_VARIANTS, SEQUENCE_LENGTH_VARIANTS,
-        OUTPUT_CONFIG, get_variant_config, get_sequence_config,
-        get_experiment_name
+        OPTIMAL_HYPERPARAMS,
+        FIXED_ARCHITECTURE,
+        PRIMARY_TARGET,
+        TRAINING_CONFIG,
+        ABLATION_VARIANTS,
+        SEQUENCE_LENGTH_VARIANTS,
+        OUTPUT_CONFIG,
+        get_variant_config,
+        get_sequence_config,
+        get_experiment_name,
     )
 
 
@@ -55,7 +72,9 @@ class AblationTrainer:
     - Proper loss weight re-normalization
     """
 
-    def __init__(self, variant_name: str, seed: int, sequence_variant: Optional[str] = None):
+    def __init__(
+        self, variant_name: str, seed: int, sequence_variant: Optional[str] = None
+    ):
         """
         Initialize ablation trainer.
 
@@ -110,11 +129,13 @@ class AblationTrainer:
         torch.backends.cudnn.benchmark = False
 
         # Set environment variable for additional reproducibility
-        os.environ['PYTHONHASHSEED'] = str(self.seed)
+        os.environ["PYTHONHASHSEED"] = str(self.seed)
 
     def _setup_directories(self):
         """Create experiment-specific directories."""
-        self.experiment_dir = os.path.join(OUTPUT_CONFIG["results_dir"], self.experiment_name)
+        self.experiment_dir = os.path.join(
+            OUTPUT_CONFIG["results_dir"], self.experiment_name
+        )
         self.model_dir = os.path.join(OUTPUT_CONFIG["models_dir"], self.experiment_name)
         self.log_dir = os.path.join(OUTPUT_CONFIG["logs_dir"], self.experiment_name)
 
@@ -133,7 +154,7 @@ class AblationTrainer:
             use_evidential=self.variant_config["use_evidential"],
             use_evt=self.variant_config["use_evt"],
             use_precursor=self.variant_config["use_precursor"],
-            loss_weights=self.variant_config["loss_weights"]
+            loss_weights=self.variant_config["loss_weights"],
         )
 
         # Get device
@@ -150,7 +171,7 @@ class AblationTrainer:
             use_attention_bottleneck=self.variant_config["use_attention_bottleneck"],
             use_evidential=self.variant_config["use_evidential"],
             use_evt=self.variant_config["use_evt"],
-            use_precursor=self.variant_config["use_precursor"]
+            use_precursor=self.variant_config["use_precursor"],
         ).to(device)
 
         # Replace model in wrapper
@@ -161,15 +182,17 @@ class AblationTrainer:
             wrapper.model.parameters(),
             lr=OPTIMAL_HYPERPARAMS["learning_rate"],
             weight_decay=1e-4,
-            fused=True
+            fused=True,
         )
 
         print(f"✅ Model created on device: {device}")
         print(f"   Parameters: {sum(p.numel() for p in wrapper.model.parameters()):,}")
-        print(f"   Components: Evid={self.variant_config['use_evidential']}, "
-              f"EVT={self.variant_config['use_evt']}, "
-              f"Attn={self.variant_config['use_attention_bottleneck']}, "
-              f"Prec={self.variant_config['use_precursor']}")
+        print(
+            f"   Components: Evid={self.variant_config['use_evidential']}, "
+            f"EVT={self.variant_config['use_evt']}, "
+            f"Attn={self.variant_config['use_attention_bottleneck']}, "
+            f"Prec={self.variant_config['use_precursor']}"
+        )
 
         return wrapper
 
@@ -185,7 +208,9 @@ class AblationTrainer:
         X_test, y_test = get_testing_data(time_window, flare_class)
 
         if X_train is None or y_train is None:
-            raise ValueError(f"Training data not found for {flare_class}/{time_window}h")
+            raise ValueError(
+                f"Training data not found for {flare_class}/{time_window}h"
+            )
 
         if X_test is None or y_test is None:
             raise ValueError(f"Testing data not found for {flare_class}/{time_window}h")
@@ -225,7 +250,9 @@ class AblationTrainer:
             padding = np.repeat(first_timestep, pad_length, axis=1)
             return np.concatenate([padding, X], axis=1)
 
-    def _apply_ablation_to_weights(self, phase_weights: Dict[str, float]) -> Dict[str, float]:
+    def _apply_ablation_to_weights(
+        self, phase_weights: Dict[str, float]
+    ) -> Dict[str, float]:
         """Apply ablation-specific modifications to phase weights."""
         # Start with phase weights (these sum to 1.05 intentionally)
         ablation_weights = phase_weights.copy()
@@ -243,7 +270,9 @@ class AblationTrainer:
         # Do NOT re-normalize - keep the same total weight as original training
         return ablation_weights
 
-    def train(self, batch_size_override: Optional[int] = None, memory_efficient: bool = False) -> Dict[str, Any]:
+    def train(
+        self, batch_size_override: Optional[int] = None, memory_efficient: bool = False
+    ) -> Dict[str, Any]:
         """Train the ablation model and return results."""
         start_time = time.time()
 
@@ -269,7 +298,9 @@ class AblationTrainer:
         use_amp = self.variant_config["use_amp"]
 
         print(f"\n🎯 Training configuration:")
-        print(f"   Epochs: {epochs} (early stop: {FIXED_ARCHITECTURE['early_stopping_patience']})")
+        print(
+            f"   Epochs: {epochs} (early stop: {FIXED_ARCHITECTURE['early_stopping_patience']})"
+        )
         print(f"   Batch size: {batch_size}")
         print(f"   Learning rate: {OPTIMAL_HYPERPARAMS['learning_rate']:.6f}")
         print(f"   Focal gamma: {focal_gamma}")
@@ -279,8 +310,15 @@ class AblationTrainer:
 
         # Custom training loop for ablation studies
         results = self._train_with_validation(
-            model, X_train, y_train, X_test, y_test,
-            epochs, batch_size, focal_gamma, use_amp
+            model,
+            X_train,
+            y_train,
+            X_test,
+            y_test,
+            epochs,
+            batch_size,
+            focal_gamma,
+            use_amp,
         )
 
         # Store results for model saving
@@ -314,7 +352,7 @@ class AblationTrainer:
         epochs: int,
         batch_size: int,
         focal_gamma: float,
-        use_amp: bool
+        use_amp: bool,
     ) -> Dict[str, Any]:
         """Custom training loop with validation."""
 
@@ -325,24 +363,30 @@ class AblationTrainer:
 
         train_dataset = TensorDataset(
             torch.tensor(X_train, dtype=torch.float32),
-            torch.tensor(y_train, dtype=torch.float32)
+            torch.tensor(y_train, dtype=torch.float32),
         )
         train_loader = DataLoader(
-            train_dataset, batch_size=batch_size, shuffle=True,
-            pin_memory=(device.type == "cuda"), num_workers=2
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            pin_memory=(device.type == "cuda"),
+            num_workers=2,
         )
 
         test_dataset = TensorDataset(
             torch.tensor(X_test, dtype=torch.float32),
-            torch.tensor(y_test, dtype=torch.float32)
+            torch.tensor(y_test, dtype=torch.float32),
         )
         test_loader = DataLoader(
-            test_dataset, batch_size=batch_size, shuffle=False,
-            pin_memory=(device.type == "cuda"), num_workers=2
+            test_dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            pin_memory=(device.type == "cuda"),
+            num_workers=2,
         )
 
         # Training state
-        best_tss = -float('inf')
+        best_tss = -float("inf")
         best_weights = None
         best_epoch = -1
         patience_counter = 0
@@ -360,7 +404,7 @@ class AblationTrainer:
             "test_specificity": [],
             "test_f1": [],
             "test_brier": [],
-            "test_roc_auc": []
+            "test_roc_auc": [],
         }
 
         # Import required functions
@@ -388,11 +432,26 @@ class AblationTrainer:
 
                 # Dynamic 3-phase weight schedule (matching main training)
                 if epoch < 20:
-                    phase_weights = {"focal": 0.9, "evid": 0.1, "evt": 0.0, "prec": 0.05}
+                    phase_weights = {
+                        "focal": 0.9,
+                        "evid": 0.1,
+                        "evt": 0.0,
+                        "prec": 0.05,
+                    }
                 elif epoch < 40:
-                    phase_weights = {"focal": 0.8, "evid": 0.1, "evt": 0.1, "prec": 0.05}
+                    phase_weights = {
+                        "focal": 0.8,
+                        "evid": 0.1,
+                        "evt": 0.1,
+                        "prec": 0.05,
+                    }
                 else:
-                    phase_weights = {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05}
+                    phase_weights = {
+                        "focal": 0.7,
+                        "evid": 0.1,
+                        "evt": 0.2,
+                        "prec": 0.05,
+                    }
 
                 # Apply ablation-specific modifications to phase weights
                 ablation_weights = self._apply_ablation_to_weights(phase_weights)
@@ -401,9 +460,10 @@ class AblationTrainer:
                     with torch.cuda.amp.autocast():
                         outputs = model.model(X_batch)
                         loss = composite_loss(
-                            y_batch, outputs,
+                            y_batch,
+                            outputs,
                             gamma=focal_gamma,
-                            weights=ablation_weights
+                            weights=ablation_weights,
                         )
 
                     if not torch.isnan(loss):
@@ -414,9 +474,7 @@ class AblationTrainer:
                 else:
                     outputs = model.model(X_batch)
                     loss = composite_loss(
-                        y_batch, outputs,
-                        gamma=focal_gamma,
-                        weights=ablation_weights
+                        y_batch, outputs, gamma=focal_gamma, weights=ablation_weights
                     )
 
                     if not torch.isnan(loss):
@@ -428,7 +486,9 @@ class AblationTrainer:
                 with torch.no_grad():
                     probs = torch.sigmoid(outputs["logits"])
                     preds = (probs > 0.5).int()
-                    train_correct += (preds.flatten() == y_batch.int().flatten()).sum().item()
+                    train_correct += (
+                        (preds.flatten() == y_batch.int().flatten()).sum().item()
+                    )
                     train_total += y_batch.size(0)
 
             # Validation phase
@@ -448,13 +508,15 @@ class AblationTrainer:
 
             epoch_time = time.time() - epoch_start
 
-            print(f"Epoch {epoch+1:3d}/{epochs} - {epoch_time:.1f}s - "
-                  f"loss: {avg_loss:.4f} - acc: {train_acc:.4f} - "
-                  f"test_tss: {test_metrics['tss']:.4f} - "
-                  f"test_accuracy: {test_metrics['accuracy']:.4f}")
+            print(
+                f"Epoch {epoch+1:3d}/{epochs} - {epoch_time:.1f}s - "
+                f"loss: {avg_loss:.4f} - acc: {train_acc:.4f} - "
+                f"test_tss: {test_metrics['tss']:.4f} - "
+                f"test_accuracy: {test_metrics['accuracy']:.4f}"
+            )
 
             # Early stopping check
-            current_tss = test_metrics['tss']
+            current_tss = test_metrics["tss"]
             if current_tss > best_tss:
                 best_tss = current_tss
                 best_weights = model.model.state_dict().copy()
@@ -491,11 +553,13 @@ class AblationTrainer:
             "config": {
                 "variant_config": self.variant_config,
                 "hyperparams": OPTIMAL_HYPERPARAMS,
-                "input_shape": self.input_shape
-            }
+                "input_shape": self.input_shape,
+            },
         }
 
-    def _evaluate_model(self, model: RETPlusWrapper, test_loader, device) -> Dict[str, float]:
+    def _evaluate_model(
+        self, model: RETPlusWrapper, test_loader, device
+    ) -> Dict[str, float]:
         """Evaluate model on test set."""
         model.model.eval()
 
@@ -539,7 +603,9 @@ class AblationTrainer:
 
         # Calibration and probabilistic metrics
         try:
-            roc_auc = roc_auc_score(y_true, y_prob) if len(np.unique(y_true)) > 1 else 0.5
+            roc_auc = (
+                roc_auc_score(y_true, y_prob) if len(np.unique(y_true)) > 1 else 0.5
+            )
             brier = brier_score_loss(y_true, y_prob)
             ece = self._calculate_ece(y_true, y_prob, n_bins=15)
 
@@ -570,10 +636,12 @@ class AblationTrainer:
             "brier_99th": brier_99th,  # 99th percentile Brier score
             "brier_95th": brier_95th,  # 95th percentile Brier score
             "brier_90th": brier_90th,  # 90th percentile Brier score
-            "ece": ece
+            "ece": ece,
         }
 
-    def _calculate_ece(self, y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 15) -> float:
+    def _calculate_ece(
+        self, y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 15
+    ) -> float:
         """Calculate Expected Calibration Error (15-bin protocol)."""
         bin_boundaries = np.linspace(0, 1, n_bins + 1)
         bin_lowers = bin_boundaries[:-1]
@@ -591,7 +659,9 @@ class AblationTrainer:
 
         return ece
 
-    def _measure_latency(self, model: RETPlusWrapper, X_sample: np.ndarray, device, n_runs: int = 1000) -> float:
+    def _measure_latency(
+        self, model: RETPlusWrapper, X_sample: np.ndarray, device, n_runs: int = 1000
+    ) -> float:
         """Measure inference latency in milliseconds."""
         model.model.eval()
 
@@ -625,7 +695,7 @@ class AblationTrainer:
         """Save experiment results and trained model."""
         # Save main results as JSON
         results_file = os.path.join(self.experiment_dir, "results.json")
-        with open(results_file, 'w') as f:
+        with open(results_file, "w") as f:
             json.dump(results, f, indent=2, default=str)
 
         # Save history as CSV
@@ -648,7 +718,9 @@ class AblationTrainer:
         print(f"   History: {history_file}")
         print(f"   Metrics: {metrics_file}")
 
-    def _save_model_weights(self, model: RETPlusWrapper, X_eval: np.ndarray, y_eval: np.ndarray) -> str:
+    def _save_model_weights(
+        self, model: RETPlusWrapper, X_eval: np.ndarray, y_eval: np.ndarray
+    ) -> str:
         """
         Save trained model weights using isolated directory system for ablation studies.
 
@@ -664,7 +736,9 @@ class AblationTrainer:
         time_window = PRIMARY_TARGET["time_window"]
 
         # Create completely isolated directory for this ablation experiment
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # Include milliseconds
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[
+            :-3
+        ]  # Include milliseconds
         process_id = os.getpid()
         unique_id = f"{timestamp}_{process_id}"
 
@@ -673,7 +747,9 @@ class AblationTrainer:
         base_models_dir.mkdir(parents=True, exist_ok=True)
 
         # Create unique experiment directory
-        experiment_model_dir = base_models_dir / f"{self.variant_name}_seed{self.seed}_{unique_id}"
+        experiment_model_dir = (
+            base_models_dir / f"{self.variant_name}_seed{self.seed}_{unique_id}"
+        )
 
         # Ensure directory doesn't exist (extremely unlikely with timestamp + PID)
         counter = 0
@@ -701,8 +777,8 @@ class AblationTrainer:
             return str(experiment_model_dir)
 
         # Get performance metrics from the stored results
-        final_metrics = getattr(self, '_last_results', {}).get("final_metrics", {})
-        training_history = getattr(self, '_last_history', {})
+        final_metrics = getattr(self, "_last_results", {}).get("final_metrics", {})
+        training_history = getattr(self, "_last_history", {})
 
         # Create comprehensive metadata for ablation studies
         ablation_metadata = {
@@ -714,13 +790,10 @@ class AblationTrainer:
             "variant_config": self.variant_config,
             "input_shape": self.input_shape,
             "training_protocol": "5_seeds_early_stopping",
-            "target": {
-                "flare_class": flare_class,
-                "time_window": time_window
-            },
+            "target": {"flare_class": flare_class, "time_window": time_window},
             "unique_id": unique_id,
             "process_id": process_id,
-            "timestamp": timestamp
+            "timestamp": timestamp,
         }
 
         # Enhanced hyperparameters combining optimal + ablation settings
@@ -733,7 +806,7 @@ class AblationTrainer:
             "use_precursor": self.variant_config["use_precursor"],
             "loss_weights": self.variant_config["loss_weights"],
             "focal_gamma": self.variant_config["focal_gamma"],
-            "use_amp": self.variant_config["use_amp"]
+            "use_amp": self.variant_config["use_amp"],
         }
 
         # Create comprehensive metadata file
@@ -762,7 +835,7 @@ class AblationTrainer:
         # Save metadata
         metadata_path = experiment_model_dir / "metadata.json"
         try:
-            with open(metadata_path, 'w') as f:
+            with open(metadata_path, "w") as f:
                 json.dump(metadata, f, indent=2, default=str)
             print(f"📋 Metadata saved to: {metadata_path}")
         except Exception as e:
@@ -781,11 +854,9 @@ class AblationTrainer:
                 y_pred = (y_probs > 0.5).astype(int)
 
             # Save predictions as CSV
-            predictions_df = pd.DataFrame({
-                'true': y_eval,
-                'pred': y_pred,
-                'proba': y_probs
-            })
+            predictions_df = pd.DataFrame(
+                {"true": y_eval, "pred": y_pred, "proba": y_probs}
+            )
             predictions_path = experiment_model_dir / "predictions.csv"
             predictions_df.to_csv(predictions_path, index=False)
             print(f"🎯 Predictions saved to: {predictions_path}")
@@ -797,6 +868,7 @@ class AblationTrainer:
         try:
             import platform
             import sklearn
+
             env_info = {
                 "python_version": platform.python_version(),
                 "torch_version": torch.__version__,
@@ -805,7 +877,7 @@ class AblationTrainer:
                 "sklearn_version": sklearn.__version__,
             }
             env_path = experiment_model_dir / "env.json"
-            with open(env_path, 'w') as f:
+            with open(env_path, "w") as f:
                 json.dump(env_info, f, indent=2)
         except Exception as e:
             print(f"⚠️ Failed to save environment info: {e}")
@@ -814,8 +886,13 @@ class AblationTrainer:
         return str(experiment_model_dir)
 
 
-def train_ablation_variant(variant_name: str, seed: int, sequence_variant: Optional[str] = None,
-                           batch_size_override: Optional[int] = None, memory_efficient: bool = False) -> Dict[str, Any]:
+def train_ablation_variant(
+    variant_name: str,
+    seed: int,
+    sequence_variant: Optional[str] = None,
+    batch_size_override: Optional[int] = None,
+    memory_efficient: bool = False,
+) -> Dict[str, Any]:
     """
     Train a single ablation variant with specified seed.
 
@@ -830,7 +907,9 @@ def train_ablation_variant(variant_name: str, seed: int, sequence_variant: Optio
         Training results dictionary
     """
     trainer = AblationTrainer(variant_name, seed, sequence_variant)
-    return trainer.train(batch_size_override=batch_size_override, memory_efficient=memory_efficient)
+    return trainer.train(
+        batch_size_override=batch_size_override, memory_efficient=memory_efficient
+    )
 
 
 if __name__ == "__main__":
@@ -838,14 +917,26 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Train ablation study variant")
-    parser.add_argument("--variant", required=True, choices=list(ABLATION_VARIANTS.keys()),
-                        help="Ablation variant to train")
+    parser.add_argument(
+        "--variant",
+        required=True,
+        choices=list(ABLATION_VARIANTS.keys()),
+        help="Ablation variant to train",
+    )
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
-    parser.add_argument("--sequence", choices=list(SEQUENCE_LENGTH_VARIANTS.keys()),
-                        help="Sequence length variant")
-    parser.add_argument("--batch-size", type=int, help="Override batch size for memory optimization")
-    parser.add_argument("--memory-efficient", action="store_true",
-                        help="Enable memory efficient training (reduces batch size)")
+    parser.add_argument(
+        "--sequence",
+        choices=list(SEQUENCE_LENGTH_VARIANTS.keys()),
+        help="Sequence length variant",
+    )
+    parser.add_argument(
+        "--batch-size", type=int, help="Override batch size for memory optimization"
+    )
+    parser.add_argument(
+        "--memory-efficient",
+        action="store_true",
+        help="Enable memory efficient training (reduces batch size)",
+    )
 
     args = parser.parse_args()
 
@@ -863,7 +954,7 @@ if __name__ == "__main__":
         args.seed,
         args.sequence,
         batch_size_override=args.batch_size,
-        memory_efficient=args.memory_efficient
+        memory_efficient=args.memory_efficient,
     )
 
     print(f"\n🎯 Final TSS: {results['final_metrics']['tss']:.4f}")
