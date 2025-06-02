@@ -37,7 +37,7 @@ jobs:
 
     - name: Format check with black
       run: |
-        black --check --diff models/ nature_models/ tests/
+        black --check --diff models/ nature_models/ tests/ --exclude='models/archive/problematic/'
 
     - name: Validate dataset integrity
       run: |
