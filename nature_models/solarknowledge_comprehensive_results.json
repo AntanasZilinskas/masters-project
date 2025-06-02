@@ -1,6 +1,6 @@
 {
     "metadata": {
-        "generated_on": "2025-06-02T09:36:33.238900",
+        "generated_on": "2025-06-02T17:38:29.790566",
         "description": "Comprehensive SolarKnowledge evaluation for SolarFlareNet comparison",
         "metrics_included": {
             "tier_1": [
@@ -289,194 +289,206 @@
                 "negative_samples": 60785
             },
             "M5": {
-                "accuracy": "N/A",
-                "precision": "N/A",
-                "recall": "N/A",
-                "balanced_accuracy": "N/A",
-                "TSS": "N/A",
-                "ROC_AUC": "N/A",
-                "Brier_Score": "N/A",
-                "Brier_Skill_Score": "N/A",
-                "ECE": "N/A",
-                "f1_score": "N/A",
-                "sensitivity": "N/A",
-                "specificity": "N/A",
-                "positive_predictive_value": "N/A",
-                "negative_predictive_value": "N/A",
-                "event_rate": "N/A",
-                "prediction_rate": "N/A",
-                "true_positives": "N/A",
-                "false_positives": "N/A",
-                "true_negatives": "N/A",
-                "false_negatives": "N/A",
+                "TSS": 0.4225,
+                "precision": 0.557,
+                "recall": 0.4231,
+                "balanced_accuracy": 0.7113,
+                "Brier_Score": 0.0012,
+                "Brier_Skill_Score": 0.261,
+                "ECE": 0.0013,
+                "f1_score": 0.4809,
+                "ROC_AUC": 0.9975,
+                "accuracy": 0.9985,
+                "true_positives": 44,
+                "false_positives": 35,
+                "true_negatives": 62421,
+                "false_negatives": 60,
+                "sensitivity": 0.4231,
+                "specificity": 0.9994,
+                "positive_predictive_value": 0.557,
+                "negative_predictive_value": 0.999,
+                "event_rate": 0.0017,
+                "prediction_rate": 0.0013,
                 "TSS_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.3261889860661523,
+                    "upper": 0.5107457077685182
                 },
                 "precision_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.45261715933669794,
+                    "upper": 0.6739326872708225
                 },
                 "recall_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.3267165303486871,
+                    "upper": 0.5114436231244482
                 },
                 "balanced_accuracy_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.6630944930330762,
+                    "upper": 0.7553728538842591
                 },
                 "Brier_Score_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.0010575634870164756,
+                    "upper": 0.0014129736520308081
                 },
                 "ROC_AUC_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.9956808141529563,
+                    "upper": 0.9985978961022745
                 },
-                "status": "Model weights not found"
+                "status": "Success",
+                "test_samples": 62560,
+                "positive_samples": 104,
+                "negative_samples": 62456
             }
         },
         "72": {
             "C": {
-                "accuracy": "N/A",
-                "precision": "N/A",
-                "recall": "N/A",
-                "balanced_accuracy": "N/A",
-                "TSS": "N/A",
-                "ROC_AUC": "N/A",
-                "Brier_Score": "N/A",
-                "Brier_Skill_Score": "N/A",
-                "ECE": "N/A",
-                "f1_score": "N/A",
-                "sensitivity": "N/A",
-                "specificity": "N/A",
-                "positive_predictive_value": "N/A",
-                "negative_predictive_value": "N/A",
-                "event_rate": "N/A",
-                "prediction_rate": "N/A",
-                "true_positives": "N/A",
-                "false_positives": "N/A",
-                "true_negatives": "N/A",
-                "false_negatives": "N/A",
+                "TSS": 0.7243,
+                "precision": 0.9405,
+                "recall": 0.8218,
+                "balanced_accuracy": 0.8622,
+                "Brier_Score": 0.0971,
+                "Brier_Skill_Score": 0.5717,
+                "ECE": 0.0641,
+                "f1_score": 0.8772,
+                "ROC_AUC": 0.9464,
+                "accuracy": 0.8499,
+                "true_positives": 32767,
+                "false_positives": 2072,
+                "true_negatives": 19183,
+                "false_negatives": 7106,
+                "sensitivity": 0.8218,
+                "specificity": 0.9025,
+                "positive_predictive_value": 0.9405,
+                "negative_predictive_value": 0.7297,
+                "event_rate": 0.6523,
+                "prediction_rate": 0.5699,
                 "TSS_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.7185689286170341,
+                    "upper": 0.7301254886119233
                 },
                 "precision_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.9380098688414326,
+                    "upper": 0.9429452639648779
                 },
                 "recall_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.8181313769040311,
+                    "upper": 0.8256070399089174
                 },
                 "balanced_accuracy_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.8592844643085171,
+                    "upper": 0.8650627443059616
                 },
                 "Brier_Score_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.09570881177170537,
+                    "upper": 0.09845712696440577
                 },
                 "ROC_AUC_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.944779923978244,
+                    "upper": 0.948013148510382
                 },
-                "status": "Model weights not found"
+                "status": "Success",
+                "test_samples": 61128,
+                "positive_samples": 39873,
+                "negative_samples": 21255
             },
             "M": {
-                "accuracy": "N/A",
-                "precision": "N/A",
-                "recall": "N/A",
-                "balanced_accuracy": "N/A",
-                "TSS": "N/A",
-                "ROC_AUC": "N/A",
-                "Brier_Score": "N/A",
-                "Brier_Skill_Score": "N/A",
-                "ECE": "N/A",
-                "f1_score": "N/A",
-                "sensitivity": "N/A",
-                "specificity": "N/A",
-                "positive_predictive_value": "N/A",
-                "negative_predictive_value": "N/A",
-                "event_rate": "N/A",
-                "prediction_rate": "N/A",
-                "true_positives": "N/A",
-                "false_positives": "N/A",
-                "true_negatives": "N/A",
-                "false_negatives": "N/A",
+                "TSS": 0.6416,
+                "precision": 0.8807,
+                "recall": 0.6443,
+                "balanced_accuracy": 0.8208,
+                "Brier_Score": 0.0105,
+                "Brier_Skill_Score": 0.6353,
+                "ECE": 0.0033,
+                "f1_score": 0.7442,
+                "ROC_AUC": 0.9894,
+                "accuracy": 0.9868,
+                "true_positives": 1373,
+                "false_positives": 186,
+                "true_negatives": 69412,
+                "false_negatives": 758,
+                "sensitivity": 0.6443,
+                "specificity": 0.9973,
+                "positive_predictive_value": 0.8807,
+                "negative_predictive_value": 0.9892,
+                "event_rate": 0.0297,
+                "prediction_rate": 0.0217,
                 "TSS_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.6216696303463779,
+                    "upper": 0.6620356876993504
                 },
                 "precision_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.864247311827957,
+                    "upper": 0.8960882120180079
                 },
                 "recall_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.6243439114745057,
+                    "upper": 0.6646431818152359
                 },
                 "balanced_accuracy_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.8108348151731889,
+                    "upper": 0.8310178438496753
                 },
                 "Brier_Score_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.009994194696541439,
+                    "upper": 0.011042954776175706
                 },
                 "ROC_AUC_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.9882212061738755,
+                    "upper": 0.9904446721602649
                 },
-                "status": "Model weights not found"
+                "status": "Success",
+                "test_samples": 71729,
+                "positive_samples": 2131,
+                "negative_samples": 69598
             },
             "M5": {
-                "accuracy": "N/A",
-                "precision": "N/A",
-                "recall": "N/A",
-                "balanced_accuracy": "N/A",
-                "TSS": "N/A",
-                "ROC_AUC": "N/A",
-                "Brier_Score": "N/A",
-                "Brier_Skill_Score": "N/A",
-                "ECE": "N/A",
-                "f1_score": "N/A",
-                "sensitivity": "N/A",
-                "specificity": "N/A",
-                "positive_predictive_value": "N/A",
-                "negative_predictive_value": "N/A",
-                "event_rate": "N/A",
-                "prediction_rate": "N/A",
-                "true_positives": "N/A",
-                "false_positives": "N/A",
-                "true_negatives": "N/A",
-                "false_negatives": "N/A",
+                "TSS": 0.4903,
+                "precision": 0.85,
+                "recall": 0.4904,
+                "balanced_accuracy": 0.7451,
+                "Brier_Score": 0.0008,
+                "Brier_Skill_Score": 0.4345,
+                "ECE": 0.0008,
+                "f1_score": 0.622,
+                "ROC_AUC": 0.9963,
+                "accuracy": 0.9991,
+                "true_positives": 51,
+                "false_positives": 9,
+                "true_negatives": 71616,
+                "false_negatives": 53,
+                "sensitivity": 0.4904,
+                "specificity": 0.9999,
+                "positive_predictive_value": 0.85,
+                "negative_predictive_value": 0.9993,
+                "event_rate": 0.0014,
+                "prediction_rate": 0.0008,
                 "TSS_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.3876699433804597,
+                    "upper": 0.5875045088107093
                 },
                 "precision_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.7575252525252526,
+                    "upper": 0.932231638418079
                 },
                 "recall_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.3877551020408163,
+                    "upper": 0.5876702871870397
                 },
                 "balanced_accuracy_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.6938349716902298,
+                    "upper": 0.7937522544053546
                 },
                 "Brier_Score_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.0006511617740020561,
+                    "upper": 0.0009709404914672686
                 },
                 "ROC_AUC_CI": {
-                    "lower": "N/A",
-                    "upper": "N/A"
+                    "lower": 0.9941062111806344,
+                    "upper": 0.9980757280250458
                 },
-                "status": "Model weights not found"
+                "status": "Success",
+                "test_samples": 71729,
+                "positive_samples": 104,
+                "negative_samples": 71625
             }
         }
     }
