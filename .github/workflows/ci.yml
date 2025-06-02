@@ -179,30 +179,10 @@ jobs:
         
         if [[ "$BRANCH_NAME" == "pytorch-rewrite" ]]; then
           echo "🔥 Running PyTorch-specific tests"
-          python -c "
-          try:
-              import torch
-              print(f'PyTorch version: {torch.__version__}')
-              # Test basic PyTorch functionality
-              x = torch.randn(2, 3)
-              print('✓ PyTorch basic operations working')
-          except Exception as e:
-              print(f'❌ PyTorch tests failed: {e}')
-              exit(1)
-          "
+          python -c "import torch; print(f'PyTorch version: {torch.__version__}'); x = torch.randn(2, 3); print('✓ PyTorch basic operations working')" || { echo "❌ PyTorch tests failed"; exit 1; }
         elif [[ "$BRANCH_NAME" == "main" ]] || [[ "$BRANCH_NAME" == "develop" ]]; then
           echo "🧠 Running TensorFlow-specific tests"
-          python -c "
-          try:
-              import tensorflow as tf
-              print(f'TensorFlow version: {tf.__version__}')
-              # Test basic TensorFlow functionality
-              x = tf.constant([[1.0, 2.0], [3.0, 4.0]])
-              print('✓ TensorFlow basic operations working')
-          except Exception as e:
-              print(f'❌ TensorFlow tests failed: {e}')
-              exit(1)
-          "
+          python -c "import tensorflow as tf; print(f'TensorFlow version: {tf.__version__}'); x = tf.constant([[1.0, 2.0], [3.0, 4.0]]); print('✓ TensorFlow basic operations working')" || { echo "❌ TensorFlow tests failed"; exit 1; }
         else
           echo "ℹ️  Running generic tests for branch: $BRANCH_NAME"
         fi
