@@ -95,8 +95,8 @@ jobs:
             print('⚠️ codecarbon not available - running tests without energy tracking')
             energy_tracking = False
         
-        # Run the tests
-        result = subprocess.run([sys.executable, '-m', 'pytest', 'tests/test_*.py', '-v', '--tb=short', '-x'])
+        # Run the tests on the tests directory
+        result = subprocess.run([sys.executable, '-m', 'pytest', 'tests/', '-v', '--tb=short', '-x'])
         
         # Stop energy tracking if enabled
         if energy_tracking:

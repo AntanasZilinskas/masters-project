@@ -3,6 +3,7 @@ Tests to ensure the model's forward pass works correctly and loss decreases duri
 """
 
 import tensorflow as tf
+import numpy as np
 
 
 def create_training_model():
@@ -67,5 +68,5 @@ def test_can_predict():
         2,
     ), f"Expected shape (batch_size, 2), got {preds.shape}"
     assert isinstance(preds, tf.Tensor) or isinstance(
-        preds, tf.numpy.ndarray
+        preds, np.ndarray
     ), f"Expected TensorFlow tensor or numpy array, got {type(preds)}"
