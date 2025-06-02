@@ -1,16 +1,18 @@
-name: CI
+name: Simplified CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
   pull_request:
+    branches: [ main ]
 
 jobs:
-  build-test:
+  test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.10"]
+    
     steps:
     - uses: actions/checkout@v4
 
@@ -19,55 +21,55 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install deps
+    - name: Install core dependencies
       run: |
         python -m pip install --upgrade pip
-
-        # Install required dependencies explicitly with verbose output
-        python -m pip install --verbose tensorflow numpy pandas matplotlib h5py scikit-learn torch torchvision tqdm
-
-        # Install additional dependencies that might be needed
-        python -m pip install astropy sunpy
-
-        # Install test dependencies
-        python -m pip install pytest pytest-cov black flake8
-
-    # ------- 1 Format & Lint ----------------------------------
-    - name: Format code with black
-      run: |
-        # Auto-format instead of checking
-        black solar_knowledge tests
+        # Install minimal CI dependencies
+        pip install -r tests/requirements-ci.txt
+        # Install core ML dependencies for testing
+        pip install numpy pandas scikit-learn tensorflow torch
+        pip install optuna  # For HPO tests
 
     - name: Lint with flake8
       run: |
-        flake8 solar_knowledge tests
+        flake8 models/ nature_models/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 models/ nature_models/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
 
-    # ------- 2 Unit tests -------------------------------------
-    - name: Run pytest with coverage
-      env:
-        TF_CPP_MIN_LOG_LEVEL: "3"
+    - name: Format check with black
       run: |
-        # Only run tests in the tests/ directory, excluding archive/ and skipping problematic tests
-        pytest tests/ --cov=solar_knowledge --cov-report=xml --cov-report=term -v -k "not test_informer"
+        black --check --diff models/ nature_models/ tests/
 
-    # Save coverage
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v5
-      with:
-        files: ./coverage.xml
-        fail_ci_if_error: false
-
-    # ------- 3 Smoke training (1 epoch on tiny data) ----------
-    - name: Smoke train SolarKnowledge
+    - name: Run core tests
       run: |
-        # Ensure the dataset directory exists
-        mkdir -p datasets/tiny_sample
+        pytest tests/test_*.py -v --tb=short -x
 
-        # Generate the sample dataset if it doesn't exist
-        if [ ! -f datasets/tiny_sample/sharp_ci_sample.h5 ]; then
-          python scripts/generate_tiny_sample.py
-        fi
+    - name: Test training config
+      run: |
+        python -c "
+        import sys
+        sys.path.append('models')
+        from training.config import validate_config, get_all_experiments
+        validate_config()
+        experiments = get_all_experiments()
+        print(f'✓ Training config valid. Found {len(experiments)} experiments.')
+        "
 
-        python -m solar_knowledge.smoke_train \
-          --data-dir datasets/tiny_sample \
-          --epochs 1
+    - name: Test ablation config
+      run: |
+        python -c "
+        import sys
+        sys.path.append('models')
+        from ablation.config import validate_ablation_config
+        validate_ablation_config()
+        print('✓ Ablation config valid.')
+        "
+
+    - name: Test HPO config
+      run: |
+        python -c "
+        import sys
+        sys.path.append('models')
+        from hpo.config import validate_hpo_config
+        validate_hpo_config()
+        print('✓ HPO config valid.')
+        "

@@ -102,6 +102,30 @@ FIXED_ARCHITECTURE = {
 # Optimization Configuration
 # ============================================================================
 
+# HPO objective configuration
+HPO_OBJECTIVE_CONFIG = {
+    "metric": "tss",           # Primary optimization metric
+    "direction": "maximize",   # Maximize TSS
+    "n_trials": 100,          # Number of trials per stage
+    "timeout": 3600           # Timeout in seconds
+}
+
+# HPO study configuration
+HPO_STUDY_CONFIG = {
+    "storage": "sqlite:///models/hpo/optuna_studies.db",
+    "study_name": "everest_hpo_v4.1",
+    "sampler": "TPESampler",
+    "pruner": "MedianPruner"
+}
+
+# HPO output configuration
+HPO_OUTPUT_CONFIG = {
+    "results_dir": "models/hpo/results",
+    "best_models_dir": "models/hpo/best_models",
+    "studies_dir": "models/hpo/studies",
+    "plots_dir": "models/hpo/plots"
+}
+
 OPTUNA_CONFIG = {
     "study_name": "everest_hpo_v4.1",
     "direction": "maximize",     # maximize TSS
@@ -274,6 +298,37 @@ def validate_config() -> bool:
                 return False
     
     return True
+
+def validate_hpo_config() -> bool:
+    """Validate HPO configuration for consistency."""
+    return validate_config()
+
+def validate_hpo_parameters(params: Dict[str, Any]) -> bool:
+    """Validate HPO parameter values."""
+    try:
+        # Check learning rate
+        if "learning_rate" in params:
+            if params["learning_rate"] <= 0:
+                return False
+        
+        # Check batch size
+        if "batch_size" in params:
+            if params["batch_size"] <= 0:
+                return False
+        
+        # Check dropout
+        if "dropout" in params:
+            if not (0.0 <= params["dropout"] <= 1.0):
+                return False
+        
+        # Check embed_dim
+        if "embed_dim" in params:
+            if params["embed_dim"] <= 0:
+                return False
+        
+        return True
+    except Exception:
+        return False
 
 if __name__ == "__main__":
     # Validate configuration when run directly
