@@ -1,3 +1,4 @@
+import xarray as xr
 import glob
 import logging
 import os
@@ -136,7 +137,7 @@ class GOESDataset(Dataset):
         end = start + self.lookback_len
         x_seq = self.data[start:end]  # shape: [lookback_len]
         y_seq = self.data[
-            end : end + self.forecast_len
+            end: end + self.forecast_len
         ]  # shape: [forecast_len]
 
         import torch

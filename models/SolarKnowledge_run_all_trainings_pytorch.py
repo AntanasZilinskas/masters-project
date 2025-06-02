@@ -131,14 +131,14 @@ def train(
     else:
         # Create an instance of the SolarKnowledge transformer-based model
         model = SolarKnowledge(early_stopping_patience=15)  # Increased patience to allow longer training
-        
+
         # Build the model with provided parameters
         model.build_base_model(
             input_shape=input_shape,
             embed_dim=128,           # Fixed to exactly match TensorFlow model
             num_heads=4,             # Fixed to exactly match TensorFlow model
             ff_dim=256,              # Fixed to exactly match TensorFlow model
-            num_transformer_blocks=6, # Changed from 4 to 6 to match TensorFlow exactly
+            num_transformer_blocks=6,  # Changed from 4 to 6 to match TensorFlow exactly
             dropout_rate=0.2,
             num_classes=2
         )
@@ -346,4 +346,4 @@ if __name__ == "__main__":
             flare_classes,
             [str(tw) for tw in time_windows],
         )
-        print(comparison) 
+        print(comparison)

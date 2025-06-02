@@ -55,11 +55,11 @@ def find_latest_model_version(flare_class, time_window):
         # Old structure: models/SolarKnowledge-v*
         os.path.join("models", f"SolarKnowledge-v*-{flare_class}-{time_window}h"),
     ]
-    
+
     matching_dirs = []
     for pattern in model_patterns:
         matching_dirs.extend(glob.glob(pattern))
-    
+
     if not matching_dirs:
         return None
 
@@ -102,16 +102,16 @@ def test_model(
 
     # Load the testing data using your project's utility function
     X_test, y_test = get_testing_data(time_window, flare_class)
-    
+
     # Check for potential label inversion
     test_positive_ratio = np.mean(y_test)
     log(f"Test data positive label ratio: {test_positive_ratio:.4f}", verbose=True)
-    
+
     # Load a sample of training data to check distribution
     X_train, y_train = get_training_data(time_window, flare_class)
     train_positive_ratio = np.mean(y_train)
     log(f"Train data positive label ratio: {train_positive_ratio:.4f}", verbose=True)
-    
+
     # Check data statistics without normalizing (data is already normalized)
     log("Checking data statistics for diagnostics...", verbose=True)
     # Get feature-wise mean and std from training data
@@ -134,7 +134,7 @@ def test_model(
     if isinstance(y_test, list):
         # Convert to numpy array if needed
         y_test = np.array(y_test)
-    
+
     # Fix bug in class distribution calculation
     if len(y_train.shape) == 1:
         train_neg = np.sum(y_train == 0)
@@ -143,7 +143,7 @@ def test_model(
         # One-hot encoded
         train_neg = np.sum(y_train[:, 0] == 1)
         train_pos = np.sum(y_train[:, 1] == 1)
-    
+
     if len(y_test.shape) == 1:
         test_neg = np.sum(y_test == 0)
         test_pos = np.sum(y_test == 1)
@@ -181,13 +181,13 @@ def test_model(
     if labels_likely_inverted or ratio_mismatch:
         log("WARNING: Test labels appear to have inverted or significantly different distribution compared to training data", verbose=True)
         log(f"Original test labels: Positive ratio = {test_positive_ratio:.4f}", verbose=True)
-        
+
         # Invert labels if needed
         if labels_likely_inverted:
             log("Inverting test labels to match training distribution", verbose=True)
             y_test = 1 - y_test
             log(f"Inverted test labels: Positive ratio = {np.mean(y_test):.4f}", verbose=True)
-    
+
     # Convert y_test to a NumPy array so we can check its dimensions
     y_test = np.array(y_test)
     # If your test labels are one-hot encoded, convert them to class indices.
@@ -235,17 +235,17 @@ def test_model(
         else:
             log(f"Error: Weight file not found at {weight_file}", verbose=True)
             return
-    
+
     # Load metadata to get architecture parameters
     metadata_file = os.path.join(weight_dir, "metadata.json")
     if os.path.exists(metadata_file):
         try:
             with open(metadata_file, 'r') as f:
                 metadata = json.load(f)
-            
+
             # Extract architecture parameters with defaults as fallback
             hyperparams = metadata.get('hyperparams', {})
-            
+
             # Get key architecture parameters - ensure we read ALL the parameters
             # that could affect model structure
             embed_dim = hyperparams.get('embed_dim', 128)
@@ -254,7 +254,7 @@ def test_model(
             ff_dim = hyperparams.get('ff_dim', 256)
             dropout_rate = hyperparams.get('dropout_rate', 0.2)
             use_batch_norm = hyperparams.get('use_batch_norm', False)
-            
+
             # Check for potential weight-metadata mismatch by examining weight file
             # This is a safety check to ensure the model architecture matches the saved weights
             try:
@@ -263,24 +263,24 @@ def test_model(
                 if "embedding.weight" in state_dict:
                     actual_embed_dim = state_dict["embedding.weight"].shape[0]
                     if actual_embed_dim != embed_dim:
-                        log(f"WARNING: Metadata embed_dim ({embed_dim}) doesn't match weights ({actual_embed_dim}). " +
-                            f"Using value from weights.", verbose=True)
+                        log(f"WARNING: Metadata embed_dim ({embed_dim}) doesn't match weights ({actual_embed_dim}). "
+                            + f"Using value from weights.", verbose=True)
                         embed_dim = actual_embed_dim
-                
+
                 # Check transformer blocks from weights by counting layers
                 max_block_idx = -1
                 for key in state_dict.keys():
                     if key.startswith("transformer_blocks."):
                         block_idx = int(key.split(".")[1])
                         max_block_idx = max(max_block_idx, block_idx)
-                
+
                 if max_block_idx >= 0:  # Found transformer blocks in weights
                     actual_num_blocks = max_block_idx + 1
                     if actual_num_blocks != num_transformer_blocks:
-                        log(f"WARNING: Metadata transformer_blocks ({num_transformer_blocks}) doesn't match " +
-                            f"weights ({actual_num_blocks}). Using value from weights.", verbose=True)
+                        log(f"WARNING: Metadata transformer_blocks ({num_transformer_blocks}) doesn't match "
+                            + f"weights ({actual_num_blocks}). Using value from weights.", verbose=True)
                         num_transformer_blocks = actual_num_blocks
-                
+
                 # Check feed-forward dimension from weights
                 actual_ff_dim = None
                 for i in range(actual_num_blocks if max_block_idx >= 0 else num_transformer_blocks):
@@ -288,17 +288,17 @@ def test_model(
                     if key in state_dict:
                         actual_ff_dim = state_dict[key].shape[0]
                         break
-                
+
                 if actual_ff_dim is not None and actual_ff_dim != ff_dim:
-                    log(f"WARNING: Metadata ff_dim ({ff_dim}) doesn't match weights ({actual_ff_dim}). " +
-                        f"Using value from weights.", verbose=True)
+                    log(f"WARNING: Metadata ff_dim ({ff_dim}) doesn't match weights ({actual_ff_dim}). "
+                        + f"Using value from weights.", verbose=True)
                     ff_dim = actual_ff_dim
             except Exception as e:
                 log(f"Unable to verify weights structure: {str(e)}", verbose=True)
-            
-            log(f"Building model based on metadata: embed_dim={embed_dim}, " +
-                f"transformer_blocks={num_transformer_blocks}, heads={num_heads}, ff_dim={ff_dim}", verbose=True)
-            
+
+            log(f"Building model based on metadata: embed_dim={embed_dim}, "
+                + f"transformer_blocks={num_transformer_blocks}, heads={num_heads}, ff_dim={ff_dim}", verbose=True)
+
             # Build the model with matching architecture
             model = SolarKnowledge(early_stopping_patience=5)
             model.build_base_model(
@@ -310,7 +310,7 @@ def test_model(
                 dropout_rate=dropout_rate
             )
             model.compile(use_focal_loss=True)
-            
+
         except Exception as e:
             log(f"Error reading metadata, using default parameters: {str(e)}", verbose=True)
             # Fallback to default architecture if metadata reading fails
@@ -371,9 +371,9 @@ def test_model(
 
     # Use 20% of test data for calibration
     X_calib_idx, X_eval_idx = train_test_split(
-        np.arange(len(pos_probs)), 
-        test_size=0.8, 
-        random_state=42, 
+        np.arange(len(pos_probs)),
+        test_size=0.8,
+        random_state=42,
         stratify=y_true
     )
 
@@ -435,19 +435,19 @@ def test_model(
     entropy = -np.sum(mean_preds * np.log(mean_preds + 1e-10), axis=1)
     max_probs = np.max(mean_preds, axis=1)
     uncertainties = np.max(std_preds, axis=1)
-    
+
     # Get validation data to find optimal threshold (a small subset of training data)
     # This helps address class imbalance which can cause threshold shifts
     val_size = min(5000, len(X_train))
-    
+
     # Make sure X_train and y_train are numpy arrays
     X_train = np.array(X_train)
     y_train = np.array(y_train)
-    
+
     # Create random indices for validation set
     indices = np.random.choice(len(X_train), val_size, replace=False)
     X_val, y_val = X_train[indices], y_train[indices]
-    
+
     # Convert y_val to one-hot encoding if needed for prediction
     y_val_binary = y_val
     y_val_onehot = None
@@ -456,28 +456,28 @@ def test_model(
     else:
         y_val_onehot = y_val
         y_val_binary = np.argmax(y_val, axis=1)
-    
+
     # Get MC predictions on validation data
     val_mean_preds, _ = model.mc_predict(X_val, n_passes=mc_passes, verbose=1)
-    
+
     # Find optimal threshold using validation data
     log("Finding optimal classification threshold using validation data...", verbose=True)
     # Get predicted probabilities for the positive class
     val_pos_probs = val_mean_preds[:, 1]
-    
+
     # Calculate ROC curve
     fpr, tpr, thresholds = roc_curve(y_val_binary, val_pos_probs)
-    
+
     # Sample more thresholds to ensure we find a good balance
     thresholds_dense = np.linspace(0.01, 0.99, 100)
     all_thresholds = np.unique(np.concatenate([thresholds, thresholds_dense]))
-    
+
     # Calculate TSS and other metrics for different thresholds
     tss_scores = []
     f1_scores = []
     precision_scores = []
     recall_scores = []
-    
+
     # Print class distribution to better understand data
     neg_count = np.sum(y_val_binary == 0)
     pos_count = np.sum(y_val_binary == 1)
@@ -494,11 +494,11 @@ def test_model(
             specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
             tss = sensitivity + specificity - 1
             tss_scores.append(tss)
-            
+
             # Also calculate F1 for reference
             f1 = f1_score(y_val_binary, val_preds, average='binary')
             f1_scores.append(f1)
-            
+
             precision = precision_score(y_val_binary, val_preds, average='binary', zero_division=0)
             recall = recall_score(y_val_binary, val_preds, average='binary', zero_division=0)
             precision_scores.append(precision)
@@ -546,17 +546,17 @@ def test_model(
     # Use balanced threshold for best overall performance
     optimal_threshold = balanced_threshold
     log(f"Using balanced threshold: {optimal_threshold:.4f}", verbose=True)
-    
+
     # Use optimal threshold for predictions
     pos_probs = mean_preds[:, 1]
     predicted_classes = (pos_probs >= optimal_threshold).astype(int)
-    
+
     log(f"Predictions using optimal threshold: Positive ratio = {np.mean(predicted_classes):.4f}", verbose=True)
-    
+
     # Save original predicted classes based on argmax for comparison
     argmax_classes = np.argmax(mean_preds, axis=-1)
     log(f"Predictions using default threshold (0.5): Positive ratio = {np.mean(argmax_classes):.4f}", verbose=True)
-    
+
     # If requested, plot prediction uncertainties
     if plot_uncertainties:
         create_uncertainty_plots(
@@ -594,7 +594,7 @@ def test_model(
     print(f"Specificity (True Negative Rate): {specificity:.4f}")
     print("Classification Report:")
     print(classification_report(y_true, predicted_classes))
-    
+
     # For comparison, also show metrics with default threshold
     print("\nComparison with default threshold (argmax):")
     acc_default = accuracy_score(y_true, argmax_classes)
@@ -611,7 +611,7 @@ def test_model(
         print(f"TSS: {TSS_default:.4f}")
         print(f"Sensitivity: {sensitivity_default:.4f}")
         print(f"Specificity: {specificity_default:.4f}")
-    
+
     print("==============================================\n\n")
 
     # Store metrics for the given time window and flare class
@@ -829,7 +829,7 @@ if __name__ == "__main__":
     # Loop over the desired time windows and flare classes
     time_windows = [args.time_window] if args.time_window else [24, 48, 72]
     flare_classes = [args.flare_class] if args.flare_class else ["C", "M", "M5"]
-    
+
     for time_window in time_windows:
         for flare_class in flare_classes:
             if flare_class not in supported_flare_class:
@@ -879,4 +879,4 @@ if __name__ == "__main__":
             json.dump(all_metrics, f, indent=4)
         print(
             f"Saved test metrics for version v{args.version} into {version_output}"
-        ) 
+        )

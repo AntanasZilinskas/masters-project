@@ -1,4 +1,4 @@
-name: Simplified CI
+name: CI
 
 on:
   push:
@@ -32,8 +32,8 @@ jobs:
 
     - name: Lint with flake8
       run: |
-        flake8 models/ nature_models/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 models/ nature_models/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+        flake8 models/ nature_models/ tests/ --exclude=models/archive --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 models/ nature_models/ tests/ --exclude=models/archive --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
 
     - name: Format check with black
       run: |

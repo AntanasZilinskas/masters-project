@@ -40,15 +40,17 @@ if device.type == "cuda":
 # ----------------------------------------
 # GPU Power Monitoring Utilities
 # ----------------------------------------
+
+
 class GPUMonitor:
     """Monitor GPU power consumption during training."""
-    
+
     def __init__(self, interval=60):
         self.interval = interval
         self.power_readings = []
         self.monitoring = False
         self.monitor_thread = None
-        
+
     def _monitor_power(self):
         """Background thread to monitor GPU power."""
         while self.monitoring:
@@ -65,20 +67,20 @@ class GPUMonitor:
             except (subprocess.TimeoutExpired, ValueError, FileNotFoundError):
                 pass
             time.sleep(self.interval)
-    
+
     def start_monitoring(self):
         """Start monitoring GPU power consumption."""
         if device.type == "cuda" and not self.monitoring:
             self.monitoring = True
             self.monitor_thread = threading.Thread(target=self._monitor_power, daemon=True)
             self.monitor_thread.start()
-    
+
     def stop_monitoring(self):
         """Stop monitoring and return power statistics."""
         self.monitoring = False
         if self.monitor_thread:
             self.monitor_thread.join(timeout=2)
-        
+
         if self.power_readings:
             powers = [reading[1] for reading in self.power_readings]
             return {
@@ -89,6 +91,7 @@ class GPUMonitor:
                 "monitoring_duration_s": self.power_readings[-1][0] - self.power_readings[0][0] if len(self.power_readings) > 1 else 0
             }
         return None
+
 
 def get_gpu_info():
     """Get GPU information."""
@@ -104,6 +107,8 @@ def get_gpu_info():
 # ----------------------------------------
 # Positional Encoding
 # ----------------------------------------
+
+
 class PositionalEncoding(nn.Module):
     def __init__(self, max_len: int, embed_dim: int):
         super().__init__()
@@ -122,6 +127,8 @@ class PositionalEncoding(nn.Module):
 # ----------------------------------------
 # Transformer Block
 # ----------------------------------------
+
+
 class TransformerBlock(nn.Module):
     def __init__(self, embed_dim, num_heads, ff_dim, dropout):
         super().__init__()
@@ -146,6 +153,8 @@ class TransformerBlock(nn.Module):
 # ----------------------------------------
 # Evidential & EVT Losses
 # ----------------------------------------
+
+
 def evidential_nll(y, evid):
     mu, v, a, b = torch.split(evid, 1, dim=-1)
     v = torch.clamp(v, min=1e-3)
@@ -156,6 +165,7 @@ def evidential_nll(y, evid):
     eps = 1e-7
     nll = - y * torch.log(p + eps) - (1 - y) * torch.log(1 - p + eps) + 0.5 * torch.log(S + eps)
     return torch.clamp(nll, min=0.0).mean()
+
 
 def evt_loss(logits, gpd, pct=0.9):
     """Adaptive EVT loss using per-batch percentile as threshold."""
@@ -185,7 +195,7 @@ def evt_loss(logits, gpd, pct=0.9):
         term = torch.where(
             torch.abs(xi) < 1e-3,
             y / sigma + torch.log(sigma + eps),
-            (1/xi + 1) * log_term + torch.log(sigma + eps)
+            (1 / xi + 1) * log_term + torch.log(sigma + eps)
         )
 
         reg = 1e-3 * (xi**2).mean() + 1e-3 * (1 / (sigma + eps)).mean()
@@ -196,6 +206,8 @@ def evt_loss(logits, gpd, pct=0.9):
 # ----------------------------------------
 # Focal Loss
 # ----------------------------------------
+
+
 def focal_bce_loss(logits, targets, gamma):
     targets = targets.view(-1, 1)
     bce = F.binary_cross_entropy_with_logits(logits, targets, reduction='none')
@@ -206,6 +218,8 @@ def focal_bce_loss(logits, targets, gamma):
 # ----------------------------------------
 # Binary Cross-Entropy for precursor head
 # ----------------------------------------
+
+
 def precursor_bce_loss(logits, targets):
     targets = targets.view(-1, 1).float()
     return F.binary_cross_entropy_with_logits(logits, targets)
@@ -213,6 +227,8 @@ def precursor_bce_loss(logits, targets):
 # ----------------------------------------
 # RET+ Model with attention bottleneck and precursor head
 # ----------------------------------------
+
+
 class RETPlusModel(nn.Module):
     def __init__(self, input_shape, embed_dim=128, num_heads=4, ff_dim=256, num_blocks=6, dropout=0.2,
                  use_attention_bottleneck: bool = True,
@@ -315,6 +331,8 @@ class RETPlusModel(nn.Module):
 # ----------------------------------------
 # Composite Loss
 # ----------------------------------------
+
+
 def composite_loss(
     y_true,
     outputs,
@@ -373,6 +391,8 @@ def composite_loss(
 # ----------------------------------------
 # Wrapper
 # ----------------------------------------
+
+
 class RETPlusWrapper:
     def __init__(
         self,
@@ -461,7 +481,7 @@ class RETPlusWrapper:
         # Initialize lightweight monitoring (cluster-safe)
         gpu_monitor = None
         emissions_tracker = None
-        
+
         # GPU monitoring with maximum safety
         if device.type == "cuda":
             try:
@@ -481,7 +501,7 @@ class RETPlusWrapper:
                 except (OSError, PermissionError) as e:
                     print(f"Warning: Cannot create emissions directory: {e}. Using current directory.")
                     emissions_dir = "."
-                
+
                 emissions_tracker = EmissionsTracker(
                     project_name=f"everest-{flare_class}-{time_window}h",
                     experiment_id=f"{flare_class}_{time_window}h_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
@@ -506,7 +526,7 @@ class RETPlusWrapper:
         # Training timing
         training_start_time = time.time()
         epoch_times = []
-        
+
         # Build DataLoader – optionally keep the full dataset on the GPU
         use_amp = device.type == "cuda"
         if in_memory_dataset and device.type == "cuda":
@@ -546,7 +566,7 @@ class RETPlusWrapper:
 
         for epoch in range(epochs):
             epoch_start_time = time.time()
-            
+
             gamma = min(gamma_max, gamma_max * epoch / warmup_epochs)
             epoch_loss = 0.0
             total = 0
@@ -629,7 +649,7 @@ class RETPlusWrapper:
             epoch_end_time = time.time()
             epoch_duration = epoch_end_time - epoch_start_time
             epoch_times.append(epoch_duration)
-            
+
             avg_loss = epoch_loss / max(1, total)
             accuracy = correct / total if total > 0 else 0.0
             sensitivity = TP / (TP + FN + 1e-8)
@@ -666,12 +686,12 @@ class RETPlusWrapper:
         # Calculate total training time
         training_end_time = time.time()
         total_training_time = training_end_time - training_start_time
-        
+
         # Stop monitoring and collect metrics
         gpu_power_stats = None
         if gpu_monitor:
             gpu_power_stats = gpu_monitor.stop_monitoring()
-        
+
         emissions_data = None
         if emissions_tracker:
             try:

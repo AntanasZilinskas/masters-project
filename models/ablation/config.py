@@ -64,7 +64,7 @@ TRAINING_CONFIG = {
     "epochs": 300,             # Updated from 120 to match notebook (300 epochs)
     "early_stopping_patience": 10,
     "track_emissions": False,  # Disable for speed in ablation studies
-    "in_memory_dataset": True, # Updated to match notebook setting
+    "in_memory_dataset": True,  # Updated to match notebook setting
     "use_amp": True,  # Mixed precision (will be ablated)
 }
 
@@ -137,7 +137,7 @@ ABLATION_VARIANTS = {
             "loss_weights": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05}
         }
     },
-    
+
     "no_evidential": {
         "name": "– Evidential Head",
         "description": "Remove NIG (evidential) branch",
@@ -152,9 +152,9 @@ ABLATION_VARIANTS = {
             "loss_weights": {"focal": 0.737, "evid": 0.0, "evt": 0.211, "prec": 0.053}
         }
     },
-    
+
     "no_evt": {
-        "name": "– EVT Head", 
+        "name": "– EVT Head",
         "description": "Remove GPD (EVT) branch",
         "config": {
             "use_evidential": True,
@@ -167,7 +167,7 @@ ABLATION_VARIANTS = {
             "loss_weights": {"focal": 0.824, "evid": 0.118, "evt": 0.0, "prec": 0.059}
         }
     },
-    
+
     "mean_pool": {
         "name": "Mean Pool (No Attention)",
         "description": "Replace attention bottleneck with mean pooling",
@@ -181,7 +181,7 @@ ABLATION_VARIANTS = {
             "loss_weights": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05}
         }
     },
-    
+
     "cross_entropy": {
         "name": "Cross-Entropy (γ = 0)",
         "description": "No focal re-weighting, standard cross-entropy",
@@ -195,7 +195,7 @@ ABLATION_VARIANTS = {
             "loss_weights": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05}
         }
     },
-    
+
     "no_precursor": {
         "name": "No Precursor Head",
         "description": "Remove early-warning auxiliary head",
@@ -210,7 +210,7 @@ ABLATION_VARIANTS = {
             "loss_weights": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.0}
         }
     },
-    
+
     "fp32_training": {
         "name": "FP32 Training",
         "description": "Disable mixed precision (AMP)",
@@ -237,7 +237,7 @@ SEQUENCE_LENGTH_VARIANTS = {
         "input_shape": (5, 9)
     },
     "seq_7": {
-        "name": "Sequence Length 7", 
+        "name": "Sequence Length 7",
         "description": "7 timesteps input sequence",
         "input_shape": (7, 9)
     },
@@ -253,7 +253,7 @@ SEQUENCE_LENGTH_VARIANTS = {
     },
     "seq_20": {
         "name": "Sequence Length 20",
-        "description": "20 timesteps input sequence", 
+        "description": "20 timesteps input sequence",
         "input_shape": (20, 9)
     }
 }
@@ -292,7 +292,7 @@ STATISTICAL_CONFIG = {
 
 OUTPUT_CONFIG = {
     "results_dir": "models/ablation/results",
-    "plots_dir": "models/ablation/plots", 
+    "plots_dir": "models/ablation/plots",
     "logs_dir": "models/ablation/logs",
     "models_dir": "models/ablation/trained_models",
     "git_tag": "v4.1-ablation",
@@ -317,11 +317,13 @@ CLUSTER_CONFIG = {
 # HELPER FUNCTIONS
 # ============================================================================
 
+
 def get_variant_config(variant_name: str) -> Dict[str, Any]:
     """Get configuration for a specific ablation variant."""
     if variant_name not in ABLATION_VARIANTS:
         raise ValueError(f"Unknown variant: {variant_name}")
     return ABLATION_VARIANTS[variant_name]["config"]
+
 
 def get_sequence_config(seq_variant: str) -> Dict[str, Any]:
     """Get configuration for a specific sequence length variant."""
@@ -329,19 +331,23 @@ def get_sequence_config(seq_variant: str) -> Dict[str, Any]:
         raise ValueError(f"Unknown sequence variant: {seq_variant}")
     return SEQUENCE_LENGTH_VARIANTS[seq_variant]
 
+
 def get_all_variant_names() -> List[str]:
     """Get list of all ablation variant names."""
     return list(ABLATION_VARIANTS.keys())
 
+
 def get_all_sequence_variants() -> List[str]:
     """Get list of all sequence length variant names."""
     return list(SEQUENCE_LENGTH_VARIANTS.keys())
+
 
 def create_output_directories():
     """Create all necessary output directories."""
     for dir_path in OUTPUT_CONFIG.values():
         if isinstance(dir_path, str) and dir_path.endswith(('results', 'plots', 'logs', 'models')):
             os.makedirs(dir_path, exist_ok=True)
+
 
 def get_experiment_name(variant: str, seed: int, sequence_length: Optional[str] = None) -> str:
     """Generate standardized experiment name."""
@@ -354,6 +360,7 @@ def get_experiment_name(variant: str, seed: int, sequence_length: Optional[str] 
 # VALIDATION
 # ============================================================================
 
+
 def validate_ablation_config():
     """Validate ablation configuration consistency."""
     # Check that loss weights sum to 1.0 for each variant
@@ -362,43 +369,46 @@ def validate_ablation_config():
         total_weight = sum(weights.values())
         if abs(total_weight - 1.0) > 1e-6:
             print(f"Warning: {variant_name} loss weights sum to {total_weight:.6f}, not 1.0")
-    
+
     # Check that all required directories exist
     create_output_directories()
-    
+
     print("✅ Ablation configuration validated successfully")
+
 
 def get_ablation_experiments():
     """Generate list of ablation experiments."""
     experiments = []
-    
+
     # Add baseline experiment
     experiments.append({
         "name": "baseline",
         "config": BASELINE_CONFIG.copy(),
         "description": "Full model with all components"
     })
-    
+
     # Add ablation experiments (remove one component at a time)
     for component_name, component_info in ABLATION_COMPONENTS.items():
         config = BASELINE_CONFIG.copy()
         config[component_info["config_key"]] = False
-        
+
         experiments.append({
             "name": f"ablate_{component_name}",
             "config": config,
             "description": f"Remove {component_info['description']}"
         })
-    
+
     return experiments
+
 
 def validate_config():
     """Validate configuration consistency."""
     validate_ablation_config()
 
+
 if __name__ == "__main__":
     validate_config()
     print(f"📊 Configured {len(ABLATION_VARIANTS)} ablation variants")
-    print(f"📏 Configured {len(SEQUENCE_LENGTH_VARIANTS)} sequence length variants") 
+    print(f"📏 Configured {len(SEQUENCE_LENGTH_VARIANTS)} sequence length variants")
     print(f"🎲 Using {len(RANDOM_SEEDS)} random seeds")
-    print(f"🎯 Primary target: {PRIMARY_TARGET['flare_class']}-class, {PRIMARY_TARGET['time_window']}h") 
+    print(f"🎯 Primary target: {PRIMARY_TARGET['flare_class']}-class, {PRIMARY_TARGET['time_window']}h")

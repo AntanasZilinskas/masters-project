@@ -278,14 +278,14 @@ class SolarKnowledge:
                 """
                 # Standard categorical crossentropy
                 cross_entropy = tf.keras.losses.categorical_crossentropy(y_true, y_pred)
-                
+
                 # Get the predicted probability for the correct class
                 y_pred_softmax = tf.nn.softmax(y_pred, axis=-1)
                 p_t = tf.reduce_sum(y_true * y_pred_softmax, axis=-1)
-                
+
                 # Apply the focal term
                 focal_term = tf.pow(1 - p_t, gamma)
-                
+
                 # Apply class weights if using alpha
                 if alpha > 0:
                     alpha_factor = y_true * alpha + (1 - y_true) * (1 - alpha)
@@ -293,9 +293,9 @@ class SolarKnowledge:
                     focal_loss = alpha_weight * focal_term * cross_entropy
                 else:
                     focal_loss = focal_term * cross_entropy
-                
+
                 return focal_loss
-            
+
             loss = categorical_focal_loss
             print("Using Categorical Focal Loss for rare event awareness")
 

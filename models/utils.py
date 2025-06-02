@@ -4,6 +4,7 @@
 
 import os
 import platform
+import math
 import sys
 import warnings
 from datetime import datetime
@@ -233,7 +234,7 @@ def load_data(
         if has_zero_record is False:
             cur_noaa_num = int(row[3])
             each_series_data.append(
-                row[start_feature : start_feature + n_features].tolist()
+                row[start_feature: start_feature + n_features].tolist()
             )
             itr_idx = idx - 1
             while itr_idx >= 0 and len(each_series_data) < series_len:
@@ -271,7 +272,7 @@ def load_data(
                     each_series_data.insert(
                         0,
                         prev_row[
-                            start_feature : start_feature + n_features
+                            start_feature: start_feature + n_features
                         ].tolist(),
                     )
                 itr_idx -= 1

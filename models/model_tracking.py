@@ -27,7 +27,7 @@ import seaborn as sns
 
 class TrainingMetricsEncoder(json.JSONEncoder):
     """Custom JSON encoder that handles large arrays and training metrics properly."""
-    
+
     def default(self, obj):
         if isinstance(obj, np.ndarray):
             # For large arrays, save summary statistics instead of full data
@@ -58,12 +58,12 @@ class TrainingMetricsEncoder(json.JSONEncoder):
 def create_model_dir(version, flare_class, time_window):
     """
     Create model directory with appropriate naming convention.
-    
+
     Args:
         version: Version string (e.g., "1.0" or "1.5_12345_20231201_120000_123456")
         flare_class: Flare classification target (e.g., "M", "C", "M5")
         time_window: Time window in hours (e.g., "24", "48", "72")
-    
+
     Returns:
         str: Path to created model directory
     """
@@ -81,11 +81,11 @@ def create_model_dir(version, flare_class, time_window):
         except (OSError, PermissionError):
             # Ultimate fallback to current directory
             models_dir = "."
-        
+
     model_dir = (
         f"{models_dir}/EVEREST-v{version}-{flare_class}-{time_window}h"
     )
-    
+
     try:
         # Use os.makedirs with exist_ok=False for atomic creation
         os.makedirs(model_dir, exist_ok=False)
@@ -102,7 +102,7 @@ def create_model_dir(version, flare_class, time_window):
         except (OSError, PermissionError):
             # Ultimate fallback - use current directory
             model_dir = "."
-    
+
     return model_dir
 
 
@@ -204,7 +204,7 @@ def save_model_with_metadata(
                 print(f"Saved weights to alternative path: {alt_weights_path}")
             except Exception as e2:
                 print(f"Warning: Cannot save model weights at all: {e2}")
-            
+
         # Extract architecture details for PyTorch model
         try:
             architecture = {
@@ -500,15 +500,15 @@ def list_available_models():
         potential_dirs = ["models"]
         if os.path.exists(os.path.join("models", "models")):
             potential_dirs.append(os.path.join("models", "models"))
-        
+
         models = []
-        
+
         for base_dir in potential_dirs:
             try:
                 model_dirs = [
                     d for d in os.listdir(base_dir) if d.startswith("EVEREST-v")
                 ]
-                
+
                 for d in model_dirs:
                     parts = d.split("-")
                     if len(parts) >= 3:
@@ -665,13 +665,13 @@ def get_latest_version(flare_class, time_window):
     potential_dirs = ["models"]
     if os.path.exists(os.path.join("models", "models")):
         potential_dirs.append(os.path.join("models", "models"))
-    
+
     # Look in all potential directories
     versions = []
     for base_dir in potential_dirs:
         pattern = os.path.join(base_dir, f"EVEREST-v*-{flare_class}-{time_window}h")
         dirs = glob.glob(pattern)
-        
+
         for dir_path in dirs:
             dir_name = os.path.basename(dir_path)
             parts = dir_name.split("-")
@@ -687,7 +687,7 @@ def get_latest_version(flare_class, time_window):
                     versions.append(version_num)
                 except ValueError:
                     continue
-    
+
     # Return the highest version or None if no versions found
     return max(versions) if versions else None
 
@@ -695,33 +695,33 @@ def get_latest_version(flare_class, time_window):
 def get_next_version_safe(flare_class, time_window, max_retries=10):
     """
     Get the next version number with atomic directory creation to prevent race conditions.
-    
+
     This function handles concurrent access by:
     1. Adding process ID and timestamp to make versions unique
     2. Using atomic directory creation to prevent collisions
     3. Retrying with incremented versions if conflicts occur
-    
+
     Args:
         flare_class: Target flare class (e.g., "M", "C", "M5")
         time_window: Time window in hours (e.g., "24", "48", "72")
         max_retries: Maximum number of retry attempts
-        
+
     Returns:
         str: Unique version string that's safe for concurrent use
     """
     import os
     import time
     from datetime import datetime
-    
+
     # Get base version
     latest_version = get_latest_version(flare_class, time_window)
     base_version = 1.0 if latest_version is None else round(latest_version + 0.1, 1)
-    
+
     # Add unique identifiers for concurrent safety
     process_id = os.getpid()
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     microseconds = int(time.time() * 1000000) % 1000000  # Last 6 digits of microseconds
-    
+
     # Try to create directory atomically
     for attempt in range(max_retries):
         try:
@@ -733,14 +733,14 @@ def get_next_version_safe(flare_class, time_window, max_retries=10):
                 # Subsequent attempts: increment base version
                 incremented_version = round(base_version + (attempt * 0.01), 2)
                 version_str = f"{incremented_version}_{process_id}_{timestamp}_{microseconds}"
-            
+
             # Try to create the model directory atomically
             model_dir = create_model_dir(version_str, flare_class, time_window)
-            
+
             # If we get here, directory creation succeeded
             print(f"🔄 Created unique version: {version_str} (attempt {attempt + 1})")
             return version_str
-            
+
         except (OSError, FileExistsError) as e:
             if attempt == max_retries - 1:
                 # Last attempt failed, use timestamp-based fallback
@@ -751,7 +751,7 @@ def get_next_version_safe(flare_class, time_window, max_retries=10):
                 # Wait a tiny bit and retry
                 time.sleep(0.01 * (attempt + 1))  # Exponential backoff
                 continue
-    
+
     # This should never be reached, but just in case
     return f"{base_version}_{int(time.time())}_{process_id}"
 
