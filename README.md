@@ -1,6 +1,6 @@
 # EVEREST: Solar Flare Prediction System
 
-![CI](https://github.com/antanaszilinskas/masters-project/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/antanaszilinskas/masters-project/actions/workflows/ci.yml/badge.svg?branch=pytorch-rewrite)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15570398.svg)](https://doi.org/10.5281/zenodo.15570398)
