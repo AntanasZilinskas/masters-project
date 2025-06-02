@@ -77,6 +77,48 @@ DYNAMIC_WEIGHT_SCHEDULE = {
 }
 
 # ============================================================================
+# ABLATION COMPONENTS AND BASELINE
+# ============================================================================
+
+# Baseline configuration (all components enabled)
+BASELINE_CONFIG = {
+    "use_attention_bottleneck": True,
+    "use_evidential": True,
+    "use_evt": True,
+    "use_precursor": True
+}
+
+# Components that can be ablated
+ABLATION_COMPONENTS = {
+    "attention_bottleneck": {
+        "description": "Attention bottleneck mechanism",
+        "config_key": "use_attention_bottleneck"
+    },
+    "evidential": {
+        "description": "Evidential uncertainty head",
+        "config_key": "use_evidential"
+    },
+    "evt": {
+        "description": "Extreme Value Theory head",
+        "config_key": "use_evt"
+    },
+    "precursor": {
+        "description": "Precursor detection head",
+        "config_key": "use_precursor"
+    }
+}
+
+# Metrics for ablation evaluation
+ABLATION_METRICS = ["tss", "accuracy", "f1", "precision", "recall", "specificity", "roc_auc", "brier", "ece"]
+
+# Output configuration for ablation studies
+ABLATION_OUTPUT_CONFIG = {
+    "results_dir": "models/ablation/results",
+    "plots_dir": "models/ablation/plots",
+    "models_dir": "models/ablation/trained_models"
+}
+
+# ============================================================================
 # ABLATION VARIANTS
 # ============================================================================
 
@@ -312,8 +354,8 @@ def get_experiment_name(variant: str, seed: int, sequence_length: Optional[str] 
 # VALIDATION
 # ============================================================================
 
-def validate_config():
-    """Validate configuration consistency."""
+def validate_ablation_config():
+    """Validate ablation configuration consistency."""
     # Check that loss weights sum to 1.0 for each variant
     for variant_name, variant in ABLATION_VARIANTS.items():
         weights = variant["config"]["loss_weights"]
@@ -325,6 +367,34 @@ def validate_config():
     create_output_directories()
     
     print("✅ Ablation configuration validated successfully")
+
+def get_ablation_experiments():
+    """Generate list of ablation experiments."""
+    experiments = []
+    
+    # Add baseline experiment
+    experiments.append({
+        "name": "baseline",
+        "config": BASELINE_CONFIG.copy(),
+        "description": "Full model with all components"
+    })
+    
+    # Add ablation experiments (remove one component at a time)
+    for component_name, component_info in ABLATION_COMPONENTS.items():
+        config = BASELINE_CONFIG.copy()
+        config[component_info["config_key"]] = False
+        
+        experiments.append({
+            "name": f"ablate_{component_name}",
+            "config": config,
+            "description": f"Remove {component_info['description']}"
+        })
+    
+    return experiments
+
+def validate_config():
+    """Validate configuration consistency."""
+    validate_ablation_config()
 
 if __name__ == "__main__":
     validate_config()
