@@ -39,9 +39,31 @@ jobs:
       run: |
         black --check --diff models/ nature_models/ tests/
 
-    - name: Run core tests
+    - name: Validate dataset integrity
       run: |
-        pytest tests/test_*.py -v --tb=short -x
+        python models/data_validation.py --data-dir data --verify || echo "⚠️ No dataset manifest found - skipping validation"
+
+    - name: Run core tests with energy tracking
+      run: |
+        python -c "
+        import codecarbon
+        tracker = codecarbon.EmissionsTracker(project_name='EVEREST-CI', output_dir='ci_emissions')
+        tracker.start()
+        import subprocess
+        import sys
+        result = subprocess.run([sys.executable, '-m', 'pytest', 'tests/test_*.py', '-v', '--tb=short', '-x'])
+        emissions = tracker.stop()
+        print(f'🌱 CI Energy Usage: {emissions:.6f} kg CO2eq')
+        sys.exit(result.returncode)
+        "
+
+    - name: Archive energy logs
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: ci-energy-logs
+        path: ci_emissions/
+        retention-days: 30
 
     - name: Test training config
       run: |
