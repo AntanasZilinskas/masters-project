@@ -30,6 +30,7 @@ jobs:
         pip install numpy pandas scikit-learn tensorflow torch
         pip install optuna  # For HPO tests
         pip install matplotlib  # For plotting in tests
+        pip install xarray  # For Informer model tests
 
     - name: Lint with flake8
       run: |
