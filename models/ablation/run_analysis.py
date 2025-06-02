@@ -12,7 +12,7 @@ from models.ablation.analysis_metrics import (
     compute_overall_improvements,
     compute_calibration_gap_compression,
     compute_brier_99th_analysis,
-    generate_summary_report
+    generate_summary_report,
 )
 import os
 import sys
@@ -28,7 +28,7 @@ except NameError:
 
 # Add both the ablation directory and project root to path
 sys.path.append(current_dir)
-sys.path.append(os.path.join(current_dir, '..', '..'))  # Add project root
+sys.path.append(os.path.join(current_dir, "..", ".."))  # Add project root
 
 
 def run_ablation_analysis():
@@ -80,7 +80,9 @@ def run_ablation_analysis():
     brier_99th_effects = compute_brier_99th_analysis(df, baseline)
 
     # Generate comprehensive report
-    report = generate_summary_report(baseline, effects, overall, calibration, brier_99th_effects, output_dir)
+    report = generate_summary_report(
+        baseline, effects, overall, calibration, brier_99th_effects, output_dir
+    )
 
     # Print final summary
     print(f"\n🎯 FINAL ABLATION RESULTS:")
@@ -88,22 +90,34 @@ def run_ablation_analysis():
 
     summary = report["summary"]
     if summary["attention_bottleneck_tss_change"]:
-        print(f"1. Attention Bottleneck TSS change: {summary['attention_bottleneck_tss_change']:+.4f}")
+        print(
+            f"1. Attention Bottleneck TSS change: {summary['attention_bottleneck_tss_change']:+.4f}"
+        )
 
     if summary["evidential_head_ece_change"]:
-        print(f"2. Evidential Head ECE change: {summary['evidential_head_ece_change']:+.4f}")
+        print(
+            f"2. Evidential Head ECE change: {summary['evidential_head_ece_change']:+.4f}"
+        )
 
     if summary["evt_head_brier99_change"]:
-        print(f"3. EVT Head 99th-percentile Brier change: {summary['evt_head_brier99_change']:+.4f}")
+        print(
+            f"3. EVT Head 99th-percentile Brier change: {summary['evt_head_brier99_change']:+.4f}"
+        )
 
     if summary["precursor_head_tss_change"]:
-        print(f"4. Precursor Head TSS change: {summary['precursor_head_tss_change']:+.4f}")
+        print(
+            f"4. Precursor Head TSS change: {summary['precursor_head_tss_change']:+.4f}"
+        )
 
     if summary["overall_mean_tss_improvement"]:
-        print(f"5. Overall Mean TSS Improvement: {summary['overall_mean_tss_improvement']:+.4f}")
+        print(
+            f"5. Overall Mean TSS Improvement: {summary['overall_mean_tss_improvement']:+.4f}"
+        )
 
     if summary["calibration_gap_compression"]:
-        print(f"6. Calibration Gap Compression: {summary['calibration_gap_compression']:.4f}")
+        print(
+            f"6. Calibration Gap Compression: {summary['calibration_gap_compression']:.4f}"
+        )
 
     # Add comprehensive 99th-percentile Brier analysis
     print(f"\n📊 COMPREHENSIVE 99th-PERCENTILE BRIER ANALYSIS (M5-72h):")
@@ -112,7 +126,7 @@ def run_ablation_analysis():
         ("attention_bottleneck_brier99_change", "Attention Bottleneck"),
         ("evidential_head_brier99_change", "Evidential Head"),
         ("evt_head_brier99_change_detailed", "EVT-GPD Head"),
-        ("precursor_head_brier99_change", "Precursor Head")
+        ("precursor_head_brier99_change", "Precursor Head"),
     ]
 
     has_brier_data = False

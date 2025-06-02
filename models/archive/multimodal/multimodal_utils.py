@@ -43,9 +43,7 @@ def get_multimodal_data(time_window, flare_class, is_training=True):
         Labels (0 for negative, 1 for positive)
     """
     # Determine file paths
-    data_type = (
-        "testing_data" if is_training else "testing_data"
-    )  # Adjust as needed
+    data_type = "testing_data" if is_training else "testing_data"  # Adjust as needed
     csv_file = f"Nature_data/{data_type}_{flare_class}_{time_window}.csv"
     h5_file = f"Nature_data/multimodal_data_{flare_class}_{time_window}.h5"
 

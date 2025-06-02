@@ -26,3 +26,4 @@ kaleido==0.2.1
 
 # Environmental impact tracking
 codecarbon==2.3.4
+black[jupyter]

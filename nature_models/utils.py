@@ -1,4 +1,4 @@
-'''
+"""
  (c) Copyright 2023
  All rights reserved
  Programs written by Yasser Abduallah
@@ -15,7 +15,7 @@
  express or implied warranty.
 
  @author: Yasser Abduallah
-'''
+"""
 
 
 import sys
@@ -28,30 +28,32 @@ import platform
 from datetime import datetime
 import numpy as np
 import warnings
+
 warnings.filterwarnings("ignore")
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 try:
     import tensorflow as tf
+
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 except Exception as e:
-    print('')
+    print("")
 
 
-if tf.test.gpu_device_name() != '/device:GPU:0':
-    print('WARNING: GPU device not found.')
+if tf.test.gpu_device_name() != "/device:GPU:0":
+    print("WARNING: GPU device not found.")
 else:
-    print('SUCCESS: Found GPU: {}'.format(tf.test.gpu_device_name()))
-    physical_devices = tf.config.list_physical_devices('GPU')
+    print("SUCCESS: Found GPU: {}".format(tf.test.gpu_device_name()))
+    physical_devices = tf.config.list_physical_devices("GPU")
     if len(physical_devices) > 0:
-        physical_devices = tf.config.experimental.list_physical_devices('GPU')
+        physical_devices = tf.config.experimental.list_physical_devices("GPU")
         tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
 
-print('Python version:', platform.python_version())
+print("Python version:", platform.python_version())
 tf_version = tf.__version__
-print('Tensorflow bakcend version:', tf_version)
+print("Tensorflow bakcend version:", tf_version)
 
-supported_flare_class = ['C', 'M', 'M5']
+supported_flare_class = ["C", "M", "M5"]
 n_features = 14
 start_feature = 5
 mask_value = 0
@@ -61,7 +63,7 @@ nclass = 2
 noise_enabled = False
 c_date = datetime.now()
 
-d_type = ''
+d_type = ""
 log_handler = None
 format_logging = True
 
@@ -70,16 +72,44 @@ CURRENT_DIR = os.path.dirname(__file__)
 PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
 
 
-def create_log_file(alg='SolarFlareNet', d_type='flares', dir_name='logs'):
+def create_log_file(alg="SolarFlareNet", d_type="flares", dir_name="logs"):
     os.makedirs(dir_name, exist_ok=True)
     global log_handler
     try:
-        log_file = dir_name + os.sep + 'run_' + str(alg) + '_' + str(c_date.month) + '-' + str(c_date.day) + '-' + str(c_date.year) + '_' + str(d_type) + '.log'
+        log_file = (
+            dir_name
+            + os.sep
+            + "run_"
+            + str(alg)
+            + "_"
+            + str(c_date.month)
+            + "-"
+            + str(c_date.day)
+            + "-"
+            + str(c_date.year)
+            + "_"
+            + str(d_type)
+            + ".log"
+        )
     except Exception as e:
-        log_file = 'logs' + os.sep + 'run_' + str(alg) + '_' + str(c_date.month) + '-' + str(c_date.day) + '-' + str(c_date.year) + '_' + str(d_type) + '.log'
-    log_handler = open(log_file, 'a')
+        log_file = (
+            "logs"
+            + os.sep
+            + "run_"
+            + str(alg)
+            + "_"
+            + str(c_date.month)
+            + "-"
+            + str(c_date.day)
+            + "-"
+            + str(c_date.year)
+            + "_"
+            + str(d_type)
+            + ".log"
+        )
+    log_handler = open(log_file, "a")
     sys.stdout = Logger(log_handler)
-    print('')
+    print("")
 
 
 class Logger(object):
@@ -98,15 +128,15 @@ class Logger(object):
         pass
 
 
-def log(*message, verbose=False, end=' '):
+def log(*message, verbose=False, end=" "):
     log_str = []
     if verbose:
         if format_logging:
-            print('[' + str(datetime.now().replace(microsecond=0)) + '] ', end='')
+            print("[" + str(datetime.now().replace(microsecond=0)) + "] ", end="")
         for m in message:
             print(m, end=end)
 
-        print('')
+        print("")
     log_handler.flush()
 
 
@@ -114,7 +144,7 @@ def truncate_float(number, digits=4) -> float:
     try:
         if math.isnan(number):
             return 0.0
-        stepper = 10.0 ** digits
+        stepper = 10.0**digits
         return math.trunc(stepper * number) / stepper
     except Exception as e:
         return number
@@ -123,25 +153,33 @@ def truncate_float(number, digits=4) -> float:
 def parse_time(time):
     time = str(time).strip()
     # print('time:', time)
-    time = time.replace('A', '0').replace('90', '09').replace('91', '01').replace('U', '0').replace('//', '00')
-    if '.' in time:
-        time = time[:time.index('.')]
+    time = (
+        time.replace("A", "0")
+        .replace("90", "09")
+        .replace("91", "01")
+        .replace("U", "0")
+        .replace("//", "00")
+    )
+    if "." in time:
+        time = time[: time.index(".")]
 
-    time = time.replace('T', ' ').replace('Z', ':00')
+    time = time.replace("T", " ").replace("Z", ":00")
     s = time.split()
-    s1 = s[1].split(':')
+    s1 = s[1].split(":")
     if int(float(s1[1])) > 59:
-        s1[1] = '59'
+        s1[1] = "59"
     if int(float(s1[2])) > 59:
-        s1[2] = '59'
-    time = s[0] + ' ' + ':'.join(s1)
-    return datetime.strptime(time, '%Y-%m-%d %H:%M:%S')
+        s1[2] = "59"
+    time = s[0] + " " + ":".join(s1)
+    return datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
 
 
-def load_data(datafile, flare_label, series_len, start_feature, n_features, mask_value, data=None):
+def load_data(
+    datafile, flare_label, series_len, start_feature, n_features, mask_value, data=None
+):
     # print('Loading...', datafile, flare_label, series_len, start_feature, n_features, mask_value)
     if datafile is not None:
-        log('loading data from file:', datafile, verbose=False)
+        log("loading data from file:", datafile, verbose=False)
     if data is not None:
         df = data
     else:
@@ -158,7 +196,7 @@ def load_data(datafile, flare_label, series_len, start_feature, n_features, mask
         each_series_data = []
         row = df_values[idx]
         label = row[0][0]
-        if label == 'p':
+        if label == "p":
             continue
         # print(row, label)
         # if flare_label == 'C' and (label == 'P' or label == 'M'):
@@ -167,7 +205,7 @@ def load_data(datafile, flare_label, series_len, start_feature, n_features, mask
         #     label = 'N'
         has_zero_record = False
         # if at least one of the 25 physical feature values is missing, then discard it.
-        if flare_label == 'C':
+        if flare_label == "C":
             if float(row[5]) == 0.0:
                 has_zero_record = True
             if float(row[7]) == 0.0:
@@ -185,7 +223,9 @@ def load_data(datafile, flare_label, series_len, start_feature, n_features, mask
 
         if has_zero_record is False:
             cur_noaa_num = int(row[3])
-            each_series_data.append(row[start_feature:start_feature + n_features].tolist())
+            each_series_data.append(
+                row[start_feature : start_feature + n_features].tolist()
+            )
             itr_idx = idx - 1
             while itr_idx >= 0 and len(each_series_data) < series_len:
                 prev_row = df_values[itr_idx]
@@ -193,7 +233,7 @@ def load_data(datafile, flare_label, series_len, start_feature, n_features, mask
                 if prev_noaa_num != cur_noaa_num:
                     break
                 has_zero_record_tmp = False
-                if flare_label == 'C':
+                if flare_label == "C":
                     if float(row[5]) == 0.0:
                         has_zero_record_tmp = True
                     if float(row[7]) == 0.0:
@@ -213,22 +253,30 @@ def load_data(datafile, flare_label, series_len, start_feature, n_features, mask
                     each_series_data.insert(0, tmp)
 
                 if len(each_series_data) < series_len and has_zero_record_tmp is False:
-                    each_series_data.insert(0, prev_row[start_feature:start_feature + n_features].tolist())
+                    each_series_data.insert(
+                        0, prev_row[start_feature : start_feature + n_features].tolist()
+                    )
                 itr_idx -= 1
 
             while len(each_series_data) > 0 and len(each_series_data) < series_len:
                 each_series_data.insert(0, tmp)
 
             if len(each_series_data) > 0:
-                c_ls = 'TOTUSJH,TOTUSJZ,USFLUX,TOTBSQ,R_VALUE,TOTPOT,SAVNCPP,AREA_ACR,ABSNJZH'.split(',')
-                c_all = 'TOTUSJH,Cdec,TOTUSJZ,Chis1d,USFLUX,TOTBSQ,R_VALUE,TOTPOT,Chis,SAVNCPP,AREA_ACR,Edec,Xmax1d,ABSNJZH'.split(',')
+                c_ls = "TOTUSJH,TOTUSJZ,USFLUX,TOTBSQ,R_VALUE,TOTPOT,SAVNCPP,AREA_ACR,ABSNJZH".split(
+                    ","
+                )
+                c_all = "TOTUSJH,Cdec,TOTUSJZ,Chis1d,USFLUX,TOTBSQ,R_VALUE,TOTPOT,Chis,SAVNCPP,AREA_ACR,Edec,Xmax1d,ABSNJZH".split(
+                    ","
+                )
                 for s1 in range(len(each_series_data)):
                     s1v = each_series_data[s1]
                     s11 = []
                     for s111 in c_ls:
                         s11.append(s1v[c_all.index(s111)])
                     each_series_data[s1] = s11
-                X.append(np.array(each_series_data).reshape(series_len, len(c_ls)).tolist())
+                X.append(
+                    np.array(each_series_data).reshape(series_len, len(c_ls)).tolist()
+                )
                 # X.append(np.array(each_series_data).reshape(series_len, n_features).tolist())
                 y.append(label)
     X_arr = np.array(X)
@@ -247,7 +295,7 @@ def data_transform(data):
 
 
 def get_class_num(c):
-    if c.strip().upper() == 'N':
+    if c.strip().upper() == "N":
         return 0
     return 1
 
@@ -258,26 +306,32 @@ def gaussian_noise(x, mu, std):
     return x_noisy
 
 
-def add_gaussian_noise(flare_class,
-                       X_train_data,
-                       y_train_data,
-                       train_data_for_noise):
-    log('Adding Gaussian Noise')
+def add_gaussian_noise(flare_class, X_train_data, y_train_data, train_data_for_noise):
+    log("Adding Gaussian Noise")
     mu = 0.0
-    noise_data = train_data_for_noise[train_data_for_noise.columns[start_feature:n_features]]
+    noise_data = train_data_for_noise[
+        train_data_for_noise.columns[start_feature:n_features]
+    ]
     std = 0.05 * np.std(noise_data)
     d_noise = gaussian_noise(noise_data, mu, std)
-    train_data_for_noise[train_data_for_noise.columns[start_feature:n_features]] = d_noise
+    train_data_for_noise[
+        train_data_for_noise.columns[start_feature:n_features]
+    ] = d_noise
 
-    X_train_data1, y_train_data1, train_data_for_noise1 = load_data(datafile=None,
-                                                                    flare_label=flare_class, series_len=series_len,
-                                                                    start_feature=start_feature, n_features=n_features,
-                                                                    mask_value=mask_value, data=train_data_for_noise)
+    X_train_data1, y_train_data1, train_data_for_noise1 = load_data(
+        datafile=None,
+        flare_label=flare_class,
+        series_len=series_len,
+        start_feature=start_feature,
+        n_features=n_features,
+        mask_value=mask_value,
+        data=train_data_for_noise,
+    )
 
     X_train = X_train_data
     y_train = y_train_data
 
-    n_index_r = [i for i in range(len(y_train_data1)) if y_train_data1[i] != 'N']
+    n_index_r = [i for i in range(len(y_train_data1)) if y_train_data1[i] != "N"]
     X = X_train_data.tolist()
     y = y_train_data.tolist()
 
@@ -295,45 +349,70 @@ def add_gaussian_noise(flare_class,
 
 
 def get_cross_validation_data_raw(time_window, flare_class):
-    file_name = 'Nature_data' + os.sep + 'data_' + flare_class + '_' + time_window + '.csv'
+    file_name = (
+        "Nature_data" + os.sep + "data_" + flare_class + "_" + time_window + ".csv"
+    )
     data = pd.read_csv(file_name)
-    print('data columns:', data.columns)
+    print("data columns:", data.columns)
     return data
 
 
 def get_all_data(time_window, flare_class, noise_enabled=True):
-    file_name = 'Nature_data' + os.sep + 'data_' + flare_class + '_' + time_window + '.csv'
+    file_name = (
+        "Nature_data" + os.sep + "data_" + flare_class + "_" + time_window + ".csv"
+    )
     return get_data(flare_class, file_name, noise_enabled=noise_enabled)
 
 
 def get_training_data(time_window, flare_class):
     # Construct the full path to the training data CSV file.
     # Adjust the file naming if needed (here we're using the same name as before).
-    file_name = os.path.join(PROJECT_ROOT, "Nature_data", f"training_data_{flare_class}_{time_window}.csv")
+    file_name = os.path.join(
+        PROJECT_ROOT, "Nature_data", f"training_data_{flare_class}_{time_window}.csv"
+    )
     return get_data(flare_class, file_name, noise_enabled=True)
 
 
 def get_testing_data(time_window, flare_class):
     # Construct the full path to the testing data CSV file.
-    file_name = os.path.join(PROJECT_ROOT, "Nature_data", f"testing_data_{flare_class}_{time_window}.csv")
+    file_name = os.path.join(
+        PROJECT_ROOT, "Nature_data", f"testing_data_{flare_class}_{time_window}.csv"
+    )
     return get_data(flare_class, file_name, noise_enabled=False)
 
 
 def get_data(flare_class, datafile, noise_enabled=noise_enabled, verbose=True):
+    X_train_data, y_train_data, train_data_for_noise = load_data(
+        datafile=datafile,
+        flare_label=flare_class,
+        series_len=series_len,
+        start_feature=start_feature,
+        n_features=n_features,
+        mask_value=mask_value,
+    )
 
-    X_train_data, y_train_data, train_data_for_noise = load_data(datafile=datafile,
-                                                                 flare_label=flare_class, series_len=series_len,
-                                                                 start_feature=start_feature, n_features=n_features,
-                                                                 mask_value=mask_value)
-
-    neg_train = [t for t in y_train_data if t == 'N']
+    neg_train = [t for t in y_train_data if t == "N"]
     if verbose:
-        log(flare_class, '--> Training: Positive:', len(y_train_data) - len(neg_train), 'Negative:', len(neg_train))
-    if flare_class in ['M', 'M5'] and noise_enabled:
-        X_train, y_train = add_gaussian_noise(flare_class, X_train_data, y_train_data, train_data_for_noise)
+        log(
+            flare_class,
+            "--> Training: Positive:",
+            len(y_train_data) - len(neg_train),
+            "Negative:",
+            len(neg_train),
+        )
+    if flare_class in ["M", "M5"] and noise_enabled:
+        X_train, y_train = add_gaussian_noise(
+            flare_class, X_train_data, y_train_data, train_data_for_noise
+        )
         neg_train = [t for t in y_train if t == 0]
         if verbose:
-            log(flare_class, '--> With Noise Training: Positive:', len(y_train) - len(neg_train), 'Negative:', len(neg_train))
+            log(
+                flare_class,
+                "--> With Noise Training: Positive:",
+                len(y_train) - len(neg_train),
+                "Negative:",
+                len(neg_train),
+            )
     else:
         y_train = [get_class_num(c) for c in y_train_data]
         X_train = X_train_data
@@ -341,7 +420,15 @@ def get_data(flare_class, datafile, noise_enabled=noise_enabled, verbose=True):
     return X_train, y_train
 
 
-def save_result(flare_class, time_window, y_true, y_pred, alg='SolarFlareNet', dir_name=None, file_name=None):
+def save_result(
+    flare_class,
+    time_window,
+    y_true,
+    y_pred,
+    alg="SolarFlareNet",
+    dir_name=None,
+    file_name=None,
+):
     y_pred_probs = [1 - p[0] for p in y_pred]
 
     def getClass(values):
@@ -352,19 +439,29 @@ def save_result(flare_class, time_window, y_true, y_pred, alg='SolarFlareNet', d
             else:
                 b.append(1)
         return b
+
     y_true = getClass(y_true)
     y_pred = np.argmax(y_pred, axis=1)
     if dir_name is None:
-        dir_name = 'result' + os.sep + alg
+        dir_name = "result" + os.sep + alg
 
     os.makedirs(dir_name, exist_ok=True)
     if file_name is None:
-        file_name = dir_name + os.sep + flare_class.strip().upper() + '_' + str(time_window) + '.csv'
-    log('Saving result to file:', file_name, verbose=True)
-    h = open(file_name, 'w')
-    h.write('FlareLabel,Prediction,PredictionProbability\n')
+        file_name = (
+            dir_name
+            + os.sep
+            + flare_class.strip().upper()
+            + "_"
+            + str(time_window)
+            + ".csv"
+        )
+    log("Saving result to file:", file_name, verbose=True)
+    h = open(file_name, "w")
+    h.write("FlareLabel,Prediction,PredictionProbability\n")
     for i in range(len(y_true)):
-        h.write(str(y_true[i]) + ',' + str(y_pred[i]) + ',' + str(y_pred_probs[i]) + '\n')
+        h.write(
+            str(y_true[i]) + "," + str(y_pred[i]) + "," + str(y_pred_probs[i]) + "\n"
+        )
     h.flush()
     h.close()
 

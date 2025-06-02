@@ -7,9 +7,14 @@ with Ray Tune for asynchronous execution and median-stopping pruner.
 
 from .objective import create_objective
 from .config import (
-    OPTUNA_CONFIG, RAY_TUNE_CONFIG, SEARCH_STAGES, OUTPUT_DIRS,
-    REPRODUCIBILITY_CONFIG, EXPERIMENT_TARGETS, get_total_trials,
-    create_output_dirs
+    OPTUNA_CONFIG,
+    RAY_TUNE_CONFIG,
+    SEARCH_STAGES,
+    OUTPUT_DIRS,
+    REPRODUCIBILITY_CONFIG,
+    EXPERIMENT_TARGETS,
+    get_total_trials,
+    create_output_dirs,
 )
 import os
 import sys
@@ -42,7 +47,9 @@ class StudyManager:
     - Reproducibility and logging
     """
 
-    def __init__(self, study_name: Optional[str] = None, storage_url: Optional[str] = None):
+    def __init__(
+        self, study_name: Optional[str] = None, storage_url: Optional[str] = None
+    ):
         """
         Initialize the study manager.
 
@@ -77,10 +84,7 @@ class StudyManager:
         logging.basicConfig(
             level=getattr(logging, REPRODUCIBILITY_CONFIG["log_level"]),
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[
-                logging.FileHandler(log_file),
-                logging.StreamHandler(sys.stdout)
-            ]
+            handlers=[logging.FileHandler(log_file), logging.StreamHandler(sys.stdout)],
         )
 
         self.logger = logging.getLogger("StudyManager")
@@ -113,16 +117,16 @@ class StudyManager:
         sampler = TPESampler(
             seed=REPRODUCIBILITY_CONFIG["random_seed"],
             n_startup_trials=10,  # Random sampling for first 10 trials
-            n_ei_candidates=24,   # Number of candidates for EI acquisition
-            multivariate=True,    # Use multivariate TPE
-            warn_independent_sampling=False  # Suppress warnings for large studies
+            n_ei_candidates=24,  # Number of candidates for EI acquisition
+            multivariate=True,  # Use multivariate TPE
+            warn_independent_sampling=False,  # Suppress warnings for large studies
         )
 
         # Configure pruner
         pruner = MedianPruner(
             n_startup_trials=OPTUNA_CONFIG["pruner_config"]["n_startup_trials"],
             n_warmup_steps=OPTUNA_CONFIG["pruner_config"]["n_warmup_steps"],
-            interval_steps=OPTUNA_CONFIG["pruner_config"]["interval_steps"]
+            interval_steps=OPTUNA_CONFIG["pruner_config"]["interval_steps"],
         )
 
         try:
@@ -131,7 +135,7 @@ class StudyManager:
                 study_name=study_name,
                 storage=self.storage_url,
                 sampler=sampler,
-                pruner=pruner
+                pruner=pruner,
             )
             self.logger.info(f"Loaded existing study: {study_name}")
 
@@ -142,7 +146,7 @@ class StudyManager:
                 direction=OPTUNA_CONFIG["direction"],
                 storage=self.storage_url,
                 sampler=sampler,
-                pruner=pruner
+                pruner=pruner,
             )
             self.logger.info(f"Created new study: {study_name}")
 
@@ -153,7 +157,7 @@ class StudyManager:
         flare_class: str,
         time_window: str,
         max_trials: Optional[int] = None,
-        timeout: Optional[float] = None
+        timeout: Optional[float] = None,
     ) -> Dict[str, Any]:
         """
         Run optimization for a single target configuration.
@@ -169,7 +173,9 @@ class StudyManager:
         """
         target_key = f"{flare_class}_{time_window}"
 
-        self.logger.info(f"🚀 Starting optimization for {flare_class}-class, {time_window}h window")
+        self.logger.info(
+            f"🚀 Starting optimization for {flare_class}-class, {time_window}h window"
+        )
 
         # Create study
         study = self.create_study(flare_class, time_window)
@@ -191,13 +197,15 @@ class StudyManager:
                 n_trials=max_trials,
                 timeout=timeout,
                 gc_after_trial=True,  # Garbage collection to save memory
-                show_progress_bar=True
+                show_progress_bar=True,
             )
 
             elapsed = time.time() - start_time
 
             # Analyze results
-            results = self._analyze_study_results(study, flare_class, time_window, elapsed)
+            results = self._analyze_study_results(
+                study, flare_class, time_window, elapsed
+            )
             self.results[target_key] = results
 
             # Save results
@@ -219,7 +227,7 @@ class StudyManager:
         self,
         targets: Optional[List[Dict[str, str]]] = None,
         max_trials_per_target: Optional[int] = None,
-        timeout_per_target: Optional[float] = None
+        timeout_per_target: Optional[float] = None,
     ) -> Dict[str, Dict[str, Any]]:
         """
         Run optimization for all target configurations.
@@ -238,7 +246,9 @@ class StudyManager:
         all_results = {}
         total_start = time.time()
 
-        self.logger.info(f"🌟 Starting optimization for {len(targets)} target configurations")
+        self.logger.info(
+            f"🌟 Starting optimization for {len(targets)} target configurations"
+        )
 
         for i, target in enumerate(targets, 1):
             flare_class = target["flare_class"]
@@ -249,10 +259,7 @@ class StudyManager:
 
             try:
                 results = self.run_single_target(
-                    flare_class,
-                    time_window,
-                    max_trials_per_target,
-                    timeout_per_target
+                    flare_class, time_window, max_trials_per_target, timeout_per_target
                 )
                 all_results[target_key] = results
 
@@ -274,7 +281,7 @@ class StudyManager:
         study: optuna.Study,
         flare_class: str,
         time_window: str,
-        elapsed_time: float
+        elapsed_time: float,
     ) -> Dict[str, Any]:
         """Analyze and summarize study results."""
 
@@ -285,7 +292,7 @@ class StudyManager:
             "time_window": time_window,
             "n_trials": len(study.trials),
             "optimization_time": elapsed_time,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
         if len(study.trials) == 0:
@@ -298,7 +305,7 @@ class StudyManager:
             "number": best_trial.number,
             "value": best_trial.value,
             "params": best_trial.params,
-            "user_attrs": best_trial.user_attrs
+            "user_attrs": best_trial.user_attrs,
         }
 
         # Trial statistics by stage
@@ -311,7 +318,7 @@ class StudyManager:
                     "completed": 0,
                     "pruned": 0,
                     "failed": 0,
-                    "best_value": -float('inf')
+                    "best_value": -float("inf"),
                 }
 
             stage_stats[stage]["trials"] += 1
@@ -328,7 +335,12 @@ class StudyManager:
         results["stage_statistics"] = stage_stats
 
         # Hyperparameter importance (if enough trials)
-        if len([t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]) >= 10:
+        if (
+            len(
+                [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
+            )
+            >= 10
+        ):
             try:
                 importance = optuna.importance.get_param_importances(study)
                 results["param_importance"] = importance
@@ -338,15 +350,19 @@ class StudyManager:
             results["param_importance"] = {}
 
         # Top N trials
-        completed_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
+        completed_trials = [
+            t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE
+        ]
         if completed_trials:
-            top_trials = sorted(completed_trials, key=lambda t: t.value, reverse=True)[:10]
+            top_trials = sorted(completed_trials, key=lambda t: t.value, reverse=True)[
+                :10
+            ]
             results["top_trials"] = [
                 {
                     "number": t.number,
                     "value": t.value,
                     "params": t.params,
-                    "user_attrs": t.user_attrs
+                    "user_attrs": t.user_attrs,
                 }
                 for t in top_trials
             ]
@@ -358,7 +374,7 @@ class StudyManager:
         study: optuna.Study,
         results: Dict[str, Any],
         flare_class: str,
-        time_window: str
+        time_window: str,
     ) -> None:
         """Save study results to files."""
 
@@ -368,7 +384,7 @@ class StudyManager:
 
         # Save results summary
         results_file = target_dir / "optimization_results.json"
-        with open(results_file, 'w') as f:
+        with open(results_file, "w") as f:
             json.dump(results, f, indent=2, default=str)
 
         # Save trials dataframe
@@ -380,12 +396,15 @@ class StudyManager:
         # Save study object
         study_file = target_dir / "study.pkl"
         import pickle
-        with open(study_file, 'wb') as f:
+
+        with open(study_file, "wb") as f:
             pickle.dump(study, f)
 
         self.logger.info(f"Results saved to {target_dir}")
 
-    def _save_combined_results(self, all_results: Dict[str, Any], total_time: float) -> None:
+    def _save_combined_results(
+        self, all_results: Dict[str, Any], total_time: float
+    ) -> None:
         """Save combined results across all targets."""
 
         combined = {
@@ -395,14 +414,14 @@ class StudyManager:
             "config": {
                 "optuna": OPTUNA_CONFIG,
                 "stages": SEARCH_STAGES,
-                "reproducibility": REPRODUCIBILITY_CONFIG
+                "reproducibility": REPRODUCIBILITY_CONFIG,
             },
-            "results": all_results
+            "results": all_results,
         }
 
         # Save to main results file
         results_file = Path(OUTPUT_DIRS["results"]) / "hpo_combined_results.json"
-        with open(results_file, 'w') as f:
+        with open(results_file, "w") as f:
             json.dump(combined, f, indent=2, default=str)
 
         # Create summary CSV
@@ -416,7 +435,7 @@ class StudyManager:
                     "best_tss": result["best_trial"]["value"],
                     "n_trials": result["n_trials"],
                     "optimization_time": result["optimization_time"],
-                    **result["best_trial"]["params"]
+                    **result["best_trial"]["params"],
                 }
                 summary_data.append(row)
 
@@ -431,13 +450,22 @@ class StudyManager:
         """Get git information for reproducibility."""
         try:
             import subprocess
-            commit = subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip()
-            branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]).decode().strip()
+
+            commit = (
+                subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip()
+            )
+            branch = (
+                subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+                .decode()
+                .strip()
+            )
             return {"commit": commit, "branch": branch}
         except BaseException:
             return {"commit": "unknown", "branch": "unknown"}
 
-    def get_study_summary(self, flare_class: str, time_window: str) -> Optional[Dict[str, Any]]:
+    def get_study_summary(
+        self, flare_class: str, time_window: str
+    ) -> Optional[Dict[str, Any]]:
         """Get summary of a completed study."""
         target_key = f"{flare_class}_{time_window}"
         return self.results.get(target_key)
@@ -456,7 +484,7 @@ class StudyManager:
                     "params": results["best_trial"]["params"],
                     "tss": results["best_trial"]["value"],
                     "flare_class": results["flare_class"],
-                    "time_window": results["time_window"]
+                    "time_window": results["time_window"],
                 }
 
         return best_configs
@@ -467,16 +495,30 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="EVEREST Hyperparameter Optimization")
-    parser.add_argument("--target", choices=["all", "single"], default="all",
-                        help="Run all targets or single target")
-    parser.add_argument("--flare-class", choices=["C", "M", "M5"], default="M",
-                        help="Flare class for single target")
-    parser.add_argument("--time-window", choices=["24", "48", "72"], default="24",
-                        help="Time window for single target")
-    parser.add_argument("--max-trials", type=int, default=None,
-                        help="Maximum number of trials")
-    parser.add_argument("--timeout", type=float, default=None,
-                        help="Timeout in seconds")
+    parser.add_argument(
+        "--target",
+        choices=["all", "single"],
+        default="all",
+        help="Run all targets or single target",
+    )
+    parser.add_argument(
+        "--flare-class",
+        choices=["C", "M", "M5"],
+        default="M",
+        help="Flare class for single target",
+    )
+    parser.add_argument(
+        "--time-window",
+        choices=["24", "48", "72"],
+        default="24",
+        help="Time window for single target",
+    )
+    parser.add_argument(
+        "--max-trials", type=int, default=None, help="Maximum number of trials"
+    )
+    parser.add_argument(
+        "--timeout", type=float, default=None, help="Timeout in seconds"
+    )
 
     args = parser.parse_args()
 
@@ -486,8 +528,7 @@ def main():
     if args.target == "all":
         # Run all targets
         results = manager.run_all_targets(
-            max_trials_per_target=args.max_trials,
-            timeout_per_target=args.timeout
+            max_trials_per_target=args.max_trials, timeout_per_target=args.timeout
         )
 
         print("\n🎯 HPO Summary:")
@@ -500,10 +541,7 @@ def main():
     else:
         # Run single target
         result = manager.run_single_target(
-            args.flare_class,
-            args.time_window,
-            args.max_trials,
-            args.timeout
+            args.flare_class, args.time_window, args.max_trials, args.timeout
         )
 
         print(f"\n🎯 Best result for {args.flare_class}-{args.time_window}h:")

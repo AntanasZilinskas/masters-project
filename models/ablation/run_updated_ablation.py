@@ -39,24 +39,41 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 def main():
     """Main function to run ablation study with updated hyperparameters."""
-    parser = argparse.ArgumentParser(description='Run EVEREST ablation study with updated hyperparameters')
+    parser = argparse.ArgumentParser(
+        description="Run EVEREST ablation study with updated hyperparameters"
+    )
 
-    parser.add_argument('--variants', nargs='+',
-                        choices=get_all_variant_names(),
-                        help='Specific variants to run (default: all)')
+    parser.add_argument(
+        "--variants",
+        nargs="+",
+        choices=get_all_variant_names(),
+        help="Specific variants to run (default: all)",
+    )
 
-    parser.add_argument('--seeds', nargs='+', type=int,
-                        choices=RANDOM_SEEDS,
-                        help='Specific seeds to run (default: all)')
+    parser.add_argument(
+        "--seeds",
+        nargs="+",
+        type=int,
+        choices=RANDOM_SEEDS,
+        help="Specific seeds to run (default: all)",
+    )
 
-    parser.add_argument('--no-sequence-study', action='store_true',
-                        help='Skip sequence length ablation study')
+    parser.add_argument(
+        "--no-sequence-study",
+        action="store_true",
+        help="Skip sequence length ablation study",
+    )
 
-    parser.add_argument('--max-workers', type=int, default=None,
-                        help='Maximum number of parallel workers (default: auto)')
+    parser.add_argument(
+        "--max-workers",
+        type=int,
+        default=None,
+        help="Maximum number of parallel workers (default: auto)",
+    )
 
-    parser.add_argument('--analysis-only', action='store_true',
-                        help='Run analysis only (no training)')
+    parser.add_argument(
+        "--analysis-only", action="store_true", help="Run analysis only (no training)"
+    )
 
     args = parser.parse_args()
 
@@ -91,7 +108,7 @@ def main():
         seeds=args.seeds,
         include_sequence_study=not args.no_sequence_study,
         max_workers=args.max_workers,
-        run_analysis=True
+        run_analysis=True,
     )
 
     print("\n🎉 Ablation study complete with updated hyperparameters!")

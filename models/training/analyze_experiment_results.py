@@ -12,15 +12,20 @@ import glob
 import warnings
 from pathlib import Path
 from sklearn.metrics import (
-    confusion_matrix, precision_score, recall_score, f1_score,
-    roc_auc_score, brier_score_loss, accuracy_score
+    confusion_matrix,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
+    brier_score_loss,
+    accuracy_score,
 )
 from scipy import stats
 import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Dict, List, Tuple, Optional
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 
 class ExperimentAnalyzer:
@@ -46,10 +51,10 @@ class ExperimentAnalyzer:
                 print(f"Processing: {exp_name}")
 
                 # Parse experiment parameters
-                parts = exp_name.split('_')
+                parts = exp_name.split("_")
                 flare_class = parts[1]  # C, M, or M5
                 time_window = parts[2]  # 24h, 48h, 72h
-                seed = int(parts[3].replace('seed', ''))
+                seed = int(parts[3].replace("seed", ""))
 
                 # Load required files
                 exp_data = self._load_experiment_files(exp_dir)
@@ -58,12 +63,14 @@ class ExperimentAnalyzer:
                     print(f"  ⚠️  Skipping {exp_name} - missing or corrupted files")
                     continue
 
-                exp_data.update({
-                    'flare_class': flare_class,
-                    'time_window': time_window,
-                    'seed': seed,
-                    'exp_name': exp_name
-                })
+                exp_data.update(
+                    {
+                        "flare_class": flare_class,
+                        "time_window": time_window,
+                        "seed": seed,
+                        "exp_name": exp_name,
+                    }
+                )
 
                 # Store experiment
                 key = f"{flare_class}_{time_window}_{seed}"
@@ -84,7 +91,9 @@ class ExperimentAnalyzer:
 
     def filter_poor_performing_experiments(self):
         """Filter out experiments with poor performance (any key metric below threshold)."""
-        print(f"\n🔍 Filtering experiments with metrics below {self.quality_threshold*100}%...")
+        print(
+            f"\n🔍 Filtering experiments with metrics below {self.quality_threshold*100}%..."
+        )
 
         filtered_experiments = {}
         discarded_experiments = []
@@ -98,12 +107,12 @@ class ExperimentAnalyzer:
 
             # Calculate basic metrics for filtering
             try:
-                pred_df = exp['predictions']
+                pred_df = exp["predictions"]
 
                 # Get predictions and true labels
-                if 'y_true' in pred_df.columns and 'y_pred' in pred_df.columns:
-                    y_true = pred_df['y_true'].values
-                    y_pred = pred_df['y_pred'].values
+                if "y_true" in pred_df.columns and "y_pred" in pred_df.columns:
+                    y_true = pred_df["y_true"].values
+                    y_pred = pred_df["y_pred"].values
 
                     # Calculate key metrics
                     tss = self.calculate_tss(y_true, y_pred)
@@ -114,11 +123,11 @@ class ExperimentAnalyzer:
 
                     # Check if any metric falls below threshold
                     metrics_to_check = {
-                        'TSS': tss,
-                        'F1': f1,
-                        'Precision': precision,
-                        'Recall': recall,
-                        'Accuracy': accuracy
+                        "TSS": tss,
+                        "F1": f1,
+                        "Precision": precision,
+                        "Recall": recall,
+                        "Accuracy": accuracy,
                     }
 
                     failed_metrics = []
@@ -132,9 +141,13 @@ class ExperimentAnalyzer:
                         print(f"  ❌ {key}: {reason}")
                     else:
                         filtered_experiments[key] = exp
-                        print(f"  ✅ {key}: All metrics above threshold (TSS={tss:.3f}, F1={f1:.3f})")
+                        print(
+                            f"  ✅ {key}: All metrics above threshold (TSS={tss:.3f}, F1={f1:.3f})"
+                        )
                 else:
-                    discarded_experiments.append((key, "Missing y_true or y_pred columns"))
+                    discarded_experiments.append(
+                        (key, "Missing y_true or y_pred columns")
+                    )
                     print(f"  ⚠️  {key}: Missing required columns")
 
             except Exception as e:
@@ -164,7 +177,7 @@ class ExperimentAnalyzer:
                 task_key = f"{exp['flare_class']}_{exp['time_window']}"
                 if task_key not in task_summary:
                     task_summary[task_key] = []
-                task_summary[task_key].append(exp['seed'])
+                task_summary[task_key].append(exp["seed"])
 
             print(f"\n✅ Remaining high-quality experiments:")
             for task, seeds in task_summary.items():
@@ -172,23 +185,19 @@ class ExperimentAnalyzer:
 
     def _has_valid_predictions(self, exp: Dict) -> bool:
         """Check if experiment has valid prediction data."""
-        if 'predictions' not in exp:
+        if "predictions" not in exp:
             return False
 
-        pred_df = exp['predictions']
+        pred_df = exp["predictions"]
         if pred_df is None or len(pred_df) == 0:
             return False
 
-        required_cols = ['y_true', 'y_pred']
+        required_cols = ["y_true", "y_pred"]
         return all(col in pred_df.columns for col in required_cols)
 
     def _load_experiment_files(self, exp_dir: Path) -> Optional[Dict]:
         """Load all required files for a single experiment."""
-        required_files = [
-            'final_metrics.csv',
-            'predictions.csv',
-            'results.json'
-        ]
+        required_files = ["final_metrics.csv", "predictions.csv", "results.json"]
 
         # Check if all required files exist
         for file_name in required_files:
@@ -199,27 +208,27 @@ class ExperimentAnalyzer:
             data = {}
 
             # Load final metrics
-            metrics_path = exp_dir / 'final_metrics.csv'
-            data['final_metrics'] = pd.read_csv(metrics_path)
+            metrics_path = exp_dir / "final_metrics.csv"
+            data["final_metrics"] = pd.read_csv(metrics_path)
 
             # Load predictions
-            pred_path = exp_dir / 'predictions.csv'
-            data['predictions'] = pd.read_csv(pred_path)
+            pred_path = exp_dir / "predictions.csv"
+            data["predictions"] = pd.read_csv(pred_path)
 
             # Load results JSON
-            json_path = exp_dir / 'results.json'
-            with open(json_path, 'r') as f:
-                data['results'] = json.load(f)
+            json_path = exp_dir / "results.json"
+            with open(json_path, "r") as f:
+                data["results"] = json.load(f)
 
             # Load threshold optimization if available
-            thresh_path = exp_dir / 'threshold_optimization.csv'
+            thresh_path = exp_dir / "threshold_optimization.csv"
             if thresh_path.exists():
-                data['threshold_opt'] = pd.read_csv(thresh_path)
+                data["threshold_opt"] = pd.read_csv(thresh_path)
 
             # Load training history if available
-            history_path = exp_dir / 'training_history.csv'
+            history_path = exp_dir / "training_history.csv"
             if history_path.exists():
-                data['training_history'] = pd.read_csv(history_path)
+                data["training_history"] = pd.read_csv(history_path)
 
             return data
 
@@ -240,7 +249,9 @@ class ExperimentAnalyzer:
         specificity = tn / (tn + fp)
         return sensitivity + specificity - 1
 
-    def calculate_ece(self, y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 15) -> float:
+    def calculate_ece(
+        self, y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 15
+    ) -> float:
         """Calculate Expected Calibration Error (ECE)."""
         bin_boundaries = np.linspace(0, 1, n_bins + 1)
         bin_lowers = bin_boundaries[:-1]
@@ -259,8 +270,15 @@ class ExperimentAnalyzer:
 
         return ece
 
-    def bootstrap_metric(self, y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray,
-                         metric_func, n_bootstrap: int = 1000, confidence: float = 0.95) -> Tuple[float, float, float]:
+    def bootstrap_metric(
+        self,
+        y_true: np.ndarray,
+        y_pred: np.ndarray,
+        y_prob: np.ndarray,
+        metric_func,
+        n_bootstrap: int = 1000,
+        confidence: float = 0.95,
+    ) -> Tuple[float, float, float]:
         """Calculate bootstrapped confidence intervals for a metric."""
         n_samples = len(y_true)
         bootstrap_scores = []
@@ -293,7 +311,9 @@ class ExperimentAnalyzer:
 
         return mean_score, ci_lower, ci_upper
 
-    def calculate_all_metrics(self, y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray) -> Dict:
+    def calculate_all_metrics(
+        self, y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray
+    ) -> Dict:
         """Calculate all performance metrics with bootstrapped confidence intervals."""
         metrics = {}
 
@@ -317,12 +337,14 @@ class ExperimentAnalyzer:
             return self.calculate_ece(yt, ypr)
 
         # Calculate metrics with confidence intervals
-        metrics['tss'] = self.bootstrap_metric(y_true, y_pred, y_prob, tss_func)
-        metrics['f1'] = self.bootstrap_metric(y_true, y_pred, y_prob, f1_func)
-        metrics['precision'] = self.bootstrap_metric(y_true, y_pred, y_prob, precision_func)
-        metrics['recall'] = self.bootstrap_metric(y_true, y_pred, y_prob, recall_func)
-        metrics['brier'] = self.bootstrap_metric(y_true, y_pred, y_prob, brier_func)
-        metrics['ece'] = self.bootstrap_metric(y_true, y_pred, y_prob, ece_func)
+        metrics["tss"] = self.bootstrap_metric(y_true, y_pred, y_prob, tss_func)
+        metrics["f1"] = self.bootstrap_metric(y_true, y_pred, y_prob, f1_func)
+        metrics["precision"] = self.bootstrap_metric(
+            y_true, y_pred, y_prob, precision_func
+        )
+        metrics["recall"] = self.bootstrap_metric(y_true, y_pred, y_prob, recall_func)
+        metrics["brier"] = self.bootstrap_metric(y_true, y_pred, y_prob, brier_func)
+        metrics["ece"] = self.bootstrap_metric(y_true, y_pred, y_prob, ece_func)
 
         return metrics
 
@@ -349,25 +371,31 @@ class ExperimentAnalyzer:
             all_y_prob = []
 
             for exp in experiments:
-                pred_df = exp['predictions']
+                pred_df = exp["predictions"]
 
                 # Assuming predictions.csv has columns: y_true, y_pred, y_prob
-                if 'y_true' in pred_df.columns and 'y_pred' in pred_df.columns:
-                    all_y_true.extend(pred_df['y_true'].values)
-                    all_y_pred.extend(pred_df['y_pred'].values)
+                if "y_true" in pred_df.columns and "y_pred" in pred_df.columns:
+                    all_y_true.extend(pred_df["y_true"].values)
+                    all_y_pred.extend(pred_df["y_pred"].values)
 
-                    if 'y_prob' in pred_df.columns:
-                        all_y_prob.extend(pred_df['y_prob'].values)
-                    elif 'probability' in pred_df.columns:
-                        all_y_prob.extend(pred_df['probability'].values)
+                    if "y_prob" in pred_df.columns:
+                        all_y_prob.extend(pred_df["y_prob"].values)
+                    elif "probability" in pred_df.columns:
+                        all_y_prob.extend(pred_df["probability"].values)
                     else:
                         # Try to find probability column
-                        prob_cols = [col for col in pred_df.columns if 'prob' in col.lower()]
+                        prob_cols = [
+                            col for col in pred_df.columns if "prob" in col.lower()
+                        ]
                         if prob_cols:
                             all_y_prob.extend(pred_df[prob_cols[0]].values)
                         else:
-                            print(f"Warning: No probability column found for {exp['exp_name']}")
-                            all_y_prob.extend([0.5] * len(pred_df))  # Default probability
+                            print(
+                                f"Warning: No probability column found for {exp['exp_name']}"
+                            )
+                            all_y_prob.extend(
+                                [0.5] * len(pred_df)
+                            )  # Default probability
 
             if not all_y_true:
                 print(f"  ⚠️  No valid predictions found for {task_key}")
@@ -382,15 +410,15 @@ class ExperimentAnalyzer:
             metrics = self.calculate_all_metrics(y_true, y_pred, y_prob)
 
             # Store results
-            flare_class, time_window = task_key.split('_')
+            flare_class, time_window = task_key.split("_")
             aggregated[task_key] = {
-                'flare_class': flare_class,
-                'time_window': time_window,
-                'n_seeds': len(experiments),
-                'metrics': metrics,
-                'y_true': y_true,
-                'y_pred': y_pred,
-                'y_prob': y_prob
+                "flare_class": flare_class,
+                "time_window": time_window,
+                "n_seeds": len(experiments),
+                "metrics": metrics,
+                "y_true": y_true,
+                "y_pred": y_pred,
+                "y_prob": y_prob,
             }
 
             print(f"  ✅ {task_key}: TSS = {metrics['tss'][0]:.3f}")
@@ -414,38 +442,40 @@ class ExperimentAnalyzer:
         latex_lines = []
 
         # Table header
-        latex_lines.extend([
-            "\\begin{table}[ht]\\centering",
-            "\\caption{Bootstrapped performance (mean $\\pm$ 95\\% CI) on the held-out test set. \\textbf{Bold} = best per column; $\\uparrow$ higher is better, $\\downarrow$ lower is better.}",
-            "\\label{tab:main_results}",
-            "\\small",
-            "\\begin{tabular}{lcccccc}",
-            "\\toprule",
-            "\\textbf{Task} & \\textbf{TSS}$\\uparrow$ & \\textbf{F1}$\\uparrow$ &",
-            "\\textbf{Prec.}$\\uparrow$ & \\textbf{Recall}$\\uparrow$ &",
-            "\\textbf{Brier}$\\downarrow$ & \\textbf{ECE}$\\downarrow$ \\\\",
-            "\\midrule"
-        ])
+        latex_lines.extend(
+            [
+                "\\begin{table}[ht]\\centering",
+                "\\caption{Bootstrapped performance (mean $\\pm$ 95\\% CI) on the held-out test set. \\textbf{Bold} = best per column; $\\uparrow$ higher is better, $\\downarrow$ lower is better.}",
+                "\\label{tab:main_results}",
+                "\\small",
+                "\\begin{tabular}{lcccccc}",
+                "\\toprule",
+                "\\textbf{Task} & \\textbf{TSS}$\\uparrow$ & \\textbf{F1}$\\uparrow$ &",
+                "\\textbf{Prec.}$\\uparrow$ & \\textbf{Recall}$\\uparrow$ &",
+                "\\textbf{Brier}$\\downarrow$ & \\textbf{ECE}$\\downarrow$ \\\\",
+                "\\midrule",
+            ]
+        )
 
         # Sort tasks
         task_order = []
-        for flare in ['C', 'M', 'M5']:
-            for horizon in ['24h', '48h', '72h']:
+        for flare in ["C", "M", "M5"]:
+            for horizon in ["24h", "48h", "72h"]:
                 task_key = f"{flare}_{horizon}"
                 if task_key in self.aggregated_results:
                     task_order.append(task_key)
 
         # Add separators between flare classes
         for i, task_key in enumerate(task_order):
-            if i > 0 and task_key.split('_')[0] != task_order[i - 1].split('_')[0]:
+            if i > 0 and task_key.split("_")[0] != task_order[i - 1].split("_")[0]:
                 latex_lines.append("\\addlinespace")
 
             result = self.aggregated_results[task_key]
-            metrics = result['metrics']
+            metrics = result["metrics"]
 
             # Format task name
-            flare_class = result['flare_class']
-            time_window = result['time_window'].replace('h', ' h')
+            flare_class = result["flare_class"]
+            time_window = result["time_window"].replace("h", " h")
             task_name = f"{flare_class}-{time_window}"
 
             # Format metrics with confidence intervals
@@ -469,11 +499,7 @@ class ExperimentAnalyzer:
             latex_lines.append(row)
 
         # Table footer
-        latex_lines.extend([
-            "\\bottomrule",
-            "\\end{tabular}",
-            "\\end{table}"
-        ])
+        latex_lines.extend(["\\bottomrule", "\\end{tabular}", "\\end{table}"])
 
         return "\n".join(latex_lines)
 
@@ -483,7 +509,7 @@ class ExperimentAnalyzer:
         # For now, return a template
         latex_lines = [
             "% Run matrix table - fill in actual values from your dataset splits",
-            "% Use your dataset loading code to calculate these numbers"
+            "% Use your dataset loading code to calculate these numbers",
         ]
         return "\n".join(latex_lines)
 
@@ -492,7 +518,7 @@ class ExperimentAnalyzer:
         # Template for baseline comparison
         latex_lines = [
             "% Baseline comparison table",
-            "% Add your baseline results here"
+            "% Add your baseline results here",
         ]
         return "\n".join(latex_lines)
 
@@ -505,17 +531,17 @@ class ExperimentAnalyzer:
         results_for_json = {}
         for task, data in self.aggregated_results.items():
             results_for_json[task] = {
-                'flare_class': data['flare_class'],
-                'time_window': data['time_window'],
-                'n_seeds': data['n_seeds'],
-                'metrics': {k: list(v) for k, v in data['metrics'].items()}
+                "flare_class": data["flare_class"],
+                "time_window": data["time_window"],
+                "n_seeds": data["n_seeds"],
+                "metrics": {k: list(v) for k, v in data["metrics"].items()},
             }
 
-        with open(output_path / "aggregated_results.json", 'w') as f:
+        with open(output_path / "aggregated_results.json", "w") as f:
             json.dump(results_for_json, f, indent=2)
 
         # Save LaTeX tables
-        with open(output_path / "main_results_table.tex", 'w') as f:
+        with open(output_path / "main_results_table.tex", "w") as f:
             f.write(self.generate_latex_table("main"))
 
         # Save detailed CSV
@@ -527,20 +553,20 @@ class ExperimentAnalyzer:
         """Save detailed results as CSV."""
         rows = []
         for task, data in self.aggregated_results.items():
-            metrics = data['metrics']
+            metrics = data["metrics"]
             row = {
-                'task': task,
-                'flare_class': data['flare_class'],
-                'time_window': data['time_window'],
-                'n_seeds': data['n_seeds']
+                "task": task,
+                "flare_class": data["flare_class"],
+                "time_window": data["time_window"],
+                "n_seeds": data["n_seeds"],
             }
 
             # Add metrics
             for metric_name, (mean, ci_lower, ci_upper) in metrics.items():
-                row[f'{metric_name}_mean'] = mean
-                row[f'{metric_name}_ci_lower'] = ci_lower
-                row[f'{metric_name}_ci_upper'] = ci_upper
-                row[f'{metric_name}_ci_width'] = (ci_upper - ci_lower) / 2
+                row[f"{metric_name}_mean"] = mean
+                row[f"{metric_name}_ci_lower"] = ci_lower
+                row[f"{metric_name}_ci_upper"] = ci_upper
+                row[f"{metric_name}_ci_width"] = (ci_upper - ci_lower) / 2
 
             rows.append(row)
 
@@ -564,8 +590,8 @@ class ExperimentAnalyzer:
         """Plot performance comparison across tasks."""
         fig, axes = plt.subplots(2, 3, figsize=(15, 10))
 
-        metrics = ['tss', 'f1', 'precision', 'recall', 'brier', 'ece']
-        metric_names = ['TSS', 'F1', 'Precision', 'Recall', 'Brier Score', 'ECE']
+        metrics = ["tss", "f1", "precision", "recall", "brier", "ece"]
+        metric_names = ["TSS", "F1", "Precision", "Recall", "Brier Score", "ECE"]
 
         for i, (metric, name) in enumerate(zip(metrics, metric_names)):
             ax = axes[i // 3, i % 3]
@@ -577,20 +603,23 @@ class ExperimentAnalyzer:
             for task in sorted(self.aggregated_results.keys()):
                 if task in self.aggregated_results:
                     result = self.aggregated_results[task]
-                    mean, ci_lower, ci_upper = result['metrics'][metric]
-                    tasks.append(task.replace('_', '-'))
+                    mean, ci_lower, ci_upper = result["metrics"][metric]
+                    tasks.append(task.replace("_", "-"))
                     means.append(mean)
                     ci_widths.append((ci_upper - ci_lower) / 2)
 
-            bars = ax.bar(range(len(tasks)), means, yerr=ci_widths,
-                          capsize=5, alpha=0.7)
+            bars = ax.bar(
+                range(len(tasks)), means, yerr=ci_widths, capsize=5, alpha=0.7
+            )
             ax.set_xticks(range(len(tasks)))
             ax.set_xticklabels(tasks, rotation=45)
             ax.set_title(name)
             ax.grid(True, alpha=0.3)
 
         plt.tight_layout()
-        plt.savefig(output_path / "performance_comparison.png", dpi=300, bbox_inches='tight')
+        plt.savefig(
+            output_path / "performance_comparison.png", dpi=300, bbox_inches="tight"
+        )
         plt.close()
 
     def _plot_reliability_diagrams(self, output_path: Path):
@@ -607,8 +636,8 @@ class ExperimentAnalyzer:
             row, col = i // cols, i % cols
             ax = axes[row, col] if rows > 1 else axes[col]
 
-            y_true = data['y_true']
-            y_prob = data['y_prob']
+            y_true = data["y_true"]
+            y_prob = data["y_prob"]
 
             # Calculate reliability curve
             n_bins = 15
@@ -641,11 +670,11 @@ class ExperimentAnalyzer:
                 bin_counts.append(bin_count)
 
             # Plot reliability curve
-            ax.plot([0, 1], [0, 1], 'k--', alpha=0.5, label='Perfect calibration')
-            ax.plot(bin_confidences, bin_accuracies, 'o-', label='Model')
+            ax.plot([0, 1], [0, 1], "k--", alpha=0.5, label="Perfect calibration")
+            ax.plot(bin_confidences, bin_accuracies, "o-", label="Model")
 
-            ax.set_xlabel('Mean Predicted Probability')
-            ax.set_ylabel('Fraction of Positives')
+            ax.set_xlabel("Mean Predicted Probability")
+            ax.set_ylabel("Fraction of Positives")
             ax.set_title(f'{task.replace("_", "-")}')
             ax.legend()
             ax.grid(True, alpha=0.3)
@@ -656,10 +685,12 @@ class ExperimentAnalyzer:
         for i in range(n_tasks, rows * cols):
             row, col = i // cols, i % cols
             ax = axes[row, col] if rows > 1 else axes[col]
-            ax.axis('off')
+            ax.axis("off")
 
         plt.tight_layout()
-        plt.savefig(output_path / "reliability_diagrams.png", dpi=300, bbox_inches='tight')
+        plt.savefig(
+            output_path / "reliability_diagrams.png", dpi=300, bbox_inches="tight"
+        )
         plt.close()
 
 
@@ -670,13 +701,17 @@ def main():
 
     # Initialize analyzer with quality filtering
     quality_threshold = 0.6
-    print(f"🔧 Quality threshold: {quality_threshold*100}% (experiments with any metric below this will be discarded)")
+    print(
+        f"🔧 Quality threshold: {quality_threshold*100}% (experiments with any metric below this will be discarded)"
+    )
     analyzer = ExperimentAnalyzer("results", quality_threshold=quality_threshold)
 
     # Load all experiments (with automatic quality filtering)
     experiments = analyzer.load_experiment_data()
     if not experiments:
-        print("❌ No high-quality experiments found. Check your results directory or lower the quality threshold.")
+        print(
+            "❌ No high-quality experiments found. Check your results directory or lower the quality threshold."
+        )
         return
 
     # Aggregate results
@@ -697,17 +732,29 @@ def main():
     print("=" * 50)
 
     for task, data in aggregated.items():
-        metrics = data['metrics']
-        n_seeds = data['n_seeds']
+        metrics = data["metrics"]
+        n_seeds = data["n_seeds"]
         print(f"\n{task.replace('_', '-')} ({n_seeds} high-quality seeds):")
-        print(f"  TSS:       {metrics['tss'][0]:.3f} ± {(metrics['tss'][2] - metrics['tss'][1])/2:.3f}")
-        print(f"  F1:        {metrics['f1'][0]:.3f} ± {(metrics['f1'][2] - metrics['f1'][1])/2:.3f}")
-        print(f"  Precision: {metrics['precision'][0]:.3f} ± {(metrics['precision'][2] - metrics['precision'][1])/2:.3f}")
-        print(f"  Recall:    {metrics['recall'][0]:.3f} ± {(metrics['recall'][2] - metrics['recall'][1])/2:.3f}")
-        print(f"  ECE:       {metrics['ece'][0]:.3f} ± {(metrics['ece'][2] - metrics['ece'][1])/2:.3f}")
+        print(
+            f"  TSS:       {metrics['tss'][0]:.3f} ± {(metrics['tss'][2] - metrics['tss'][1])/2:.3f}"
+        )
+        print(
+            f"  F1:        {metrics['f1'][0]:.3f} ± {(metrics['f1'][2] - metrics['f1'][1])/2:.3f}"
+        )
+        print(
+            f"  Precision: {metrics['precision'][0]:.3f} ± {(metrics['precision'][2] - metrics['precision'][1])/2:.3f}"
+        )
+        print(
+            f"  Recall:    {metrics['recall'][0]:.3f} ± {(metrics['recall'][2] - metrics['recall'][1])/2:.3f}"
+        )
+        print(
+            f"  ECE:       {metrics['ece'][0]:.3f} ± {(metrics['ece'][2] - metrics['ece'][1])/2:.3f}"
+        )
 
     print(f"\n✅ Analysis complete! Check 'analysis_results/' for outputs.")
-    print(f"🗑️  Bad seeds (< {quality_threshold*100}% performance) were automatically discarded.")
+    print(
+        f"🗑️  Bad seeds (< {quality_threshold*100}% performance) were automatically discarded."
+    )
 
     # Print LaTeX table
     print("\n" + "=" * 50)

@@ -15,6 +15,7 @@ from torch.amp import autocast, GradScaler
 # Try to import codecarbon for CO2 tracking
 try:
     from codecarbon import EmissionsTracker
+
     CODECARBON_AVAILABLE = True
 except ImportError:
     CODECARBON_AVAILABLE = False
@@ -57,11 +58,17 @@ class GPUMonitor:
             try:
                 if device.type == "cuda":
                     result = subprocess.run(
-                        ["nvidia-smi", "--query-gpu=power.draw", "--format=csv,noheader,nounits"],
-                        capture_output=True, text=True, timeout=10
+                        [
+                            "nvidia-smi",
+                            "--query-gpu=power.draw",
+                            "--format=csv,noheader,nounits",
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
                     )
                     if result.returncode == 0:
-                        power = float(result.stdout.strip().split('\n')[0])
+                        power = float(result.stdout.strip().split("\n")[0])
                         timestamp = time.time()
                         self.power_readings.append((timestamp, power))
             except (subprocess.TimeoutExpired, ValueError, FileNotFoundError):
@@ -72,7 +79,9 @@ class GPUMonitor:
         """Start monitoring GPU power consumption."""
         if device.type == "cuda" and not self.monitoring:
             self.monitoring = True
-            self.monitor_thread = threading.Thread(target=self._monitor_power, daemon=True)
+            self.monitor_thread = threading.Thread(
+                target=self._monitor_power, daemon=True
+            )
             self.monitor_thread.start()
 
     def stop_monitoring(self):
@@ -88,7 +97,10 @@ class GPUMonitor:
                 "max_power_w": np.max(powers),
                 "min_power_w": np.min(powers),
                 "power_readings": len(powers),
-                "monitoring_duration_s": self.power_readings[-1][0] - self.power_readings[0][0] if len(self.power_readings) > 1 else 0
+                "monitoring_duration_s": self.power_readings[-1][0]
+                - self.power_readings[0][0]
+                if len(self.power_readings) > 1
+                else 0,
             }
         return None
 
@@ -97,12 +109,15 @@ def get_gpu_info():
     """Get GPU information."""
     if device.type == "cuda":
         gpu_name = torch.cuda.get_device_name(0)
-        gpu_memory = torch.cuda.get_device_properties(0).total_memory // (1024**3)  # GB
+        gpu_memory = torch.cuda.get_device_properties(0).total_memory // (
+            1024**3
+        )  # GB
         return {"gpu_name": gpu_name, "gpu_memory_gb": gpu_memory}
     elif device.type == "mps":
         return {"gpu_name": "Apple Silicon", "gpu_memory_gb": "Unified Memory"}
     else:
         return {"gpu_name": "CPU", "gpu_memory_gb": 0}
+
 
 # ----------------------------------------
 # Positional Encoding
@@ -113,7 +128,9 @@ class PositionalEncoding(nn.Module):
     def __init__(self, max_len: int, embed_dim: int):
         super().__init__()
         pos = torch.arange(0, max_len).unsqueeze(1).float()
-        div_term = torch.exp(torch.arange(0, embed_dim, 2).float() * (-np.log(10000.0) / embed_dim))
+        div_term = torch.exp(
+            torch.arange(0, embed_dim, 2).float() * (-np.log(10000.0) / embed_dim)
+        )
         pe = torch.zeros(1, max_len, embed_dim)
         pe[0, :, 0::2] = torch.sin(pos * div_term)
         pe[0, :, 1::2] = torch.cos(pos * div_term)
@@ -122,7 +139,8 @@ class PositionalEncoding(nn.Module):
         self.alpha = nn.Parameter(torch.ones(1))
 
     def forward(self, x):
-        return x + self.alpha * self.pe[:, :x.size(1)].type_as(x)
+        return x + self.alpha * self.pe[:, : x.size(1)].type_as(x)
+
 
 # ----------------------------------------
 # Transformer Block
@@ -150,6 +168,7 @@ class TransformerBlock(nn.Module):
         ffn_out = self.ffn(x)
         return self.norm2(x + self.drop2(ffn_out))
 
+
 # ----------------------------------------
 # Evidential & EVT Losses
 # ----------------------------------------
@@ -163,7 +182,11 @@ def evidential_nll(y, evid):
     p = torch.clamp(torch.sigmoid(mu), 1e-4, 1 - 1e-4)
     S = b * (1 + v) / a
     eps = 1e-7
-    nll = - y * torch.log(p + eps) - (1 - y) * torch.log(1 - p + eps) + 0.5 * torch.log(S + eps)
+    nll = (
+        -y * torch.log(p + eps)
+        - (1 - y) * torch.log(1 - p + eps)
+        + 0.5 * torch.log(S + eps)
+    )
     return torch.clamp(nll, min=0.0).mean()
 
 
@@ -195,13 +218,14 @@ def evt_loss(logits, gpd, pct=0.9):
         term = torch.where(
             torch.abs(xi) < 1e-3,
             y / sigma + torch.log(sigma + eps),
-            (1 / xi + 1) * log_term + torch.log(sigma + eps)
+            (1 / xi + 1) * log_term + torch.log(sigma + eps),
         )
 
         reg = 1e-3 * (xi**2).mean() + 1e-3 * (1 / (sigma + eps)).mean()
         return torch.clamp(term.mean(), min=0.0) + reg
     except Exception:
         return torch.tensor(0.0, device=logits.device)
+
 
 # ----------------------------------------
 # Focal Loss
@@ -210,10 +234,11 @@ def evt_loss(logits, gpd, pct=0.9):
 
 def focal_bce_loss(logits, targets, gamma):
     targets = targets.view(-1, 1)
-    bce = F.binary_cross_entropy_with_logits(logits, targets, reduction='none')
+    bce = F.binary_cross_entropy_with_logits(logits, targets, reduction="none")
     p = torch.sigmoid(logits)
     mod = (1 - p).pow(gamma) * targets + p.pow(gamma) * (1 - targets)
     return (mod * bce).mean()
+
 
 # ----------------------------------------
 # Binary Cross-Entropy for precursor head
@@ -224,26 +249,38 @@ def precursor_bce_loss(logits, targets):
     targets = targets.view(-1, 1).float()
     return F.binary_cross_entropy_with_logits(logits, targets)
 
+
 # ----------------------------------------
 # RET+ Model with attention bottleneck and precursor head
 # ----------------------------------------
 
 
 class RETPlusModel(nn.Module):
-    def __init__(self, input_shape, embed_dim=128, num_heads=4, ff_dim=256, num_blocks=6, dropout=0.2,
-                 use_attention_bottleneck: bool = True,
-                 use_evidential: bool = True,
-                 use_evt: bool = True,
-                 use_precursor: bool = True):
+    def __init__(
+        self,
+        input_shape,
+        embed_dim=128,
+        num_heads=4,
+        ff_dim=256,
+        num_blocks=6,
+        dropout=0.2,
+        use_attention_bottleneck: bool = True,
+        use_evidential: bool = True,
+        use_evt: bool = True,
+        use_precursor: bool = True,
+    ):
         super().__init__()
         T, F = input_shape
         self.embedding = nn.Linear(F, embed_dim)
         self.norm = nn.LayerNorm(embed_dim)
         self.drop = nn.Dropout(dropout)
         self.pos = PositionalEncoding(T, embed_dim)
-        self.transformers = nn.ModuleList([
-            TransformerBlock(embed_dim, num_heads, ff_dim, dropout) for _ in range(num_blocks)
-        ])
+        self.transformers = nn.ModuleList(
+            [
+                TransformerBlock(embed_dim, num_heads, ff_dim, dropout)
+                for _ in range(num_blocks)
+            ]
+        )
 
         # Store ablation flags
         self.use_attention_bottleneck = use_attention_bottleneck
@@ -253,16 +290,13 @@ class RETPlusModel(nn.Module):
 
         # Attention bottleneck (learned pooling) – optional
         if self.use_attention_bottleneck:
-            self.att_pool = nn.Sequential(
-                nn.Linear(embed_dim, 1),
-                nn.Softmax(dim=1)
-            )
+            self.att_pool = nn.Sequential(nn.Linear(embed_dim, 1), nn.Softmax(dim=1))
 
         self.head = nn.Sequential(
             nn.Dropout(dropout),
             nn.Linear(embed_dim, 128),
             nn.GELU(),
-            nn.Dropout(dropout)
+            nn.Dropout(dropout),
         )
         self.logits = nn.Linear(128, 1)
 
@@ -328,6 +362,7 @@ class RETPlusModel(nn.Module):
 
         return {"logits": logits, "evid": evid, "gpd": gpd_out, "precursor": precursor}
 
+
 # ----------------------------------------
 # Composite Loss
 # ----------------------------------------
@@ -387,6 +422,7 @@ def composite_loss(
         if not torch.isnan(total)
         else torch.tensor(0.0, requires_grad=True).to(logits.device)
     )
+
 
 # ----------------------------------------
 # Wrapper
@@ -464,6 +500,7 @@ class RETPlusWrapper:
     ):
         import sys
         import os
+
         sys.path.append(os.path.dirname(__file__))
         from model_tracking import save_model_with_metadata, get_next_version
 
@@ -499,7 +536,9 @@ class RETPlusWrapper:
                 try:
                     os.makedirs(emissions_dir, exist_ok=True)
                 except (OSError, PermissionError) as e:
-                    print(f"Warning: Cannot create emissions directory: {e}. Using current directory.")
+                    print(
+                        f"Warning: Cannot create emissions directory: {e}. Using current directory."
+                    )
                     emissions_dir = "."
 
                 emissions_tracker = EmissionsTracker(
@@ -530,7 +569,11 @@ class RETPlusWrapper:
         # Build DataLoader – optionally keep the full dataset on the GPU
         use_amp = device.type == "cuda"
         if in_memory_dataset and device.type == "cuda":
-            X_tensor = torch.tensor(X_train, dtype=torch.float16 if use_amp else torch.float32, device=device)
+            X_tensor = torch.tensor(
+                X_train,
+                dtype=torch.float16 if use_amp else torch.float32,
+                device=device,
+            )
             y_tensor = torch.tensor(y_train, dtype=torch.float32, device=device)
             dataset = TensorDataset(X_tensor, y_tensor)
             loader = DataLoader(
@@ -543,7 +586,7 @@ class RETPlusWrapper:
         else:
             dataset = TensorDataset(
                 torch.tensor(X_train, dtype=torch.float32),
-                torch.tensor(y_train, dtype=torch.float32)
+                torch.tensor(y_train, dtype=torch.float32),
             )
             loader = DataLoader(
                 dataset,
@@ -586,11 +629,26 @@ class RETPlusWrapper:
                     with autocast(device_type=device.type):
                         # Dynamically adjust loss weights: simple 3-phase schedule
                         if epoch < 20:
-                            phase_weights = {"focal": 0.9, "evid": 0.1, "evt": 0.0, "prec": 0.05}
+                            phase_weights = {
+                                "focal": 0.9,
+                                "evid": 0.1,
+                                "evt": 0.0,
+                                "prec": 0.05,
+                            }
                         elif epoch < 40:
-                            phase_weights = {"focal": 0.8, "evid": 0.1, "evt": 0.1, "prec": 0.05}
+                            phase_weights = {
+                                "focal": 0.8,
+                                "evid": 0.1,
+                                "evt": 0.1,
+                                "prec": 0.05,
+                            }
                         else:
-                            phase_weights = {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05}
+                            phase_weights = {
+                                "focal": 0.7,
+                                "evid": 0.1,
+                                "evt": 0.2,
+                                "prec": 0.05,
+                            }
 
                         outputs = self.model(X_batch)
                         loss = composite_loss(
@@ -611,11 +669,26 @@ class RETPlusWrapper:
                     # Standard FP32 training path (CPU / MPS)
                     # Dynamically adjust loss weights: simple 3-phase schedule
                     if epoch < 20:
-                        phase_weights = {"focal": 0.9, "evid": 0.1, "evt": 0.0, "prec": 0.05}
+                        phase_weights = {
+                            "focal": 0.9,
+                            "evid": 0.1,
+                            "evt": 0.0,
+                            "prec": 0.05,
+                        }
                     elif epoch < 40:
-                        phase_weights = {"focal": 0.8, "evid": 0.1, "evt": 0.1, "prec": 0.05}
+                        phase_weights = {
+                            "focal": 0.8,
+                            "evid": 0.1,
+                            "evt": 0.1,
+                            "prec": 0.05,
+                        }
                     else:
-                        phase_weights = {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05}
+                        phase_weights = {
+                            "focal": 0.7,
+                            "evid": 0.1,
+                            "evt": 0.2,
+                            "prec": 0.05,
+                        }
 
                     outputs = self.model(X_batch)
                     loss = composite_loss(
@@ -633,9 +706,7 @@ class RETPlusWrapper:
 
                 # Metrics accumulation
                 epoch_loss += loss.item() * X_batch.size(0)
-                preds = (
-                    torch.sigmoid(outputs["logits"]) > 0.5
-                ).int().squeeze()
+                preds = (torch.sigmoid(outputs["logits"]) > 0.5).int().squeeze()
                 y_true = y_batch.int().squeeze()
 
                 TP += ((preds == 1) & (y_true == 1)).sum().item()
@@ -718,7 +789,9 @@ class RETPlusWrapper:
             "mixed_precision": use_amp,
         }
 
-        print(f"\n📊 Training completed in {total_training_time:.1f}s ({total_training_time/3600:.2f}h)")
+        print(
+            f"\n📊 Training completed in {total_training_time:.1f}s ({total_training_time/3600:.2f}h)"
+        )
         print(f"   • Average epoch time: {np.mean(epoch_times):.1f}s")
         print(f"   • GPU: {gpu_info['gpu_name']}")
         if gpu_power_stats:
@@ -764,6 +837,7 @@ class RETPlusWrapper:
     def save(self, version, flare_class, time_window, X_eval=None, y_eval=None):
         import sys
         import os
+
         sys.path.append(os.path.dirname(__file__))
         from model_tracking import save_model_with_metadata
 
@@ -827,7 +901,11 @@ class RETPlusWrapper:
             att_y_pred = y_pred[:10]
             att_y_score = y_scores[:10]
 
-            sample_input = torch.tensor(att_X[:32], dtype=torch.float32).to(device) if len(X_eval) >= 32 else torch.tensor(X_eval, dtype=torch.float32).to(device)
+            sample_input = (
+                torch.tensor(att_X[:32], dtype=torch.float32).to(device)
+                if len(X_eval) >= 32
+                else torch.tensor(X_eval, dtype=torch.float32).to(device)
+            )
 
             # Additional calibration metrics
             try:
@@ -872,7 +950,7 @@ class RETPlusWrapper:
             time_window=time_window,
             description="EVEREST model trained on SHARP data with evidential and EVT losses.",
             # Training metrics and efficiency data
-            training_metrics=getattr(self, 'training_metrics', None),
+            training_metrics=getattr(self, "training_metrics", None),
             # Newly added artefacts
             y_true=y_true,
             y_pred=y_pred,

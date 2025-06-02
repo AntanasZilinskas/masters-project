@@ -109,7 +109,7 @@ class GOESDataset(Dataset):
         start = self.indices[idx]
         end = start + self.lookback_len
         x_seq = self.data[start:end]
-        y_seq = self.data[end: end + self.forecast_len]
+        y_seq = self.data[end : end + self.forecast_len]
 
         x_tensor = torch.tensor(x_seq, dtype=torch.float32)
         y_tensor = torch.tensor(y_seq, dtype=torch.float32)
@@ -237,9 +237,7 @@ def chunked_train_informer(
             train=True,
             train_split=1.0,
         )
-        train_loader = DataLoader(
-            train_dataset, batch_size=batch_size, shuffle=True
-        )
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
         # 4) Train for epochs_per_chunk
         for epoch in range(epochs_per_chunk):
@@ -274,9 +272,7 @@ def chunked_train_informer(
         train_split=0.8,  # leaving 20% for test
     )
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
-    test_mse = evaluate_informer(
-        model, test_loader, device=device, criterion=criterion
-    )
+    test_mse = evaluate_informer(model, test_loader, device=device, criterion=criterion)
     logging.info(f"Final Test MSE after chunked training: {test_mse:.6f}")
 
     # 6) Save the model

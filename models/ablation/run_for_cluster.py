@@ -12,7 +12,11 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, required=True, help="Random seed")
     parser.add_argument("--sequence", help="Optional sequence length variant")
     parser.add_argument("--batch-size", type=int, help="Override batch size")
-    parser.add_argument("--memory-efficient", action="store_true", help="Enable memory efficient training")
+    parser.add_argument(
+        "--memory-efficient",
+        action="store_true",
+        help="Enable memory efficient training",
+    )
 
     args = parser.parse_args()
 
@@ -26,7 +30,7 @@ if __name__ == "__main__":
         args.seed,
         args.sequence,
         batch_size_override=args.batch_size,
-        memory_efficient=args.memory_efficient
+        memory_efficient=args.memory_efficient,
     )
 
     if results:

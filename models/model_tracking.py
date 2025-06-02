@@ -40,8 +40,10 @@ class TrainingMetricsEncoder(json.JSONEncoder):
                     "std": float(np.std(obj)) if obj.size > 0 else None,
                     "min": float(np.min(obj)) if obj.size > 0 else None,
                     "max": float(np.max(obj)) if obj.size > 0 else None,
-                    "first_10": obj.flatten()[:10].tolist() if obj.size >= 10 else obj.tolist(),
-                    "last_10": obj.flatten()[-10:].tolist() if obj.size >= 20 else []
+                    "first_10": obj.flatten()[:10].tolist()
+                    if obj.size >= 10
+                    else obj.tolist(),
+                    "last_10": obj.flatten()[-10:].tolist() if obj.size >= 20 else [],
                 }
             else:
                 return obj.tolist()
@@ -49,7 +51,7 @@ class TrainingMetricsEncoder(json.JSONEncoder):
             return self.default(obj.detach().cpu().numpy())
         elif isinstance(obj, (np.integer, np.floating)):
             return obj.item()
-        elif hasattr(obj, 'isoformat'):  # datetime objects
+        elif hasattr(obj, "isoformat"):  # datetime objects
             return obj.isoformat()
         # Let the default encoder handle other types
         return super().default(obj)
@@ -82,9 +84,7 @@ def create_model_dir(version, flare_class, time_window):
             # Ultimate fallback to current directory
             models_dir = "."
 
-    model_dir = (
-        f"{models_dir}/EVEREST-v{version}-{flare_class}-{time_window}h"
-    )
+    model_dir = f"{models_dir}/EVEREST-v{version}-{flare_class}-{time_window}h"
 
     try:
         # Use os.makedirs with exist_ok=False for atomic creation
@@ -109,15 +109,9 @@ def create_model_dir(version, flare_class, time_window):
 def get_git_info():
     """Get the current git commit hash and branch if available."""
     try:
-        commit = (
-            subprocess.check_output(["git", "rev-parse", "HEAD"])
-            .decode()
-            .strip()
-        )
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip()
         branch = (
-            subprocess.check_output(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"]
-            )
+            subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"])
             .decode()
             .strip()
         )
@@ -183,13 +177,15 @@ def save_model_with_metadata(
     model_dir = create_model_dir(version, flare_class, time_window)
 
     # Detect if it's a PyTorch or TensorFlow model
-    is_pytorch_model = hasattr(model, 'pytorch_model') or isinstance(model.model, torch.nn.Module)
+    is_pytorch_model = hasattr(model, "pytorch_model") or isinstance(
+        model.model, torch.nn.Module
+    )
 
     # Save model weights
     if is_pytorch_model:
         weights_path = os.path.join(model_dir, "model_weights.pt")
         try:
-            if hasattr(model, 'save_weights'):
+            if hasattr(model, "save_weights"):
                 # Use the model's save_weights method if available
                 model.save_weights(flare_class=flare_class, w_dir=model_dir)
             else:
@@ -199,7 +195,9 @@ def save_model_with_metadata(
             print(f"Warning: Cannot save model weights to {weights_path}: {e}")
             # Try alternative filename
             try:
-                alt_weights_path = os.path.join(model_dir, f"weights_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pt")
+                alt_weights_path = os.path.join(
+                    model_dir, f"weights_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pt"
+                )
                 torch.save(model.model.state_dict(), alt_weights_path)
                 print(f"Saved weights to alternative path: {alt_weights_path}")
             except Exception as e2:
@@ -273,9 +271,17 @@ def save_model_with_metadata(
         # Optional latency benchmark (seconds per batch of len(sample_input))
         **({"latency_sec_per_batch32": latency} if latency is not None else {}),
         # Training metrics and efficiency data
-        **({"training_metrics": training_metrics} if training_metrics is not None else {}),
+        **(
+            {"training_metrics": training_metrics}
+            if training_metrics is not None
+            else {}
+        ),
         # Ablation study metadata
-        **({"ablation_metadata": ablation_metadata} if ablation_metadata is not None else {}),
+        **(
+            {"ablation_metadata": ablation_metadata}
+            if ablation_metadata is not None
+            else {}
+        ),
     }
 
     # Save metadata
@@ -355,10 +361,12 @@ def save_model_with_metadata(
 
     # Evidential uncertainty violin plot
     try:
-        if (evidential_out is not None) and (y_true is not None) and (y_pred is not None):
-            save_uncertainty_violinplots(
-                evidential_out, y_true, y_pred, model_dir
-            )
+        if (
+            (evidential_out is not None)
+            and (y_true is not None)
+            and (y_pred is not None)
+        ):
+            save_uncertainty_violinplots(evidential_out, y_true, y_pred, model_dir)
     except Exception as e:
         print(f"Warning: Cannot save uncertainty plots: {e}")
 
@@ -369,17 +377,13 @@ def save_model_with_metadata(
 def save_training_history(history, model_dir):
     """Save training history as CSV and generate learning curves plot."""
     # Save as CSV
-    with open(
-        os.path.join(model_dir, "training_history.csv"), "w", newline=""
-    ) as f:
+    with open(os.path.join(model_dir, "training_history.csv"), "w", newline="") as f:
         writer = csv.writer(f)
         # Write header
         writer.writerow(["epoch"] + list(history.keys()))
         # Write data
         for epoch in range(len(next(iter(history.values())))):
-            writer.writerow(
-                [epoch] + [history[k][epoch] for k in history.keys()]
-            )
+            writer.writerow([epoch] + [history[k][epoch] for k in history.keys()])
 
     # Generate plot
     plt.figure(figsize=(12, 5))
@@ -413,9 +417,7 @@ def save_training_history(history, model_dir):
 
 def generate_model_card(metadata, metrics, model_dir):
     """Generate a model card markdown document."""
-    timestamp = datetime.fromisoformat(metadata["timestamp"]).strftime(
-        "%Y-%m-%d %H:%M"
-    )
+    timestamp = datetime.fromisoformat(metadata["timestamp"]).strftime("%Y-%m-%d %H:%M")
 
     # Format metrics for display
     metrics_text = ""
@@ -530,7 +532,7 @@ def list_available_models():
                                     "accuracy": metadata.get("performance", {}).get(
                                         "accuracy", "unknown"
                                     ),
-                                    "path": os.path.join(base_dir, d)
+                                    "path": os.path.join(base_dir, d),
                                 }
                             )
                         else:
@@ -541,7 +543,7 @@ def list_available_models():
                                     "time_window": time_window,
                                     "timestamp": "unknown",
                                     "accuracy": "unknown",
-                                    "path": os.path.join(base_dir, d)
+                                    "path": os.path.join(base_dir, d),
                                 }
                             )
             except FileNotFoundError:
@@ -628,9 +630,9 @@ def compare_models(versions, flare_classes, time_windows):
                 try:
                     metadata = load_model_metadata(v, fc, tw)
                     performance = metadata.get("performance", {})
-                    timestamp = datetime.fromisoformat(
-                        metadata["timestamp"]
-                    ).strftime("%Y-%m-%d")
+                    timestamp = datetime.fromisoformat(metadata["timestamp"]).strftime(
+                        "%Y-%m-%d"
+                    )
 
                     rows.append(
                         [
@@ -680,7 +682,9 @@ def get_latest_version(flare_class, time_window):
                     version_str = parts[1][1:]  # Remove the 'v' prefix
                     # Handle both simple versions (1.0) and extended versions (1.0_12345_20250527)
                     if "_" in version_str:
-                        version_str = version_str.split("_")[0]  # Take only the numeric part
+                        version_str = version_str.split("_")[
+                            0
+                        ]  # Take only the numeric part
                     version_num = float(version_str)
                     # Round to 1 decimal place to ensure consistency
                     version_num = round(version_num, 1)
@@ -732,7 +736,9 @@ def get_next_version_safe(flare_class, time_window, max_retries=10):
             else:
                 # Subsequent attempts: increment base version
                 incremented_version = round(base_version + (attempt * 0.01), 2)
-                version_str = f"{incremented_version}_{process_id}_{timestamp}_{microseconds}"
+                version_str = (
+                    f"{incremented_version}_{process_id}_{timestamp}_{microseconds}"
+                )
 
             # Try to create the model directory atomically
             model_dir = create_model_dir(version_str, flare_class, time_window)
@@ -745,7 +751,9 @@ def get_next_version_safe(flare_class, time_window, max_retries=10):
             if attempt == max_retries - 1:
                 # Last attempt failed, use timestamp-based fallback
                 fallback_version = f"{base_version}_{int(time.time())}_{process_id}"
-                print(f"⚠️ Using fallback version after {max_retries} attempts: {fallback_version}")
+                print(
+                    f"⚠️ Using fallback version after {max_retries} attempts: {fallback_version}"
+                )
                 return fallback_version
             else:
                 # Wait a tiny bit and retry
@@ -770,9 +778,7 @@ def get_next_version(flare_class, time_window):
 def save_classification_report(y_true, y_pred, model_dir):
     """Save sklearn classification report as JSON."""
     report = classification_report(y_true, y_pred, output_dict=True)
-    with open(
-        os.path.join(model_dir, "classification_report.json"), "w"
-    ) as f:
+    with open(os.path.join(model_dir, "classification_report.json"), "w") as f:
         json.dump(report, f, indent=2)
 
 
@@ -899,9 +905,7 @@ def save_attention_heatmaps(
         x = pos
         for blk in model.model.transformers:
             x = blk(x)
-        att_weights = (
-            model.model.att_pool(x).squeeze(-1).cpu().numpy()
-        )  # shape (B, T)
+        att_weights = model.model.att_pool(x).squeeze(-1).cpu().numpy()  # shape (B, T)
 
     for i in range(min(len(X_batch), max_samples)):
         plt.figure(figsize=(6, 1.5))
@@ -913,9 +917,7 @@ def save_attention_heatmaps(
         plt.xticks(range(X_batch.shape[1]))
         plt.yticks([])
         plt.tight_layout()
-        plt.savefig(
-            os.path.join(model_dir, f"attention_heatmap_{i}.png"), dpi=200
-        )
+        plt.savefig(os.path.join(model_dir, f"attention_heatmap_{i}.png"), dpi=200)
         plt.close()
 
 
@@ -941,9 +943,7 @@ def save_uncertainty_violinplots(
     model_dir,
 ):
     """Save violin plots separating epistemic and aleatoric uncertainty."""
-    total_var, epistemic_var, aleatoric_var = compute_nig_uncertainties(
-        evid_out
-    )
+    total_var, epistemic_var, aleatoric_var = compute_nig_uncertainties(evid_out)
 
     df = pd.DataFrame(
         {

@@ -67,9 +67,7 @@ def train(
     X_train, y_train = get_training_data(time_window, flare_class)
     y_train_tr = data_transform(y_train)
 
-    epochs = (
-        100  # extend the number of epochs to let the model converge further
-    )
+    epochs = 100  # extend the number of epochs to let the model converge further
     input_shape = (X_train.shape[1], X_train.shape[2])
 
     # Calculate class weights based on class distribution
@@ -90,16 +88,12 @@ def train(
         elif flare_class == "M":
             # Moderate weight for M-class flares (rare)
             class_weight[i] = (
-                n_samples / (n_classes * class_counts[i]) * 0.8
-                if i == 1
-                else 1.0
+                n_samples / (n_classes * class_counts[i]) * 0.8 if i == 1 else 1.0
             )
         else:
             # Lower weight for C-class flares (more common)
             class_weight[i] = (
-                n_samples / (n_classes * class_counts[i]) * 0.6
-                if i == 1
-                else 1.0
+                n_samples / (n_classes * class_counts[i]) * 0.6 if i == 1 else 1.0
             )
 
     log(f"Class distribution: {class_counts}", verbose=True)
@@ -228,12 +222,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Determine which flare classes and time windows to train for
-    flare_classes = (
-        [args.specific_flare] if args.specific_flare else ["C", "M", "M5"]
-    )
-    time_windows = (
-        [args.specific_window] if args.specific_window else [24, 48, 72]
-    )
+    flare_classes = [args.specific_flare] if args.specific_flare else ["C", "M", "M5"]
+    time_windows = [args.specific_window] if args.specific_window else [24, 48, 72]
 
     # Train models
     trained_models = []

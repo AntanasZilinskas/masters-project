@@ -51,7 +51,9 @@ def find_latest_model_version(flare_class, time_window):
     """Find the latest model version for a specific flare class and time window"""
     model_patterns = [
         # New structure: models/models/SolarKnowledge-v*
-        os.path.join("models", "models", f"SolarKnowledge-v*-{flare_class}-{time_window}h"),
+        os.path.join(
+            "models", "models", f"SolarKnowledge-v*-{flare_class}-{time_window}h"
+        ),
         # Old structure: models/SolarKnowledge-v*
         os.path.join("models", f"SolarKnowledge-v*-{flare_class}-{time_window}h"),
     ]
@@ -126,8 +128,14 @@ def test_model(
     log("Data is already normalized, skipping normalization", verbose=True)
 
     # DEBUG CLASS DISTRIBUTION ISSUE
-    log(f"Train y data type: {type(y_train)}, shape: {np.asarray(y_train).shape}", verbose=True)
-    log(f"Test y data type: {type(y_test)}, shape: {np.asarray(y_test).shape}", verbose=True)
+    log(
+        f"Train y data type: {type(y_train)}, shape: {np.asarray(y_train).shape}",
+        verbose=True,
+    )
+    log(
+        f"Test y data type: {type(y_test)}, shape: {np.asarray(y_test).shape}",
+        verbose=True,
+    )
     if isinstance(y_train, list):
         # Convert to numpy array if needed
         y_train = np.array(y_train)
@@ -152,8 +160,14 @@ def test_model(
         test_neg = np.sum(y_test[:, 0] == 1)
         test_pos = np.sum(y_test[:, 1] == 1)
 
-    log(f"FIXED Training distribution: {train_neg} negative, {train_pos} positive", verbose=True)
-    log(f"FIXED Testing distribution: {test_neg} negative, {test_pos} positive", verbose=True)
+    log(
+        f"FIXED Training distribution: {train_neg} negative, {train_pos} positive",
+        verbose=True,
+    )
+    log(
+        f"FIXED Testing distribution: {test_neg} negative, {test_pos} positive",
+        verbose=True,
+    )
 
     # If test data has inverted or highly skewed class distribution compared to training,
     # we need to handle this situation more carefully
@@ -165,7 +179,7 @@ def test_model(
     test_minority_is_positive = test_pos < test_neg
 
     # If minority class differs between train and test, labels might be inverted
-    labels_likely_inverted = (train_minority_is_positive != test_minority_is_positive)
+    labels_likely_inverted = train_minority_is_positive != test_minority_is_positive
 
     # Alternative check: Compare dominant class ratios
     # If they differ significantly, there might be an inversion or data issue
@@ -179,14 +193,23 @@ def test_model(
     log(f"Ratio mismatch: {ratio_mismatch}", verbose=True)
 
     if labels_likely_inverted or ratio_mismatch:
-        log("WARNING: Test labels appear to have inverted or significantly different distribution compared to training data", verbose=True)
-        log(f"Original test labels: Positive ratio = {test_positive_ratio:.4f}", verbose=True)
+        log(
+            "WARNING: Test labels appear to have inverted or significantly different distribution compared to training data",
+            verbose=True,
+        )
+        log(
+            f"Original test labels: Positive ratio = {test_positive_ratio:.4f}",
+            verbose=True,
+        )
 
         # Invert labels if needed
         if labels_likely_inverted:
             log("Inverting test labels to match training distribution", verbose=True)
             y_test = 1 - y_test
-            log(f"Inverted test labels: Positive ratio = {np.mean(y_test):.4f}", verbose=True)
+            log(
+                f"Inverted test labels: Positive ratio = {np.mean(y_test):.4f}",
+                verbose=True,
+            )
 
     # Convert y_test to a NumPy array so we can check its dimensions
     y_test = np.array(y_test)
@@ -229,7 +252,10 @@ def test_model(
         # Look for TensorFlow weights file and convert if needed
         tf_weight_file = os.path.join(weight_dir, "model_weights.weights.h5")
         if os.path.exists(tf_weight_file):
-            log(f"Found TensorFlow weights file. Need to convert to PyTorch format first.", verbose=True)
+            log(
+                f"Found TensorFlow weights file. Need to convert to PyTorch format first.",
+                verbose=True,
+            )
             log(f"Error: Weight file not found at {weight_file}", verbose=True)
             return
         else:
@@ -240,31 +266,34 @@ def test_model(
     metadata_file = os.path.join(weight_dir, "metadata.json")
     if os.path.exists(metadata_file):
         try:
-            with open(metadata_file, 'r') as f:
+            with open(metadata_file, "r") as f:
                 metadata = json.load(f)
 
             # Extract architecture parameters with defaults as fallback
-            hyperparams = metadata.get('hyperparams', {})
+            hyperparams = metadata.get("hyperparams", {})
 
             # Get key architecture parameters - ensure we read ALL the parameters
             # that could affect model structure
-            embed_dim = hyperparams.get('embed_dim', 128)
-            num_transformer_blocks = hyperparams.get('num_transformer_blocks', 6)
-            num_heads = hyperparams.get('num_heads', 4)
-            ff_dim = hyperparams.get('ff_dim', 256)
-            dropout_rate = hyperparams.get('dropout_rate', 0.2)
-            use_batch_norm = hyperparams.get('use_batch_norm', False)
+            embed_dim = hyperparams.get("embed_dim", 128)
+            num_transformer_blocks = hyperparams.get("num_transformer_blocks", 6)
+            num_heads = hyperparams.get("num_heads", 4)
+            ff_dim = hyperparams.get("ff_dim", 256)
+            dropout_rate = hyperparams.get("dropout_rate", 0.2)
+            use_batch_norm = hyperparams.get("use_batch_norm", False)
 
             # Check for potential weight-metadata mismatch by examining weight file
             # This is a safety check to ensure the model architecture matches the saved weights
             try:
-                state_dict = torch.load(weight_file, map_location=torch.device('cpu'))
+                state_dict = torch.load(weight_file, map_location=torch.device("cpu"))
                 # Check embedding dimension from weights
                 if "embedding.weight" in state_dict:
                     actual_embed_dim = state_dict["embedding.weight"].shape[0]
                     if actual_embed_dim != embed_dim:
-                        log(f"WARNING: Metadata embed_dim ({embed_dim}) doesn't match weights ({actual_embed_dim}). "
-                            + f"Using value from weights.", verbose=True)
+                        log(
+                            f"WARNING: Metadata embed_dim ({embed_dim}) doesn't match weights ({actual_embed_dim}). "
+                            + f"Using value from weights.",
+                            verbose=True,
+                        )
                         embed_dim = actual_embed_dim
 
                 # Check transformer blocks from weights by counting layers
@@ -277,27 +306,38 @@ def test_model(
                 if max_block_idx >= 0:  # Found transformer blocks in weights
                     actual_num_blocks = max_block_idx + 1
                     if actual_num_blocks != num_transformer_blocks:
-                        log(f"WARNING: Metadata transformer_blocks ({num_transformer_blocks}) doesn't match "
-                            + f"weights ({actual_num_blocks}). Using value from weights.", verbose=True)
+                        log(
+                            f"WARNING: Metadata transformer_blocks ({num_transformer_blocks}) doesn't match "
+                            + f"weights ({actual_num_blocks}). Using value from weights.",
+                            verbose=True,
+                        )
                         num_transformer_blocks = actual_num_blocks
 
                 # Check feed-forward dimension from weights
                 actual_ff_dim = None
-                for i in range(actual_num_blocks if max_block_idx >= 0 else num_transformer_blocks):
+                for i in range(
+                    actual_num_blocks if max_block_idx >= 0 else num_transformer_blocks
+                ):
                     key = f"transformer_blocks.{i}.ffn.0.weight"
                     if key in state_dict:
                         actual_ff_dim = state_dict[key].shape[0]
                         break
 
                 if actual_ff_dim is not None and actual_ff_dim != ff_dim:
-                    log(f"WARNING: Metadata ff_dim ({ff_dim}) doesn't match weights ({actual_ff_dim}). "
-                        + f"Using value from weights.", verbose=True)
+                    log(
+                        f"WARNING: Metadata ff_dim ({ff_dim}) doesn't match weights ({actual_ff_dim}). "
+                        + f"Using value from weights.",
+                        verbose=True,
+                    )
                     ff_dim = actual_ff_dim
             except Exception as e:
                 log(f"Unable to verify weights structure: {str(e)}", verbose=True)
 
-            log(f"Building model based on metadata: embed_dim={embed_dim}, "
-                + f"transformer_blocks={num_transformer_blocks}, heads={num_heads}, ff_dim={ff_dim}", verbose=True)
+            log(
+                f"Building model based on metadata: embed_dim={embed_dim}, "
+                + f"transformer_blocks={num_transformer_blocks}, heads={num_heads}, ff_dim={ff_dim}",
+                verbose=True,
+            )
 
             # Build the model with matching architecture
             model = SolarKnowledge(early_stopping_patience=5)
@@ -307,12 +347,15 @@ def test_model(
                 num_heads=num_heads,
                 ff_dim=ff_dim,
                 num_transformer_blocks=num_transformer_blocks,
-                dropout_rate=dropout_rate
+                dropout_rate=dropout_rate,
             )
             model.compile(use_focal_loss=True)
 
         except Exception as e:
-            log(f"Error reading metadata, using default parameters: {str(e)}", verbose=True)
+            log(
+                f"Error reading metadata, using default parameters: {str(e)}",
+                verbose=True,
+            )
             # Fallback to default architecture if metadata reading fails
             model = SolarKnowledge(early_stopping_patience=5)
             model.build_base_model(input_shape)
@@ -336,9 +379,7 @@ def test_model(
         f"Using Monte Carlo dropout with {mc_passes} passes for robust prediction",
         verbose=True,
     )
-    mean_preds, std_preds = model.mc_predict(
-        X_test, n_passes=mc_passes, verbose=1
-    )
+    mean_preds, std_preds = model.mc_predict(X_test, n_passes=mc_passes, verbose=1)
 
     # DEBUG: Analyze raw predictions to understand the model's behavior
     pos_probs = mean_preds[:, 1]  # Probability of positive class
@@ -352,13 +393,16 @@ def test_model(
     # Create histogram of prediction probabilities to visualize distribution
     plt.figure(figsize=(10, 6))
     plt.hist(pos_probs, bins=50, alpha=0.7)
-    plt.axvline(x=0.5, color='r', linestyle='--', label='Default threshold (0.5)')
-    plt.title('Distribution of Prediction Probabilities')
-    plt.xlabel('Positive Class Probability')
-    plt.ylabel('Count')
+    plt.axvline(x=0.5, color="r", linestyle="--", label="Default threshold (0.5)")
+    plt.title("Distribution of Prediction Probabilities")
+    plt.xlabel("Positive Class Probability")
+    plt.ylabel("Count")
     plt.legend()
     plt.tight_layout()
-    prob_dist_file = os.path.join(weight_dir, f"probability_distribution_{datetime.now().strftime('%Y%m%d%H%M%S')}.png")
+    prob_dist_file = os.path.join(
+        weight_dir,
+        f"probability_distribution_{datetime.now().strftime('%Y%m%d%H%M%S')}.png",
+    )
     plt.savefig(prob_dist_file)
     plt.close()
     log(f"Saved probability distribution plot to {prob_dist_file}", verbose=True)
@@ -371,10 +415,7 @@ def test_model(
 
     # Use 20% of test data for calibration
     X_calib_idx, X_eval_idx = train_test_split(
-        np.arange(len(pos_probs)),
-        test_size=0.8,
-        random_state=42,
-        stratify=y_true
+        np.arange(len(pos_probs)), test_size=0.8, random_state=42, stratify=y_true
     )
 
     X_calib = pos_probs[X_calib_idx].reshape(-1, 1)  # Features are probabilities
@@ -390,22 +431,31 @@ def test_model(
 
     # Visualize calibrated probabilities
     plt.figure(figsize=(10, 6))
-    plt.hist(calibrated_probs, bins=50, alpha=0.7, color='green')
-    plt.axvline(x=0.5, color='r', linestyle='--', label='Default threshold (0.5)')
-    plt.title('Distribution of Calibrated Prediction Probabilities')
-    plt.xlabel('Calibrated Positive Class Probability')
-    plt.ylabel('Count')
+    plt.hist(calibrated_probs, bins=50, alpha=0.7, color="green")
+    plt.axvline(x=0.5, color="r", linestyle="--", label="Default threshold (0.5)")
+    plt.title("Distribution of Calibrated Prediction Probabilities")
+    plt.xlabel("Calibrated Positive Class Probability")
+    plt.ylabel("Count")
     plt.legend()
     plt.tight_layout()
-    calib_prob_file = os.path.join(weight_dir, f"calibrated_probability_distribution_{datetime.now().strftime('%Y%m%d%H%M%S')}.png")
+    calib_prob_file = os.path.join(
+        weight_dir,
+        f"calibrated_probability_distribution_{datetime.now().strftime('%Y%m%d%H%M%S')}.png",
+    )
     plt.savefig(calib_prob_file)
     plt.close()
-    log(f"Saved calibrated probability distribution plot to {calib_prob_file}", verbose=True)
+    log(
+        f"Saved calibrated probability distribution plot to {calib_prob_file}",
+        verbose=True,
+    )
 
     # Use calibrated probabilities for predictions
     log(f"Using calibrated probabilities for predictions", verbose=True)
     log(f"Mean calibrated probability: {np.mean(calibrated_probs):.4f}", verbose=True)
-    log(f"Median calibrated probability: {np.median(calibrated_probs):.4f}", verbose=True)
+    log(
+        f"Median calibrated probability: {np.median(calibrated_probs):.4f}",
+        verbose=True,
+    )
 
     # Find new threshold based on calibrated probabilities
     all_thresholds = np.linspace(0.01, 0.99, 100)
@@ -425,11 +475,17 @@ def test_model(
                 best_tss = tss
                 best_threshold = threshold
 
-    log(f"Best threshold for calibrated probabilities: {best_threshold:.4f}, TSS: {best_tss:.4f}", verbose=True)
+    log(
+        f"Best threshold for calibrated probabilities: {best_threshold:.4f}, TSS: {best_tss:.4f}",
+        verbose=True,
+    )
 
     # Use best threshold for final predictions
     predicted_classes = (calibrated_probs >= best_threshold).astype(int)
-    log(f"Predictions using calibrated probabilities: Positive ratio = {np.mean(predicted_classes):.4f}", verbose=True)
+    log(
+        f"Predictions using calibrated probabilities: Positive ratio = {np.mean(predicted_classes):.4f}",
+        verbose=True,
+    )
 
     # Calculate uncertainty metrics
     entropy = -np.sum(mean_preds * np.log(mean_preds + 1e-10), axis=1)
@@ -461,7 +517,10 @@ def test_model(
     val_mean_preds, _ = model.mc_predict(X_val, n_passes=mc_passes, verbose=1)
 
     # Find optimal threshold using validation data
-    log("Finding optimal classification threshold using validation data...", verbose=True)
+    log(
+        "Finding optimal classification threshold using validation data...",
+        verbose=True,
+    )
     # Get predicted probabilities for the positive class
     val_pos_probs = val_mean_preds[:, 1]
 
@@ -481,14 +540,19 @@ def test_model(
     # Print class distribution to better understand data
     neg_count = np.sum(y_val_binary == 0)
     pos_count = np.sum(y_val_binary == 1)
-    log(f"Validation data has {neg_count} negative samples and {pos_count} positive samples", verbose=True)
+    log(
+        f"Validation data has {neg_count} negative samples and {pos_count} positive samples",
+        verbose=True,
+    )
     log(f"Positive ratio: {pos_count / (pos_count + neg_count):.4f}", verbose=True)
 
     for threshold in all_thresholds:
         val_preds = (val_pos_probs >= threshold).astype(int)
         # Calculate TSS (True Skill Statistic)
         cm = confusion_matrix(y_val_binary, val_preds)
-        if cm.shape[0] > 1 and cm.shape[1] > 1:  # Ensure confusion matrix has proper shape
+        if (
+            cm.shape[0] > 1 and cm.shape[1] > 1
+        ):  # Ensure confusion matrix has proper shape
             tn, fp, fn, tp = cm.ravel()
             sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
             specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
@@ -496,11 +560,15 @@ def test_model(
             tss_scores.append(tss)
 
             # Also calculate F1 for reference
-            f1 = f1_score(y_val_binary, val_preds, average='binary')
+            f1 = f1_score(y_val_binary, val_preds, average="binary")
             f1_scores.append(f1)
 
-            precision = precision_score(y_val_binary, val_preds, average='binary', zero_division=0)
-            recall = recall_score(y_val_binary, val_preds, average='binary', zero_division=0)
+            precision = precision_score(
+                y_val_binary, val_preds, average="binary", zero_division=0
+            )
+            recall = recall_score(
+                y_val_binary, val_preds, average="binary", zero_division=0
+            )
             precision_scores.append(precision)
             recall_scores.append(recall)
         else:
@@ -515,11 +583,16 @@ def test_model(
 
     log(f"Optimal threshold (maximizing TSS): {optimal_threshold:.4f}", verbose=True)
     log(f"Optimal TSS: {tss_scores[best_idx]:.4f}", verbose=True)
-    log(f"At optimal threshold - Precision: {precision_scores[best_idx]:.4f}, Recall: {recall_scores[best_idx]:.4f}", verbose=True)
+    log(
+        f"At optimal threshold - Precision: {precision_scores[best_idx]:.4f}, Recall: {recall_scores[best_idx]:.4f}",
+        verbose=True,
+    )
 
     # Find a more balanced threshold with good TSS - IMPROVED
     # Consider class balance in the scoring function
-    class_ratio = min(pos_count / neg_count, neg_count / pos_count)  # Class imbalance ratio (0-1)
+    class_ratio = min(
+        pos_count / neg_count, neg_count / pos_count
+    )  # Class imbalance ratio (0-1)
     # Create a balanced score: TSS + (harmonic mean of precision and recall weighted by class imbalance)
     balanced_scores = []
     for i, tss in enumerate(tss_scores):
@@ -532,16 +605,26 @@ def test_model(
             f_score = 0
         # Weighted score that puts more emphasis on precision for imbalanced datasets
         # and more emphasis on recall for balanced datasets
-        balance_weight = (1 - class_ratio) * 1.5  # Up to 1.5 more weight on precision for imbalanced data
-        weighted_score = tss + f_score * (1 + balance_weight * (p - r)) if p > 0.5 else 0
+        balance_weight = (
+            1 - class_ratio
+        ) * 1.5  # Up to 1.5 more weight on precision for imbalanced data
+        weighted_score = (
+            tss + f_score * (1 + balance_weight * (p - r)) if p > 0.5 else 0
+        )
         balanced_scores.append(weighted_score)
 
     balanced_idx = np.argmax(balanced_scores)
     balanced_threshold = all_thresholds[balanced_idx]
 
-    log(f"Balanced threshold (TSS + weighted precision/recall): {balanced_threshold:.4f}", verbose=True)
+    log(
+        f"Balanced threshold (TSS + weighted precision/recall): {balanced_threshold:.4f}",
+        verbose=True,
+    )
     log(f"Balanced TSS: {tss_scores[balanced_idx]:.4f}", verbose=True)
-    log(f"At balanced threshold - Precision: {precision_scores[balanced_idx]:.4f}, Recall: {recall_scores[balanced_idx]:.4f}", verbose=True)
+    log(
+        f"At balanced threshold - Precision: {precision_scores[balanced_idx]:.4f}, Recall: {recall_scores[balanced_idx]:.4f}",
+        verbose=True,
+    )
 
     # Use balanced threshold for best overall performance
     optimal_threshold = balanced_threshold
@@ -551,11 +634,17 @@ def test_model(
     pos_probs = mean_preds[:, 1]
     predicted_classes = (pos_probs >= optimal_threshold).astype(int)
 
-    log(f"Predictions using optimal threshold: Positive ratio = {np.mean(predicted_classes):.4f}", verbose=True)
+    log(
+        f"Predictions using optimal threshold: Positive ratio = {np.mean(predicted_classes):.4f}",
+        verbose=True,
+    )
 
     # Save original predicted classes based on argmax for comparison
     argmax_classes = np.argmax(mean_preds, axis=-1)
-    log(f"Predictions using default threshold (0.5): Positive ratio = {np.mean(argmax_classes):.4f}", verbose=True)
+    log(
+        f"Predictions using default threshold (0.5): Positive ratio = {np.mean(argmax_classes):.4f}",
+        verbose=True,
+    )
 
     # If requested, plot prediction uncertainties
     if plot_uncertainties:
@@ -577,12 +666,8 @@ def test_model(
     # Compute TSS: sensitivity + specificity - 1. For binary classification,
     # sensitivity = recall for class 1, specificity = recall for class 0.
     cm = confusion_matrix(y_true, predicted_classes)
-    sensitivity = (
-        cm[1, 1] / (cm[1, 1] + cm[1, 0]) if (cm[1, 1] + cm[1, 0]) > 0 else 0
-    )
-    specificity = (
-        cm[0, 0] / (cm[0, 0] + cm[0, 1]) if (cm[0, 0] + cm[0, 1]) > 0 else 0
-    )
+    sensitivity = cm[1, 1] / (cm[1, 1] + cm[1, 0]) if (cm[1, 1] + cm[1, 0]) > 0 else 0
+    specificity = cm[0, 0] / (cm[0, 0] + cm[0, 1]) if (cm[0, 0] + cm[0, 1]) > 0 else 0
     TSS = sensitivity + specificity - 1
 
     print("==============================================")
@@ -601,10 +686,14 @@ def test_model(
     cm_default = confusion_matrix(y_true, argmax_classes)
     if cm_default.shape[0] > 1 and cm_default.shape[1] > 1:
         sensitivity_default = (
-            cm_default[1, 1] / (cm_default[1, 1] + cm_default[1, 0]) if (cm_default[1, 1] + cm_default[1, 0]) > 0 else 0
+            cm_default[1, 1] / (cm_default[1, 1] + cm_default[1, 0])
+            if (cm_default[1, 1] + cm_default[1, 0]) > 0
+            else 0
         )
         specificity_default = (
-            cm_default[0, 0] / (cm_default[0, 0] + cm_default[0, 1]) if (cm_default[0, 0] + cm_default[0, 1]) > 0 else 0
+            cm_default[0, 0] / (cm_default[0, 0] + cm_default[0, 1])
+            if (cm_default[0, 0] + cm_default[0, 1]) > 0
+            else 0
         )
         TSS_default = sensitivity_default + specificity_default - 1
         print(f"Accuracy: {acc_default:.4f}")
@@ -734,9 +823,7 @@ def create_uncertainty_plots(
     plt.tight_layout()
 
     # Save the figure
-    confidence_file = os.path.join(
-        output_dir, f"confidence_dist_{timestamp}.png"
-    )
+    confidence_file = os.path.join(output_dir, f"confidence_dist_{timestamp}.png")
     plt.savefig(confidence_file, dpi=300)
     plt.close()
 
@@ -771,9 +858,7 @@ def create_uncertainty_plots(
     plt.tight_layout()
 
     # Save the figure
-    uncertainty_file = os.path.join(
-        output_dir, f"uncertainty_scatter_{timestamp}.png"
-    )
+    uncertainty_file = os.path.join(output_dir, f"uncertainty_scatter_{timestamp}.png")
     plt.savefig(uncertainty_file, dpi=300)
     plt.close()
 
@@ -785,15 +870,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Test SolarKnowledge models for solar flare prediction"
     )
-    parser.add_argument(
-        "--timestamp", "-t", help="Specific model timestamp to test"
-    )
+    parser.add_argument("--timestamp", "-t", help="Specific model timestamp to test")
     parser.add_argument(
         "--latest", action="store_true", help="Test the latest model version"
     )
-    parser.add_argument(
-        "--version", "-v", help="Test a specific model version"
-    )
+    parser.add_argument("--version", "-v", help="Test a specific model version")
     parser.add_argument(
         "--mc-passes",
         type=int,
@@ -809,13 +890,13 @@ if __name__ == "__main__":
         "--flare-class",
         type=str,
         choices=["C", "M", "M5"],
-        help="Test only a specific flare class"
+        help="Test only a specific flare class",
     )
     parser.add_argument(
         "--time-window",
         type=str,
         choices=["24", "48", "72"],
-        help="Test only a specific time window"
+        help="Test only a specific time window",
     )
     args = parser.parse_args()
 
@@ -877,6 +958,4 @@ if __name__ == "__main__":
         version_output = f"results_pytorch_v{args.version}.json"
         with open(version_output, "w") as f:
             json.dump(all_metrics, f, indent=4)
-        print(
-            f"Saved test metrics for version v{args.version} into {version_output}"
-        )
+        print(f"Saved test metrics for version v{args.version} into {version_output}")

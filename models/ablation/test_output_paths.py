@@ -24,6 +24,7 @@ def test_basic_environment():
 
     try:
         import torch
+
         print(f"✅ PyTorch {torch.__version__}")
         print(f"   CUDA: {torch.cuda.is_available()}")
         if torch.cuda.is_available():
@@ -34,6 +35,7 @@ def test_basic_environment():
 
     try:
         import numpy as np
+
         print(f"✅ NumPy {np.__version__}")
     except Exception as e:
         print(f"❌ NumPy: {e}")
@@ -41,6 +43,7 @@ def test_basic_environment():
 
     try:
         import sklearn
+
         print(f"✅ Scikit-learn {sklearn.__version__}")
     except Exception as e:
         print(f"❌ Scikit-learn: {e}")
@@ -55,6 +58,7 @@ def test_everest_imports():
 
     try:
         from models.solarknowledge_ret_plus import RETPlusWrapper
+
         print("✅ RETPlusWrapper imported")
     except Exception as e:
         print(f"❌ RETPlusWrapper: {e}")
@@ -62,6 +66,7 @@ def test_everest_imports():
 
     try:
         from models.utils import get_training_data, get_testing_data
+
         print("✅ Data utilities imported")
     except Exception as e:
         print(f"❌ Data utilities: {e}")
@@ -69,6 +74,7 @@ def test_everest_imports():
 
     try:
         from models.model_tracking import save_model_with_metadata, get_next_version
+
         print("✅ Model tracking utilities imported")
     except Exception as e:
         print(f"❌ Model tracking: {e}")
@@ -81,7 +87,7 @@ def test_ablation_script_import():
     """Test ablation script import."""
     print("\n📝 Testing ablation script import...")
 
-    script_path = project_root / 'models' / 'ablation' / 'run_ablation_with_metadata.py'
+    script_path = project_root / "models" / "ablation" / "run_ablation_with_metadata.py"
     if not script_path.exists():
         print(f"❌ Script not found: {script_path}")
         return False
@@ -89,8 +95,9 @@ def test_ablation_script_import():
     print(f"✅ Script exists: {script_path}")
 
     try:
-        sys.path.insert(0, str(project_root / 'models' / 'ablation'))
+        sys.path.insert(0, str(project_root / "models" / "ablation"))
         import run_ablation_with_metadata
+
         print("✅ Ablation script imported successfully")
 
         # Test if we can create the ablation objective
@@ -108,7 +115,7 @@ def test_output_directories():
     print("\n📁 Testing output directories...")
 
     # Check models directory structure
-    models_dir = project_root / 'models'
+    models_dir = project_root / "models"
     if not models_dir.exists():
         print(f"❌ Models directory not found: {models_dir}")
         return False
@@ -116,7 +123,7 @@ def test_output_directories():
     print(f"✅ Models directory exists: {models_dir}")
 
     # Check if models/models directory exists or can be created
-    models_models_dir = models_dir / 'models'
+    models_models_dir = models_dir / "models"
     try:
         models_models_dir.mkdir(exist_ok=True)
         print(f"✅ Output directory ready: {models_models_dir}")
@@ -127,6 +134,7 @@ def test_output_directories():
     # Test model versioning
     try:
         from models.model_tracking import get_next_version
+
         next_version = get_next_version("M5", "72")
         print(f"✅ Next model version: {next_version}")
 
@@ -147,12 +155,19 @@ def test_ablation_variants():
     print("\n🎯 Testing ablation variant configurations...")
 
     try:
-        sys.path.insert(0, str(project_root / 'models' / 'ablation'))
+        sys.path.insert(0, str(project_root / "models" / "ablation"))
         from run_ablation_with_metadata import AblationObjectiveWithMetadata
 
         # Test creating objective for each variant
-        variants = ["full_model", "no_evidential", "no_evt", "mean_pool",
-                    "cross_entropy", "no_precursor", "fp32_training"]
+        variants = [
+            "full_model",
+            "no_evidential",
+            "no_evt",
+            "mean_pool",
+            "cross_entropy",
+            "no_precursor",
+            "fp32_training",
+        ]
 
         for variant in variants:
             try:
@@ -160,7 +175,9 @@ def test_ablation_variants():
                 print(f"   Testing variant: {variant}")
 
                 # Test the configuration method directly
-                temp_obj = AblationObjectiveWithMetadata.__new__(AblationObjectiveWithMetadata)
+                temp_obj = AblationObjectiveWithMetadata.__new__(
+                    AblationObjectiveWithMetadata
+                )
                 temp_obj.variant_name = variant
                 config = temp_obj._get_ablation_config()
 
@@ -193,13 +210,13 @@ def test_metadata_structure():
                 "use_evidential": True,
                 "use_evt": True,
                 "use_precursor": True,
-                "description": "Full EVEREST model with all components"
+                "description": "Full EVEREST model with all components",
             },
             "optimal_hyperparams": {
                 "embed_dim": 64,
                 "num_blocks": 8,
-                "dropout": 0.23876978467047777
-            }
+                "dropout": 0.23876978467047777,
+            },
         }
 
         print("✅ Metadata structure validated")
@@ -224,13 +241,26 @@ def simulate_experiment_run():
         variant = "full_model"
         seed = 0
 
-        print(f"   Simulating: python run_ablation_with_metadata.py --variant {variant} --seed {seed}")
+        print(
+            f"   Simulating: python run_ablation_with_metadata.py --variant {variant} --seed {seed}"
+        )
 
         # Check argument parsing
         import argparse
+
         parser = argparse.ArgumentParser()
-        parser.add_argument("--variant", choices=["full_model", "no_evidential", "no_evt",
-                                                  "mean_pool", "cross_entropy", "no_precursor", "fp32_training"])
+        parser.add_argument(
+            "--variant",
+            choices=[
+                "full_model",
+                "no_evidential",
+                "no_evt",
+                "mean_pool",
+                "cross_entropy",
+                "no_precursor",
+                "fp32_training",
+            ],
+        )
         parser.add_argument("--seed", type=int, default=0)
 
         # Simulate parsing
@@ -239,6 +269,7 @@ def simulate_experiment_run():
 
         # Simulate model directory creation
         from models.model_tracking import get_next_version
+
         version = get_next_version("M5", "72")
         model_dir_name = f"EVEREST-v{version}-M5-72h"
 
@@ -267,7 +298,7 @@ def main():
         ("Output Directories", test_output_directories),
         ("Ablation Variants", test_ablation_variants),
         ("Metadata Structure", test_metadata_structure),
-        ("Experiment Simulation", simulate_experiment_run)
+        ("Experiment Simulation", simulate_experiment_run),
     ]
 
     passed = 0

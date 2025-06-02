@@ -9,9 +9,7 @@ def create_training_model():
     """Create a model for training tests."""
     model = tf.keras.Sequential(
         [
-            tf.keras.layers.Dense(
-                64, activation="relu", input_shape=(100, 14)
-            ),
+            tf.keras.layers.Dense(64, activation="relu", input_shape=(100, 14)),
             tf.keras.layers.Flatten(),
             tf.keras.layers.Dense(32, activation="relu"),
             tf.keras.layers.Dense(2, activation="softmax"),

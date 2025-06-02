@@ -51,9 +51,7 @@ def _process_file(nc_file):
         elif "a_flux" in ds.variables:
             flux_var = "a_flux"
         else:
-            logging.warning(
-                f"  No recognized flux variable in {nc_file}, skipping."
-            )
+            logging.warning(f"  No recognized flux variable in {nc_file}, skipping.")
             ds.close()
             return None
 
@@ -114,9 +112,7 @@ def netcdf_to_parquet_parallel(
     df_list = []
     # Process files in parallel
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        future_to_file = {
-            executor.submit(_process_file, f): f for f in filtered_files
-        }
+        future_to_file = {executor.submit(_process_file, f): f for f in filtered_files}
         logging.info(f"Processing {len(future_to_file)} files in parallel...")
         for future in as_completed(future_to_file):
             fpath = future_to_file[future]
@@ -160,9 +156,7 @@ def netcdf_to_parquet_parallel(
     grouped_df.drop(columns=["priority"], inplace=True)
     grouped_df.sort_values(by="time", inplace=True)
 
-    logging.info(
-        f"Writing {len(grouped_df)} minute-level rows to {out_parquet} ..."
-    )
+    logging.info(f"Writing {len(grouped_df)} minute-level rows to {out_parquet} ...")
     grouped_df.to_parquet(out_parquet, index=False)
     logging.info("Done. Parquet file created.")
 
@@ -170,6 +164,4 @@ def netcdf_to_parquet_parallel(
 if __name__ == "__main__":
     DATA_DIR = "/Users/antanaszilinskas/Desktop/Imperial College London/D2P/Coursework/masters-project/data/GOES/data/avg1m_2010_to_2024"
     OUTPUT_NAME = "goes_avg1m_combined.parquet"
-    netcdf_to_parquet_parallel(
-        DATA_DIR, out_parquet=OUTPUT_NAME, max_workers=None
-    )
+    netcdf_to_parquet_parallel(DATA_DIR, out_parquet=OUTPUT_NAME, max_workers=None)

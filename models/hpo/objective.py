@@ -10,7 +10,7 @@ from .config import (
     LOSS_WEIGHTS_CONFIG,
     PERFORMANCE_THRESHOLDS,
     PRIMARY_METRIC,
-    REPRODUCIBILITY_CONFIG
+    REPRODUCIBILITY_CONFIG,
 )
 from utils import get_training_data, get_testing_data
 from solarknowledge_ret_plus import RETPlusWrapper
@@ -23,7 +23,12 @@ from typing import Dict, Any, Tuple, Optional
 import numpy as np
 import optuna
 import torch
-from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score
+from sklearn.metrics import (
+    confusion_matrix,
+    accuracy_score,
+    precision_score,
+    recall_score,
+)
 
 # Add the models directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -76,19 +81,29 @@ class HPOObjective:
     def _load_data(self) -> None:
         """Load and cache training/validation data."""
         try:
-            print(f"Loading data for {self.flare_class}-class, {self.time_window}h window...")
+            print(
+                f"Loading data for {self.flare_class}-class, {self.time_window}h window..."
+            )
 
             # Load training data
-            self.X_train, self.y_train = get_training_data(self.time_window, self.flare_class)
+            self.X_train, self.y_train = get_training_data(
+                self.time_window, self.flare_class
+            )
 
             if self.X_train is None or self.y_train is None:
-                raise ValueError(f"Training data not found for {self.flare_class}/{self.time_window}h")
+                raise ValueError(
+                    f"Training data not found for {self.flare_class}/{self.time_window}h"
+                )
 
             # Load validation data (use testing data for validation during HPO)
             if self.use_validation:
-                self.X_val, self.y_val = get_testing_data(self.time_window, self.flare_class)
+                self.X_val, self.y_val = get_testing_data(
+                    self.time_window, self.flare_class
+                )
                 if self.X_val is None or self.y_val is None:
-                    print("Warning: Validation data not found, using training data split")
+                    print(
+                        "Warning: Validation data not found, using training data split"
+                    )
                     self.use_validation = False
 
             # Convert to numpy arrays
@@ -124,7 +139,9 @@ class HPOObjective:
             "dropout": trial.suggest_float("dropout", 0.05, 0.40),
             "focal_gamma": trial.suggest_float("focal_gamma", 1.0, 4.0),
             "learning_rate": trial.suggest_float("learning_rate", 2e-4, 8e-4, log=True),
-            "batch_size": trial.suggest_categorical("batch_size", [256, 512, 768, 1024])
+            "batch_size": trial.suggest_categorical(
+                "batch_size", [256, 512, 768, 1024]
+            ),
         }
 
     def _create_model(self, hyperparams: Dict[str, Any]) -> RETPlusWrapper:
@@ -137,7 +154,7 @@ class HPOObjective:
             "num_heads": FIXED_ARCHITECTURE["num_heads"],
             "ff_dim": FIXED_ARCHITECTURE["ff_dim"],
             "num_blocks": hyperparams["num_blocks"],
-            "dropout": hyperparams["dropout"]
+            "dropout": hyperparams["dropout"],
         }
 
         # Create wrapper (this will create the underlying model)
@@ -146,7 +163,7 @@ class HPOObjective:
             use_attention_bottleneck=model_config["use_attention_bottleneck"],
             use_evidential=model_config["use_evidential"],
             use_evt=model_config["use_evt"],
-            use_precursor=model_config["use_precursor"]
+            use_precursor=model_config["use_precursor"],
         )
 
         # Update optimizer with suggested learning rate
@@ -155,7 +172,7 @@ class HPOObjective:
             wrapper.model.parameters(),
             lr=hyperparams["learning_rate"],
             weight_decay=1e-4,
-            fused=use_fused
+            fused=use_fused,
         )
 
         return wrapper
@@ -165,7 +182,7 @@ class HPOObjective:
         model: RETPlusWrapper,
         hyperparams: Dict[str, Any],
         epochs: int,
-        trial: optuna.Trial
+        trial: optuna.Trial,
     ) -> Dict[str, float]:
         """Train model and evaluate on validation set."""
 
@@ -178,30 +195,36 @@ class HPOObjective:
 
         # Adjust settings based on device
         num_workers = 2 if device.type == "cuda" else 0  # Reduce workers for CPU
-        pin_memory = (device.type == "cuda")
+        pin_memory = device.type == "cuda"
 
         # Create data loaders
         from torch.utils.data import DataLoader, TensorDataset
 
         train_dataset = TensorDataset(
             torch.tensor(self.X_train, dtype=torch.float32),
-            torch.tensor(self.y_train, dtype=torch.float32)
+            torch.tensor(self.y_train, dtype=torch.float32),
         )
         train_loader = DataLoader(
-            train_dataset, batch_size=batch_size, shuffle=True,
-            pin_memory=pin_memory, num_workers=num_workers
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            pin_memory=pin_memory,
+            num_workers=num_workers,
         )
 
         val_dataset = TensorDataset(
             torch.tensor(self.X_val, dtype=torch.float32),
-            torch.tensor(self.y_val, dtype=torch.float32)
+            torch.tensor(self.y_val, dtype=torch.float32),
         )
         val_loader = DataLoader(
-            val_dataset, batch_size=batch_size, shuffle=False,
-            pin_memory=pin_memory, num_workers=num_workers
+            val_dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            pin_memory=pin_memory,
+            num_workers=num_workers,
         )
 
-        best_tss = -float('inf')
+        best_tss = -float("inf")
 
         for epoch in range(epochs):
             # Training
@@ -226,6 +249,7 @@ class HPOObjective:
 
                 # Import composite loss from the model file
                 from solarknowledge_ret_plus import composite_loss
+
                 loss = composite_loss(
                     y_batch, outputs, gamma=focal_gamma, weights=weights
                 )
@@ -253,7 +277,9 @@ class HPOObjective:
         final_metrics = self._evaluate_model(model, val_loader, device)
         return final_metrics
 
-    def _evaluate_model(self, model: RETPlusWrapper, val_loader, device) -> Dict[str, float]:
+    def _evaluate_model(
+        self, model: RETPlusWrapper, val_loader, device
+    ) -> Dict[str, float]:
         """Evaluate model on validation set."""
         model.model.eval()
 
@@ -334,7 +360,10 @@ class HPOObjective:
         # Additional metrics
         try:
             from sklearn.metrics import roc_auc_score, brier_score_loss
-            roc_auc = roc_auc_score(y_true, y_prob) if len(np.unique(y_true)) > 1 else 0.5
+
+            roc_auc = (
+                roc_auc_score(y_true, y_prob) if len(np.unique(y_true)) > 1 else 0.5
+            )
             brier = brier_score_loss(y_true, y_prob)
         except BaseException:
             roc_auc = 0.5
@@ -348,7 +377,10 @@ class HPOObjective:
             "specificity": specificity,
             "roc_auc": roc_auc,
             "brier_score": brier,
-            "tp": tp, "tn": tn, "fp": fp, "fn": fn
+            "tp": tp,
+            "tn": tn,
+            "fp": fp,
+            "fn": fn,
         }
 
     def __call__(self, trial: optuna.Trial) -> float:
@@ -373,7 +405,10 @@ class HPOObjective:
             "specificity": 0.0,
             "roc_auc": 0.5,
             "brier_score": 1.0,
-            "tp": 0, "tn": 0, "fp": 0, "fn": 0
+            "tp": 0,
+            "tn": 0,
+            "fp": 0,
+            "fn": 0,
         }
 
         try:
@@ -407,15 +442,21 @@ class HPOObjective:
 
             # Check performance thresholds but still save metrics
             if tss < PERFORMANCE_THRESHOLDS["min_tss"]:
-                print(f"❌ TSS {tss:.4f} below threshold {PERFORMANCE_THRESHOLDS['min_tss']}")
+                print(
+                    f"❌ TSS {tss:.4f} below threshold {PERFORMANCE_THRESHOLDS['min_tss']}"
+                )
                 print(f"   Still saving metrics for analysis...")
             elif metrics["accuracy"] < PERFORMANCE_THRESHOLDS["min_accuracy"]:
-                print(f"❌ Accuracy {metrics['accuracy']:.4f} below threshold {PERFORMANCE_THRESHOLDS['min_accuracy']}")
+                print(
+                    f"❌ Accuracy {metrics['accuracy']:.4f} below threshold {PERFORMANCE_THRESHOLDS['min_accuracy']}"
+                )
                 print(f"   Still saving metrics for analysis...")
             else:
                 print(f"✅ Trial completed in {elapsed:.1f}s")
                 print(f"   TSS: {tss:.4f}, Accuracy: {metrics['accuracy']:.4f}")
-                print(f"   Precision: {metrics['precision']:.4f}, Recall: {metrics['recall']:.4f}")
+                print(
+                    f"   Precision: {metrics['precision']:.4f}, Recall: {metrics['recall']:.4f}"
+                )
 
             return tss
 
@@ -476,12 +517,12 @@ if __name__ == "__main__":
 
     # Create test trial
     import optuna
+
     study = optuna.create_study(direction="maximize")
 
     # Create objective
     objective = create_objective(
-        DEFAULT_TARGET["flare_class"],
-        DEFAULT_TARGET["time_window"]
+        DEFAULT_TARGET["flare_class"], DEFAULT_TARGET["time_window"]
     )
 
     # Run one trial

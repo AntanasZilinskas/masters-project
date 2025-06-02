@@ -90,8 +90,12 @@ class AblationObjective:
             self.y_val = np.array(self.y_val)
 
             print(f"Data loaded successfully:")
-            print(f"  Training: {self.X_train.shape[0]} samples, shape: {self.X_train.shape}")
-            print(f"  Validation: {self.X_val.shape[0]} samples, shape: {self.X_val.shape}")
+            print(
+                f"  Training: {self.X_train.shape[0]} samples, shape: {self.X_train.shape}"
+            )
+            print(
+                f"  Validation: {self.X_val.shape[0]} samples, shape: {self.X_val.shape}"
+            )
             print(f"  Positive rate (train): {self.y_train.mean():.3f}")
             print(f"  Positive rate (val): {self.y_val.mean():.3f}")
 
@@ -108,50 +112,50 @@ class AblationObjective:
                 "use_evidential": True,
                 "use_evt": True,
                 "use_precursor": True,
-                "loss_weights": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05}
+                "loss_weights": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05},
             },
             "no_evidential": {
                 "use_attention_bottleneck": True,
                 "use_evidential": False,
                 "use_evt": True,
                 "use_precursor": True,
-                "loss_weights": {"focal": 0.8, "evid": 0.0, "evt": 0.2, "prec": 0.05}
+                "loss_weights": {"focal": 0.8, "evid": 0.0, "evt": 0.2, "prec": 0.05},
             },
             "no_evt": {
                 "use_attention_bottleneck": True,
                 "use_evidential": True,
                 "use_evt": False,
                 "use_precursor": True,
-                "loss_weights": {"focal": 0.8, "evid": 0.2, "evt": 0.0, "prec": 0.05}
+                "loss_weights": {"focal": 0.8, "evid": 0.2, "evt": 0.0, "prec": 0.05},
             },
             "mean_pool": {
                 "use_attention_bottleneck": False,
                 "use_evidential": True,
                 "use_evt": True,
                 "use_precursor": True,
-                "loss_weights": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05}
+                "loss_weights": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05},
             },
             "cross_entropy": {
                 "use_attention_bottleneck": True,
                 "use_evidential": False,
                 "use_evt": False,
                 "use_precursor": True,
-                "loss_weights": {"focal": 1.0, "evid": 0.0, "evt": 0.0, "prec": 0.05}
+                "loss_weights": {"focal": 1.0, "evid": 0.0, "evt": 0.0, "prec": 0.05},
             },
             "no_precursor": {
                 "use_attention_bottleneck": True,
                 "use_evidential": True,
                 "use_evt": True,
                 "use_precursor": False,
-                "loss_weights": {"focal": 0.75, "evid": 0.1, "evt": 0.15, "prec": 0.0}
+                "loss_weights": {"focal": 0.75, "evid": 0.1, "evt": 0.15, "prec": 0.0},
             },
             "fp32_training": {
                 "use_attention_bottleneck": True,
                 "use_evidential": True,
                 "use_evt": True,
                 "use_precursor": True,
-                "loss_weights": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05}
-            }
+                "loss_weights": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05},
+            },
         }
 
         return variants[self.variant_name]
@@ -166,7 +170,7 @@ class AblationObjective:
             "dropout": 0.23876978467047777,
             "focal_gamma": 3.4223204654921875,
             "learning_rate": 0.0006926769179941219,
-            "batch_size": 1024
+            "batch_size": 1024,
         }
 
         # Get ablation configuration
@@ -179,7 +183,7 @@ class AblationObjective:
             use_evidential=ablation_config["use_evidential"],
             use_evt=ablation_config["use_evt"],
             use_precursor=ablation_config["use_precursor"],
-            loss_weights=ablation_config["loss_weights"]
+            loss_weights=ablation_config["loss_weights"],
         )
 
         # Update optimizer with optimal learning rate (EXACT same as HPO)
@@ -187,7 +191,7 @@ class AblationObjective:
             wrapper.model.parameters(),
             lr=optimal_hyperparams["learning_rate"],
             weight_decay=1e-4,
-            fused=True
+            fused=True,
         )
 
         return wrapper, optimal_hyperparams
@@ -221,7 +225,7 @@ class AblationObjective:
                 flare_class="M5",
                 time_window="72",
                 in_memory_dataset=True,
-                track_emissions=False  # Disable for cluster
+                track_emissions=False,  # Disable for cluster
             )
 
             # Evaluate on validation set
@@ -230,7 +234,12 @@ class AblationObjective:
             y_pred = (y_pred_proba >= 0.5).astype(int).squeeze()
 
             # Calculate metrics
-            from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+            from sklearn.metrics import (
+                accuracy_score,
+                precision_score,
+                recall_score,
+                f1_score,
+            )
 
             accuracy = accuracy_score(self.y_val, y_pred)
             precision = precision_score(self.y_val, y_pred, zero_division=0)
@@ -257,9 +266,9 @@ class AblationObjective:
                     "f1": f1,
                     "tss": tss,
                     "sensitivity": sensitivity,
-                    "specificity": specificity
+                    "specificity": specificity,
                 },
-                "training_history": model.history
+                "training_history": model.history,
             }
 
             print(f"✅ Experiment completed successfully!")
@@ -273,6 +282,7 @@ class AblationObjective:
         except Exception as e:
             print(f"❌ Experiment failed: {e}")
             import traceback
+
             traceback.print_exc()
             return None
 
@@ -290,6 +300,7 @@ def validate_gpu():
     """Validate GPU configuration (EXACT same as HPO)."""
     try:
         import torch
+
         print(f"   • Validating GPU configuration...")
 
         if torch.cuda.is_available():
@@ -302,8 +313,11 @@ def validate_gpu():
             print(f"   ⚠️  GPU not available - checking if this is a local test...")
             # Check if we're running locally (not on cluster)
             import os
-            if 'PBS_O_WORKDIR' not in os.environ and 'SLURM_JOB_ID' not in os.environ:
-                print(f"   ℹ️  Local environment detected - GPU validation skipped for testing")
+
+            if "PBS_O_WORKDIR" not in os.environ and "SLURM_JOB_ID" not in os.environ:
+                print(
+                    f"   ℹ️  Local environment detected - GPU validation skipped for testing"
+                )
                 print(f"   ⚠️  Note: This will fail on cluster without GPU!")
                 return True
             else:
@@ -317,13 +331,24 @@ def validate_gpu():
 
 def main():
     """Main function (EXACT same structure as HPO)."""
-    parser = argparse.ArgumentParser(description="EVEREST Component Ablation Study - HPO Pattern")
+    parser = argparse.ArgumentParser(
+        description="EVEREST Component Ablation Study - HPO Pattern"
+    )
 
-    parser.add_argument("--variant",
-                        choices=["full_model", "no_evidential", "no_evt", "mean_pool",
-                                 "cross_entropy", "no_precursor", "fp32_training"],
-                        required=True,
-                        help="Component ablation variant to run")
+    parser.add_argument(
+        "--variant",
+        choices=[
+            "full_model",
+            "no_evidential",
+            "no_evt",
+            "mean_pool",
+            "cross_entropy",
+            "no_precursor",
+            "fp32_training",
+        ],
+        required=True,
+        help="Component ablation variant to run",
+    )
 
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
 

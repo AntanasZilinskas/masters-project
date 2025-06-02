@@ -73,9 +73,7 @@ def train(time_window, flare_class):
     )
 
     # Save model weights
-    w_dir = os.path.join(
-        "models", "multimodal", str(time_window), str(flare_class)
-    )
+    w_dir = os.path.join("models", "multimodal", str(time_window), str(flare_class))
     model.save_weights(flare_class=flare_class, w_dir=w_dir)
 
     log(

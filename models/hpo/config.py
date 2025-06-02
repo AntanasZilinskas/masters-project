@@ -16,19 +16,15 @@ from typing import Dict, Any, List, Tuple
 HPO_SEARCH_SPACE = {
     # Model capacity
     "embed_dim": [64, 128, 192, 256],  # capacity vs. latency
-    "num_blocks": [4, 6, 8],           # encoder depth L - receptive field
-
+    "num_blocks": [4, 6, 8],  # encoder depth L - receptive field
     # Regularization
-    "dropout": (0.05, 0.40),           # over-fit control - Uniform[0.05,0.40]
-
+    "dropout": (0.05, 0.40),  # over-fit control - Uniform[0.05,0.40]
     # Class-imbalance focus
-    "focal_gamma": (1.0, 4.0),         # minority gradient - Uniform[1,4]
-
+    "focal_gamma": (1.0, 4.0),  # minority gradient - Uniform[1,4]
     # Optimizer dynamics
-    "learning_rate": (2e-4, 8e-4),     # peak LR - Log-Uniform[2×10^-4, 8×10^-4]
-
+    "learning_rate": (2e-4, 8e-4),  # peak LR - Log-Uniform[2×10^-4, 8×10^-4]
     # Throughput knob
-    "batch_size": [256, 512, 768, 1024]  # throughput vs. generalisation
+    "batch_size": [256, 512, 768, 1024],  # throughput vs. generalisation
 }
 
 # Best configuration found (from paper)
@@ -38,7 +34,7 @@ BEST_CONFIG = {
     "dropout": 0.20,
     "focal_gamma": 2.0,
     "learning_rate": 4e-4,
-    "batch_size": 512
+    "batch_size": 512,
 }
 
 # ============================================================================
@@ -46,40 +42,28 @@ BEST_CONFIG = {
 # ============================================================================
 
 SEARCH_STAGES = {
-    "exploration": {
-        "trials": 120,
-        "epochs": 20,
-        "purpose": "Coarse global sweep"
-    },
-    "refinement": {
-        "trials": 40,
-        "epochs": 60,
-        "purpose": "Zoom on top quartile"
-    },
-    "confirmation": {
-        "trials": 6,
-        "epochs": 120,
-        "purpose": "Full-length convergence"
-    }
+    "exploration": {"trials": 120, "epochs": 20, "purpose": "Coarse global sweep"},
+    "refinement": {"trials": 40, "epochs": 60, "purpose": "Zoom on top quartile"},
+    "confirmation": {"trials": 6, "epochs": 120, "purpose": "Full-length convergence"},
 }
 
 # Extended configuration for thorough optimization
 SEARCH_STAGES_EXTENDED = {
     "exploration": {
         "trials": 200,  # Increased from 120
-        "epochs": 30,   # Increased from 20
-        "purpose": "Comprehensive global sweep"
+        "epochs": 30,  # Increased from 20
+        "purpose": "Comprehensive global sweep",
     },
     "refinement": {
-        "trials": 80,   # Increased from 40
-        "epochs": 80,   # Increased from 60
-        "purpose": "Deep zoom on top quartile"
+        "trials": 80,  # Increased from 40
+        "epochs": 80,  # Increased from 60
+        "purpose": "Deep zoom on top quartile",
     },
     "confirmation": {
-        "trials": 12,   # Increased from 6
+        "trials": 12,  # Increased from 6
         "epochs": 150,  # Increased from 120
-        "purpose": "Extended convergence validation"
-    }
+        "purpose": "Extended convergence validation",
+    },
 }
 
 # ============================================================================
@@ -87,15 +71,14 @@ SEARCH_STAGES_EXTENDED = {
 # ============================================================================
 
 FIXED_ARCHITECTURE = {
-    "input_shape": (10, 9),    # (timesteps, features)
-    "ff_dim": 256,             # feedforward dimension
-    "num_heads": 4,            # attention heads
-
+    "input_shape": (10, 9),  # (timesteps, features)
+    "ff_dim": 256,  # feedforward dimension
+    "num_heads": 4,  # attention heads
     # Ablation flags (set based on study requirements)
     "use_attention_bottleneck": True,
     "use_evidential": True,
     "use_evt": True,
-    "use_precursor": True
+    "use_precursor": True,
 }
 
 # ============================================================================
@@ -104,10 +87,10 @@ FIXED_ARCHITECTURE = {
 
 # HPO objective configuration
 HPO_OBJECTIVE_CONFIG = {
-    "metric": "tss",           # Primary optimization metric
-    "direction": "maximize",   # Maximize TSS
-    "n_trials": 100,          # Number of trials per stage
-    "timeout": 3600           # Timeout in seconds
+    "metric": "tss",  # Primary optimization metric
+    "direction": "maximize",  # Maximize TSS
+    "n_trials": 100,  # Number of trials per stage
+    "timeout": 3600,  # Timeout in seconds
 }
 
 # HPO study configuration
@@ -115,7 +98,7 @@ HPO_STUDY_CONFIG = {
     "storage": "sqlite:///models/hpo/optuna_studies.db",
     "study_name": "everest_hpo_v4.1",
     "sampler": "TPESampler",
-    "pruner": "MedianPruner"
+    "pruner": "MedianPruner",
 }
 
 # HPO output configuration
@@ -123,30 +106,29 @@ HPO_OUTPUT_CONFIG = {
     "results_dir": "models/hpo/results",
     "best_models_dir": "models/hpo/best_models",
     "studies_dir": "models/hpo/studies",
-    "plots_dir": "models/hpo/plots"
+    "plots_dir": "models/hpo/plots",
 }
 
 OPTUNA_CONFIG = {
     "study_name": "everest_hpo_v4.1",
-    "direction": "maximize",     # maximize TSS
-    "sampler": "TPESampler",     # Tree-structured Parzen Estimator
-    "pruner": "MedianPruner",    # median-stopping pruner
+    "direction": "maximize",  # maximize TSS
+    "sampler": "TPESampler",  # Tree-structured Parzen Estimator
+    "pruner": "MedianPruner",  # median-stopping pruner
     "storage": "sqlite:///models/hpo/optuna_studies.db",
-
     # Pruner configuration
     "pruner_config": {
-        "n_startup_trials": 10,     # min trials before pruning
-        "n_warmup_steps": 5,        # min epochs before pruning
-        "interval_steps": 1         # check every epoch
-    }
+        "n_startup_trials": 10,  # min trials before pruning
+        "n_warmup_steps": 5,  # min epochs before pruning
+        "interval_steps": 1,  # check every epoch
+    },
 }
 
 RAY_TUNE_CONFIG = {
     "num_cpus": os.cpu_count(),
     "num_gpus": 1 if os.getenv("CUDA_VISIBLE_DEVICES") else 0,
     "max_concurrent_trials": 4,  # adjust based on available resources
-    "grace_period": 10,          # minimum epochs before stopping
-    "reduction_factor": 2        # factor for successive halving
+    "grace_period": 10,  # minimum epochs before stopping
+    "reduction_factor": 2,  # factor for successive halving
 }
 
 # ============================================================================
@@ -163,7 +145,7 @@ EXPERIMENT_TARGETS = [
     {"flare_class": "M5", "time_window": "48"},
     {"flare_class": "C", "time_window": "72"},
     {"flare_class": "M", "time_window": "72"},
-    {"flare_class": "M5", "time_window": "72"}
+    {"flare_class": "M5", "time_window": "72"},
 ]
 
 # Default target for single experiments
@@ -177,7 +159,7 @@ REPRODUCIBILITY_CONFIG = {
     "git_tag": "v4.1-hpo-prod",
     "random_seed": 42,
     "torch_deterministic": True,
-    "log_level": "INFO"
+    "log_level": "INFO",
 }
 
 # Output directories
@@ -187,7 +169,7 @@ OUTPUT_DIRS = {
     "results": "models/hpo/results",
     "logs": "models/hpo/logs",
     "plots": "models/hpo/plots",
-    "models": "models/hpo/best_models"
+    "models": "models/hpo/best_models",
 }
 
 # ============================================================================
@@ -203,14 +185,14 @@ SECONDARY_METRICS = [
     "roc_auc",
     "brier_score",
     "ece",  # Expected Calibration Error
-    "inference_latency"
+    "inference_latency",
 ]
 
 # Performance thresholds (for early stopping/filtering)
 PERFORMANCE_THRESHOLDS = {
-    "min_tss": 0.3,      # minimum acceptable TSS
+    "min_tss": 0.3,  # minimum acceptable TSS
     "max_latency": 60.0,  # maximum acceptable inference time (seconds)
-    "min_accuracy": 0.7   # minimum acceptable accuracy
+    "min_accuracy": 0.7,  # minimum acceptable accuracy
 }
 
 # ============================================================================
@@ -221,7 +203,7 @@ LOSS_WEIGHTS_CONFIG = {
     # 3-phase schedule as in the model
     "phase_1": {"focal": 0.9, "evid": 0.1, "evt": 0.0, "prec": 0.05},  # epochs 0-19
     "phase_2": {"focal": 0.8, "evid": 0.1, "evt": 0.1, "prec": 0.05},  # epochs 20-39
-    "phase_3": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05}   # epochs 40+
+    "phase_3": {"focal": 0.7, "evid": 0.1, "evt": 0.2, "prec": 0.05},  # epochs 40+
 }
 
 # ============================================================================
@@ -238,7 +220,9 @@ def create_output_dirs() -> None:
 def get_stage_config(stage_name: str) -> Dict[str, Any]:
     """Get configuration for a specific optimization stage."""
     if stage_name not in SEARCH_STAGES:
-        raise ValueError(f"Unknown stage: {stage_name}. Choose from {list(SEARCH_STAGES.keys())}")
+        raise ValueError(
+            f"Unknown stage: {stage_name}. Choose from {list(SEARCH_STAGES.keys())}"
+        )
     return SEARCH_STAGES[stage_name]
 
 
@@ -270,6 +254,7 @@ def validate_config() -> bool:
     # Test database write permissions
     try:
         import sqlite3
+
         db_path = OPTUNA_CONFIG["storage"].replace("sqlite:///", "")
 
         # Create parent directory if needed
