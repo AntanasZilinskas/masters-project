@@ -1,0 +1,138 @@
+{
+    "24": {
+        "C": {
+            "accuracy": 0.8562,
+            "precision": 0.9264,
+            "recall": 0.856,
+            "f1_score": 0.8898,
+            "balanced_accuracy": 0.8563,
+            "TSS": 0.7125,
+            "ROC_AUC": 0.9393,
+            "Brier": 0.0964,
+            "ECE": 0.0388,
+            "true_positives": 24874,
+            "false_positives": 1976,
+            "true_negatives": 11793,
+            "false_negatives": 4184,
+            "sensitivity": 0.856,
+            "specificity": 0.8565,
+            "positive_predictive_value": 0.9264,
+            "negative_predictive_value": 0.7381,
+            "status": "Success",
+            "test_samples": 42827,
+            "positive_samples": 29058,
+            "negative_samples": 13769
+        },
+        "M": {
+            "accuracy": 0.9815,
+            "precision": 0.7794,
+            "recall": 0.4934,
+            "f1_score": 0.6043,
+            "balanced_accuracy": 0.7447,
+            "TSS": 0.4893,
+            "ROC_AUC": 0.9795,
+            "Brier": 0.0142,
+            "ECE": 0.0032,
+            "true_positives": 675,
+            "false_positives": 191,
+            "true_negatives": 46216,
+            "false_negatives": 693,
+            "sensitivity": 0.4934,
+            "specificity": 0.9959,
+            "positive_predictive_value": 0.7794,
+            "negative_predictive_value": 0.9852,
+            "status": "Success",
+            "test_samples": 47775,
+            "positive_samples": 1368,
+            "negative_samples": 46407
+        },
+        "M5": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A",
+            "ROC_AUC": "N/A",
+            "Brier": "N/A",
+            "ECE": "N/A",
+            "f1_score": "N/A",
+            "status": "Model weights not found"
+        }
+    },
+    "48": {
+        "C": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A",
+            "ROC_AUC": "N/A",
+            "Brier": "N/A",
+            "ECE": "N/A",
+            "f1_score": "N/A",
+            "status": "Model weights not found"
+        },
+        "M": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A",
+            "ROC_AUC": "N/A",
+            "Brier": "N/A",
+            "ECE": "N/A",
+            "f1_score": "N/A",
+            "status": "Model weights not found"
+        },
+        "M5": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A",
+            "ROC_AUC": "N/A",
+            "Brier": "N/A",
+            "ECE": "N/A",
+            "f1_score": "N/A",
+            "status": "Model weights not found"
+        }
+    },
+    "72": {
+        "C": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A",
+            "ROC_AUC": "N/A",
+            "Brier": "N/A",
+            "ECE": "N/A",
+            "f1_score": "N/A",
+            "status": "Model weights not found"
+        },
+        "M": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A",
+            "ROC_AUC": "N/A",
+            "Brier": "N/A",
+            "ECE": "N/A",
+            "f1_score": "N/A",
+            "status": "Model weights not found"
+        },
+        "M5": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A",
+            "ROC_AUC": "N/A",
+            "Brier": "N/A",
+            "ECE": "N/A",
+            "f1_score": "N/A",
+            "status": "Model weights not found"
+        }
+    }
+}
