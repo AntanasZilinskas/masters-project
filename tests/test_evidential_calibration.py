@@ -18,7 +18,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.calibration import calibration_curve
-import matplotlib.pyplot as plt
+
+# Conditional matplotlib import
+try:
+    import matplotlib.pyplot as plt
+    HAS_MATPLOTLIB = True
+except ImportError:
+    plt = None
+    HAS_MATPLOTLIB = False
 
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -482,6 +489,10 @@ def compare_calibration_methods():
 
 def generate_evidential_plots(results: Dict, baseline_ece: float, save_path: Path):
     """Generate comparison plots for evidential vs baseline calibration."""
+    
+    if not HAS_MATPLOTLIB:
+        print("⚠️ matplotlib not available - skipping plot generation")
+        return
 
     mean_pred = results["mean_pred"]
     frac_pos = results["frac_pos"]
