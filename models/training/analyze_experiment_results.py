@@ -258,9 +258,13 @@ class ExperimentAnalyzer:
         bin_uppers = bin_boundaries[1:]
 
         ece = 0
-        for bin_lower, bin_upper in zip(bin_lowers, bin_uppers):
-            # Select samples in bin
-            in_bin = (y_prob > bin_lower) & (y_prob <= bin_upper)
+        for j, (bin_lower, bin_upper) in enumerate(zip(bin_lowers, bin_uppers)):
+            # Fix: Use consistent binning with reliability diagrams
+            if j == n_bins - 1:  # Last bin includes upper boundary
+                in_bin = (y_prob >= bin_lower) & (y_prob <= bin_upper)
+            else:
+                in_bin = (y_prob >= bin_lower) & (y_prob < bin_upper)
+            
             prop_in_bin = in_bin.mean()
 
             if prop_in_bin > 0:
@@ -642,7 +646,6 @@ class ExperimentAnalyzer:
             # Calculate reliability curve
             n_bins = 15
             bin_boundaries = np.linspace(0, 1, n_bins + 1)
-            bin_centers = (bin_boundaries[:-1] + bin_boundaries[1:]) / 2
 
             bin_accuracies = []
             bin_confidences = []
@@ -652,26 +655,25 @@ class ExperimentAnalyzer:
                 bin_lower = bin_boundaries[j]
                 bin_upper = bin_boundaries[j + 1]
 
-                in_bin = (y_prob >= bin_lower) & (y_prob < bin_upper)
                 if j == n_bins - 1:  # Include upper boundary for last bin
                     in_bin = (y_prob >= bin_lower) & (y_prob <= bin_upper)
-
-                if np.sum(in_bin) > 0:
-                    bin_accuracy = np.mean(y_true[in_bin])
-                    bin_confidence = np.mean(y_prob[in_bin])
-                    bin_count = np.sum(in_bin)
                 else:
-                    bin_accuracy = 0
-                    bin_confidence = bin_centers[j]
-                    bin_count = 0
+                    in_bin = (y_prob >= bin_lower) & (y_prob < bin_upper)
 
-                bin_accuracies.append(bin_accuracy)
-                bin_confidences.append(bin_confidence)
-                bin_counts.append(bin_count)
+                if np.sum(in_bin) > 0:  # Only process non-empty bins
+                    bin_accuracy = np.mean(y_true[in_bin])
+                    bin_confidence = np.mean(y_prob[in_bin])  # Actual mean, not bin center
+                    bin_count = np.sum(in_bin)
+                    
+                    # Only append if bin has samples
+                    bin_accuracies.append(bin_accuracy)
+                    bin_confidences.append(bin_confidence)
+                    bin_counts.append(bin_count)
 
-            # Plot reliability curve
+            # Plot reliability curve (only non-empty bins)
             ax.plot([0, 1], [0, 1], "k--", alpha=0.5, label="Perfect calibration")
-            ax.plot(bin_confidences, bin_accuracies, "o-", label="Model")
+            if bin_confidences:  # Only plot if we have data
+                ax.plot(bin_confidences, bin_accuracies, "o-", label="Model")
 
             ax.set_xlabel("Mean Predicted Probability")
             ax.set_ylabel("Fraction of Positives")

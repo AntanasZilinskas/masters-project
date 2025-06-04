@@ -385,8 +385,13 @@ class ProductionTrainer:
         bin_uppers = bin_boundaries[1:]
 
         ece = 0
-        for bin_lower, bin_upper in zip(bin_lowers, bin_uppers):
-            in_bin = (y_probs > bin_lower) & (y_probs <= bin_upper)
+        for j, (bin_lower, bin_upper) in enumerate(zip(bin_lowers, bin_uppers)):
+            # Fix: Use consistent binning with reliability diagrams
+            if j == n_bins - 1:  # Last bin includes upper boundary
+                in_bin = (y_probs >= bin_lower) & (y_probs <= bin_upper)
+            else:
+                in_bin = (y_probs >= bin_lower) & (y_probs < bin_upper)
+            
             prop_in_bin = in_bin.mean()
 
             if prop_in_bin > 0:
