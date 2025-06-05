@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Comprehensive analysis script for EVEREST experiment results.
+Analysis of EVEREST experiment results.
 Calculates performance metrics, bootstrapped confidence intervals, and generates paper tables.
 """
 
@@ -664,7 +664,7 @@ class ExperimentAnalyzer:
                     bin_accuracy = np.mean(y_true[in_bin])
                     bin_confidence = np.mean(y_prob[in_bin])  # Actual mean, not bin center
                     bin_count = np.sum(in_bin)
-                    
+
                     # Only append if bin has samples
                     bin_accuracies.append(bin_accuracy)
                     bin_confidences.append(bin_confidence)

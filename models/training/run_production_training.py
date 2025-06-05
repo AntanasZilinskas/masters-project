@@ -1,5 +1,6 @@
+#!/usr/bin/env python3
 """
-EVEREST Production Training Orchestration
+Run production training for all EVEREST model configurations.
 
 This script orchestrates the training of all production EVEREST models
 across all flare class × time window combinations with multiple seeds.
@@ -120,7 +121,7 @@ def run_all_experiments(
         all_experiments = filtered_experiments
 
     print(f"📊 Running {len(all_experiments)} experiments")
-    print(f"🔧 Max workers: {max_workers}")
+    print(f"�� Max workers: {max_workers}")
 
     if targets_filter:
         print(f"🎯 Filtered targets: {targets_filter}")

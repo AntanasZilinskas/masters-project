@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Main script for running EVEREST ablation studies.
+Run complete ablation study for EVEREST components.
 
 This script orchestrates the complete ablation study including:
 - Component ablations (6 variants)

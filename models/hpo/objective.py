@@ -1,8 +1,5 @@
 """
-Objective Function for EVEREST Hyperparameter Optimization
-
-This module defines the objective function that Optuna will optimize,
-integrating with the RETPlusWrapper and computing TSS as the primary metric.
+Objective function for EVEREST hyperparameter optimization.
 """
 
 from .config import (
@@ -35,22 +32,10 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 
 class HPOObjective:
-    """
-    Optuna objective function for EVEREST hyperparameter optimization.
-
-    This class encapsulates the training and evaluation logic for a single
-    trial, computing TSS (True Skill Statistic) as the primary metric.
-    """
+    """Optuna objective function for EVEREST hyperparameter optimization."""
 
     def __init__(self, flare_class: str, time_window: str, use_validation: bool = True):
-        """
-        Initialize the objective function.
-
-        Args:
-            flare_class: Target flare class ("C", "M", "M5")
-            time_window: Prediction window ("24", "48", "72")
-            use_validation: Whether to use separate validation data
-        """
+        """Initialize objective function for given flare class and time window."""
         self.flare_class = flare_class
         self.time_window = time_window
         self.use_validation = use_validation
