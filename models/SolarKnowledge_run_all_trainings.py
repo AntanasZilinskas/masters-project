@@ -12,6 +12,7 @@
 """
 
 import argparse
+<<<<<<< Updated upstream
 import os
 import warnings
 
@@ -47,6 +48,50 @@ def train(
 
     # Determine version automatically if not specified or auto_increment is
     # True
+=======
+import tensorflow as tf
+import numpy as np
+from utils import get_training_data, data_transform, log, supported_flare_class
+from SolarKnowledge_model import SolarKnowledge
+from model_tracking import (
+    save_model_with_metadata, 
+    compare_models, 
+    get_next_version,
+    get_latest_version
+)
+
+def get_focal_loss(gamma=2.0, alpha=0.25):
+    """
+    Create a focal loss function to better handle class imbalance.
+    
+    Args:
+        gamma: Focusing parameter that places more emphasis on hard examples
+        alpha: Weighting factor for the positive class
+        
+    Returns:
+        A callable focal loss function
+    """
+    def focal_loss(y_true, y_pred):
+        # Clip to prevent NaN's and Inf's
+        epsilon = tf.keras.backend.epsilon()
+        y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
+        
+        # Calculate cross entropy
+        cross_entropy = -y_true * tf.math.log(y_pred)
+        
+        # Calculate focal loss
+        loss = alpha * tf.math.pow(1 - y_pred, gamma) * cross_entropy
+        
+        # Sum over classes, average over batch
+        return tf.reduce_mean(tf.reduce_sum(loss, axis=-1))
+    
+    return focal_loss
+
+def train(time_window, flare_class, version=None, description=None, auto_increment=True):
+    log('Training is initiated for time window: ' + str(time_window) + ' and flare class: ' + flare_class, verbose=True)
+    
+    # Determine version automatically if not specified or auto_increment is True
+>>>>>>> Stashed changes
     if version is None or auto_increment:
         version = get_next_version(flare_class, time_window)
         log(
@@ -66,6 +111,33 @@ def train(
     # Load training data and transform the labels (one-hot encoding)
     X_train, y_train = get_training_data(time_window, flare_class)
     y_train_tr = data_transform(y_train)
+<<<<<<< Updated upstream
+=======
+    
+    # For mixed precision, we need to clean the data first then convert to float32
+    # (The model will internally use float16 for computation)
+    if not isinstance(X_train, np.ndarray):
+        X_train = np.array(X_train)
+    if not isinstance(y_train_tr, np.ndarray):
+        y_train_tr = np.array(y_train_tr)
+    
+    # Always use float32 for inputs when using mixed precision
+    # (TensorFlow will handle the float16 conversions internally)
+    X_train = tf.convert_to_tensor(X_train, dtype=tf.float32)
+    y_train_tr = tf.convert_to_tensor(y_train_tr, dtype=tf.float32)
+    
+    log(f"Input data shapes - X_train: {X_train.shape}, y_train_tr: {y_train_tr.shape}", verbose=True)
+    log(f"Input data types - X_train: {X_train.dtype}, y_train_tr: {y_train_tr.dtype}", verbose=True)
+    
+    # Fixed at 100 epochs like in the original working model
+    epochs = 100  
+    input_shape = (X_train.shape[1], X_train.shape[2])
+    
+    # Create an instance of the SolarKnowledge transformer-based model.
+    model = SolarKnowledge(early_stopping_patience=3)  # Original early stopping patience
+    model.build_base_model(input_shape)  # Build the model
+    model.compile()
+>>>>>>> Stashed changes
 
     epochs = 100  # extend the number of epochs to let the model converge further
     input_shape = (X_train.shape[1], X_train.shape[2])
@@ -112,11 +184,12 @@ def train(
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
         monitor="loss", factor=0.5, patience=3, verbose=1, min_lr=1e-6
     )
-
+    
     # Combine existing callbacks with the learning rate scheduler
     callbacks = model.callbacks + [reduce_lr]
-
+    
     # Train the model and store the history
+<<<<<<< Updated upstream
     log(
         f"Starting training for {flare_class}-class flares with {time_window}h window",
         verbose=True,
@@ -158,6 +231,35 @@ def train(
         "focal_loss_alpha": 0.25,
         "focal_loss_gamma": 2.0,
         "class_weights": class_weight,
+=======
+    log(f"Starting training for {flare_class}-class flares with {time_window}h window", verbose=True)
+    history = model.model.fit(X_train, y_train_tr,
+                    epochs=epochs,
+                    verbose=2,
+                    batch_size=512,
+                    callbacks=callbacks)
+    
+    # Get performance metrics from training history
+    metrics = {}
+    if history.history and 'accuracy' in history.history:
+        # Convert tensor metrics to Python values for serialization
+        metrics['final_training_accuracy'] = float(history.history['accuracy'][-1])
+        metrics['final_training_loss'] = float(history.history['loss'][-1])
+        metrics['epochs_trained'] = len(history.history['accuracy'])
+    
+    # Create hyperparameters dictionary
+    hyperparams = {
+        'learning_rate': 1e-4,
+        'batch_size': 512,
+        'early_stopping_patience': 3,
+        'epochs': epochs,
+        'num_transformer_blocks': 6,
+        'embed_dim': 128,
+        'num_heads': 4,
+        'ff_dim': 256,
+        'dropout_rate': 0.2,
+        'precision': 'mixed_float16'  # Document the precision policy used
+>>>>>>> Stashed changes
     }
 
     # Include information about previous version in metadata if it exists

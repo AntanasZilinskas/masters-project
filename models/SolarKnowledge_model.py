@@ -11,6 +11,7 @@ from datetime import datetime
 
 import numpy as np
 import tensorflow as tf
+<<<<<<< Updated upstream
 from tensorflow.keras import layers, models, regularizers
 from tensorflow.keras.callbacks import EarlyStopping
 
@@ -98,6 +99,36 @@ class TrueSkillStatisticMetric(tf.keras.metrics.Metric):
         self.false_positives.assign(0)
         self.false_negatives.assign(0)
 
+=======
+# Enable mixed precision
+from tensorflow.keras.mixed_precision import set_global_policy
+set_global_policy('mixed_float16')
+print("Mixed precision enabled with policy:", tf.keras.mixed_precision.global_policy())
+
+from tensorflow.keras import layers, models, regularizers
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.mixed_precision import LossScaleOptimizer
+import numpy as np
+import shutil
+>>>>>>> Stashed changes
+
+# Set GPU memory growth (this works for both GPU/MPS on Apple Silicon)
+physical_devices = tf.config.list_physical_devices('GPU')
+if physical_devices:
+    for device in physical_devices:
+        tf.config.experimental.set_memory_growth(device, enable=True)
+    print(f"SUCCESS: Found and set memory growth for {len(physical_devices)} GPU device(s).")
+else:
+    print("WARNING: GPU device not found. Using CPU.")
+
+# Custom casting layer that works with Keras
+class CastLayer(layers.Layer):
+    def __init__(self, dtype):
+        super(CastLayer, self).__init__()
+        self.dtype = dtype
+        
+    def call(self, inputs):
+        return tf.cast(inputs, self.dtype)
 
 # -----------------------------
 # Positional Encoding Layer
@@ -107,7 +138,7 @@ class TrueSkillStatisticMetric(tf.keras.metrics.Metric):
 class PositionalEncoding(layers.Layer):
     def __init__(self, max_len, embed_dim):
         super(PositionalEncoding, self).__init__()
-        # Precompute positional encoding (in float32) and cast later in call().
+        # Precompute positional encoding in float32 and cast to float16 when needed
         self.pos_encoding = self.positional_encoding(max_len, embed_dim)
 
     def get_angles(self, pos, i, d_model):
@@ -129,9 +160,14 @@ class PositionalEncoding(layers.Layer):
 
     def call(self, inputs):
         seq_len = tf.shape(inputs)[1]
+<<<<<<< Updated upstream
         # Cast the positional encoding to the same dtype as inputs (for mixed
         # precision)
         pos_encoding = tf.cast(self.pos_encoding[:, :seq_len, :], dtype=inputs.dtype)
+=======
+        # Cast positional encoding to match input dtype
+        pos_encoding = tf.cast(self.pos_encoding[:, :seq_len, :], inputs.dtype)
+>>>>>>> Stashed changes
         return inputs + pos_encoding
 
 
@@ -188,6 +224,7 @@ class SolarKnowledge:
             )
         ]
 
+<<<<<<< Updated upstream
     def build_base_model(
         self,
         input_shape,
@@ -198,15 +235,28 @@ class SolarKnowledge:
         dropout_rate=0.2,
         num_classes=2,
     ):
+=======
+    def build_base_model(self, input_shape, 
+                         embed_dim=128,
+                         num_heads=4, 
+                         ff_dim=256,
+                         num_transformer_blocks=6,
+                         dropout_rate=0.2,
+                         num_classes=2):
+>>>>>>> Stashed changes
         """
         Build a transformer-based model for time-series classification.
         input_shape: tuple (timesteps, features)
         """
-        inputs = layers.Input(shape=input_shape)
+        # Create the input layer
+        inputs = layers.Input(shape=input_shape, dtype='float32')
         self.input_tensor = inputs
+        
+        # Use a proper Keras layer for casting to float16
+        x = CastLayer(dtype='float16')(inputs)
 
         # Project the input features into a higher-dimensional embedding space.
-        x = layers.Dense(embed_dim)(inputs)
+        x = layers.Dense(embed_dim)(x)
         x = layers.LayerNormalization(epsilon=1e-6)(x)
         x = layers.Dropout(dropout_rate)(x)
 
@@ -220,6 +270,7 @@ class SolarKnowledge:
         # Global average pooling and a dense classification head.
         x = layers.GlobalAveragePooling1D()(x)
         x = layers.Dropout(dropout_rate)(x)
+<<<<<<< Updated upstream
         x = layers.Dense(
             128,
             activation=tf.keras.activations.gelu,
@@ -231,6 +282,19 @@ class SolarKnowledge:
             activation="softmax",
             activity_regularizer=regularizers.l2(1e-5),
         )(x)
+=======
+        
+        # More aggressive regularization in intermediate layer
+        x = layers.Dense(128, activation=tf.keras.activations.gelu,
+                       kernel_regularizer=regularizers.l1_l2(l1=1e-4, l2=1e-3))(x)
+        x = layers.LayerNormalization(epsilon=1e-6)(x)
+        x = layers.Dropout(dropout_rate + 0.1)(x)  # Slightly higher dropout
+        
+        # The last layer automatically casts to float32 for numerical stability
+        outputs = layers.Dense(num_classes, activation='softmax',
+                             kernel_regularizer=regularizers.l1_l2(l1=1e-4, l2=1e-3),
+                             activity_regularizer=regularizers.l2(1e-4))(x)
+>>>>>>> Stashed changes
 
         self.model = models.Model(inputs=inputs, outputs=outputs)
         return self.model
@@ -241,6 +305,7 @@ class SolarKnowledge:
         else:
             print("Model is not built yet!")
 
+<<<<<<< Updated upstream
     def compile(
         self,
         loss="categorical_crossentropy",
@@ -250,6 +315,19 @@ class SolarKnowledge:
     ):
         """
         Compile the model with specified loss and metrics.
+=======
+    def compile(self, loss='categorical_crossentropy', metrics=['accuracy'], learning_rate=1e-4):
+        # Set up optimizer with loss scaling for mixed precision
+        optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+        optimizer = LossScaleOptimizer(optimizer)
+        
+        # Compile the model
+        self.model.compile(
+            optimizer=optimizer,
+            loss=loss,
+            metrics=metrics
+        )
+>>>>>>> Stashed changes
 
         Args:
             loss: Loss function to use. If use_focal_loss is True, this will be overridden.
