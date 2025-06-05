@@ -1,0 +1,19 @@
+\begin{table}[htbp]
+  \centering
+  \caption{Component ablation study results on the validation set
+           (mean $\pm$~s.d.\ over five seeds).}
+  \label{tab:component_ablation}
+  \begin{tabular}{lcccc}
+  \toprule
+  Component & $\Delta$ Params & TSS $\uparrow$ & s.d. & $p$ \\
+  \midrule
+  \textbf{Full Model (Baseline)} &        — & 0.2432 & 0.0073 &        — \\
+  No Evidential Head        &     -512 & 0.2250 & 0.0130 & $<$0.001 \\
+  No EVT Head               &     -256 & 0.2138 & 0.0121 & $<$0.001 \\
+  Mean Pooling              &      -64 & 0.2112 & 0.0080 & $<$0.001 \\
+  Cross-Entropy Loss        &     -768 & 0.1849 & 0.0084 & $<$0.001 \\
+  No Precursor Head         &     -128 & 0.2360 & 0.0096 & $<$0.001 \\
+  FP32 Training             &        — & 0.2435 & 0.0110 &     0.90 \\
+  \bottomrule
+  \end{tabular}
+\end{table}

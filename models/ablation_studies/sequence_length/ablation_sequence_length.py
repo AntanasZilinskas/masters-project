@@ -41,9 +41,7 @@ from utils import (
 
 # Add parent directory to path so we can import from models module
 sys.path.append(
-    os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    )
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
 
 # Import project utilities
@@ -95,9 +93,7 @@ def resample_sequence(sequence, target_length):
 
     # Interpolate each feature
     for i in range(num_features):
-        resampled[:, i] = np.interp(
-            target_indices, orig_indices, sequence[:, i]
-        )
+        resampled[:, i] = np.interp(target_indices, orig_indices, sequence[:, i])
 
     return resampled
 
@@ -228,14 +224,10 @@ def run_ablation_study(flare_class, time_window):
         # Calculate TSS
         cm = confusion_matrix(y_true, predicted_classes)
         sensitivity = (
-            cm[1, 1] / (cm[1, 1] + cm[1, 0])
-            if (cm[1, 1] + cm[1, 0]) > 0
-            else 0
+            cm[1, 1] / (cm[1, 1] + cm[1, 0]) if (cm[1, 1] + cm[1, 0]) > 0 else 0
         )
         specificity = (
-            cm[0, 0] / (cm[0, 0] + cm[0, 1])
-            if (cm[0, 0] + cm[0, 1]) > 0
-            else 0
+            cm[0, 0] / (cm[0, 0] + cm[0, 1]) if (cm[0, 0] + cm[0, 1]) > 0 else 0
         )
         tss = sensitivity + specificity - 1
 

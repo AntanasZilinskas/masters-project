@@ -1,0 +1,65 @@
+🔬 EVEREST Component Ablation Study - Job 33/35
+Node: cx3-11-6.cx3.hpc.ic.ac.uk
+Date: Wed 28 May 23:03:01 BST 2025
+Working directory: /rds/general/user/az2221/home/repositories/masters-project/models/ablation/cluster
+Submission directory: /rds/general/user/az2221/home/repositories/masters-project/models/ablation/cluster
+Project root: /rds/general/user/az2221/home/repositories/masters-project
+Contents: total 1093
+drwxr-sr-x. 27 az2221 hpc-rshorten   4096 May 28 03:36 .
+drwxr-sr-x.  3 az2221 hpc-rshorten   4096 May  8 03:58 ..
+-rw-------.  1 az2221 hpc-rshorten      0 May 27 06:22 ablation_${PBS_ARRAY_INDEX}.err
+-rw-------.  1 az2221 hpc-rshorten    638 May 27 06:22 ablation_${PBS_ARRAY_INDEX}.out
+Array job 33: Running component ablation experiments
+Using GPU: 4
+Conda environment: everest_env
+Python path: /rds/general/user/az2221/home/repositories/masters-project:
+Python executable: /rds/general/user/az2221/home/miniforge3/envs/everest_env/bin/python
+Python version: Python 3.11.12
+Validating GPU...
+CUDA_VISIBLE_DEVICES: 4
+PyTorch CUDA available: True
+✅ GPU available: Quadro RTX 6000 (count: 1)
+Validating data availability...
+2025-05-28 23:03:49.605776: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-05-28 23:03:49.605894: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-05-28 23:03:49.762758: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-05-28 23:03:49.880479: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-05-28 23:04:02.440331: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-05-28 23:04:17.284746: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+DEBUG: Current working directory: /rds/general/user/az2221/home/repositories/masters-project
+DEBUG: sys.path[0]: /rds/general/user/az2221/home/repositories/masters-project
+WARNING: TensorFlow GPU device not found.
+TensorFlow backend version: 2.15.0
+SUCCESS: PyTorch found GPU: Quadro RTX 6000
+PyTorch CUDA version: 12.6
+PyTorch version: 2.7.0+cu126
+Python version: 3.11.12
+
+✅ Successfully imported models.utils
+✅ Data validated: 709447 train, 71729 test samples
+🎯 Component Experiment 33/35: fp32_training (seed 2)
+2025-05-28 23:06:33.797613: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-05-28 23:06:33.797746: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-05-28 23:06:33.973364: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-05-28 23:06:34.101265: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-05-28 23:06:46.101205: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-05-28 23:07:00.198922: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+✅ Experiment 33 completed successfully
+   Type: component
+   Name: fp32_training_seed2
+   Completed at: Wed 28 May 23:24:52 BST 2025
+🏁 Job 33 finished at Wed 28 May 23:24:52 BST 2025
+
+============================================
+
+        Job resource usage summary 
+
+                 Memory (GB)    NCPUs
+ Requested  :        32             8
+ Used       :         5 (peak)   0.96 (ave)
+
+============================================

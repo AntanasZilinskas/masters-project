@@ -1,0 +1,24 @@
+
+  Run 'anaconda-setup' to set up personal installation
+
+====================================
+=== THIS MESSAGE IS NOT AN ERROR ===
+
+This module is deprecated. If you are using conda, please consider moving to our newer cluster - CX3 Phase 2.
+More info can be found here:
+https://icl-rcs-user-guide.readthedocs.io/en/latest/hpc/pilot/cx3-phase2/
+https://icl-rcs-user-guide.readthedocs.io/en/latest/hpc/pilot/cx3-phase2/#python-and-conda-environments
+
+====================================
+
+/var/spool/PBS/mom_priv/jobs/1168809[6].pbs.SC: line 14: activate: No such file or directory
+
+============================================
+
+        Job resource usage summary 
+
+                 Memory (GB)    NCPUs
+ Requested  :        64             8
+ Used       :         0 (peak)   0.00 (ave)
+
+============================================

@@ -41,7 +41,7 @@ def test(time_window, flare_class):
     y_true = y_test_tr[:]
     input_shape = (X_test.shape[1], X_test.shape[2])
 
-    w_dir = "models" + os.sep + str(time_window) + os.sep + str(flare_class)
+    w_dir = "../../archive/Nature_models_downloaded" + os.sep + str(time_window) + os.sep + str(flare_class)
 
     model = SolarFlareNet()
     model.load_model(input_shape, flare_class, w_dir=w_dir)

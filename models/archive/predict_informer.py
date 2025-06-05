@@ -1,3 +1,4 @@
+import xarray as xr
 import glob
 import logging
 import os
@@ -114,9 +115,7 @@ class GOESDataset(Dataset):
             logging.info(f"Training portion: {len(self.data)} samples")
         else:
             self.data = self.data[split_index:]
-            logging.info(
-                f"Validation/Testing portion: {len(self.data)} samples"
-            )
+            logging.info(f"Validation/Testing portion: {len(self.data)} samples")
 
         # 5) Build sliding window indices
         self.indices = []
@@ -135,9 +134,7 @@ class GOESDataset(Dataset):
         start = self.indices[idx]
         end = start + self.lookback_len
         x_seq = self.data[start:end]  # shape: [lookback_len]
-        y_seq = self.data[
-            end : end + self.forecast_len
-        ]  # shape: [forecast_len]
+        y_seq = self.data[end : end + self.forecast_len]  # shape: [forecast_len]
 
         import torch
 
@@ -238,9 +235,7 @@ def plot_predictions(all_predictions, all_targets, num_windows=3):
         logging.warning("No windows to plot (all_predictions is empty).")
         return
 
-    fig, axes = plt.subplots(
-        num_windows, 1, figsize=(8, 4 * num_windows), sharex=False
-    )
+    fig, axes = plt.subplots(num_windows, 1, figsize=(8, 4 * num_windows), sharex=False)
 
     if num_windows == 1:
         # If there's only one window, axes is not a list

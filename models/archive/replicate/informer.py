@@ -130,15 +130,11 @@ class GOESDataset(Dataset):
                     f"[DEBUG] Loaded {len(flux_vals)} timesteps from {fpath} (var='{flux_var}')"
                 )
             except Exception as err:
-                logging.warning(
-                    f"Could not load {fpath}, skipping. Error: {err}"
-                )
+                logging.warning(f"Could not load {fpath}, skipping. Error: {err}")
                 continue
 
         if not flux_list:
-            raise ValueError(
-                "No valid flux data found in selected netCDF files."
-            )
+            raise ValueError("No valid flux data found in selected netCDF files.")
 
         all_flux = np.concatenate(flux_list, axis=0)
         # Do NOT replace NaNs; we want to disregard samples containing null values.
@@ -157,9 +153,7 @@ class GOESDataset(Dataset):
             logging.info(f"Training portion: {len(self.data)} samples")
         else:
             self.data = self.data[split_index:]
-            logging.info(
-                f"Validation/Testing portion: {len(self.data)} samples"
-            )
+            logging.info(f"Validation/Testing portion: {len(self.data)} samples")
 
         # ----------------------------------------------------------------------
         # 4) Build sliding-window indices (+1 fix)
@@ -226,9 +220,7 @@ class GOESParquetDataset(Dataset):
         super().__init__()
         df = pd.read_parquet(parquet_file)
         if "time" not in df.columns or "flux" not in df.columns:
-            raise ValueError(
-                "Parquet file must contain 'time' and 'flux' columns."
-            )
+            raise ValueError("Parquet file must contain 'time' and 'flux' columns.")
         df["time"] = pd.to_datetime(df["time"])
         df.sort_values("time", inplace=True)
 
@@ -252,9 +244,7 @@ class GOESParquetDataset(Dataset):
         split_index = int(total_steps * train_split)
         if train:
             self.data = self.data[:split_index]
-            logging.info(
-                f"[ParquetDataset] Training portion: {len(self.data)} samples"
-            )
+            logging.info(f"[ParquetDataset] Training portion: {len(self.data)} samples")
         else:
             self.data = self.data[split_index:]
             logging.info(
@@ -682,21 +672,13 @@ def train_informer(
             max_files=max_files,
         )
 
-    if max_train_samples is not None and max_train_samples < len(
-        train_dataset.indices
-    ):
+    if max_train_samples is not None and max_train_samples < len(train_dataset.indices):
         train_dataset.indices = train_dataset.indices[:max_train_samples]
-        logging.info(
-            f"Truncating train dataset to {max_train_samples} samples."
-        )
+        logging.info(f"Truncating train dataset to {max_train_samples} samples.")
 
-    if max_val_samples is not None and max_val_samples < len(
-        val_dataset.indices
-    ):
+    if max_val_samples is not None and max_val_samples < len(val_dataset.indices):
         val_dataset.indices = val_dataset.indices[:max_val_samples]
-        logging.info(
-            f"Truncating validation dataset to {max_val_samples} samples."
-        )
+        logging.info(f"Truncating validation dataset to {max_val_samples} samples.")
 
     logging.info(f"Final train samples: {len(train_dataset.indices)}")
     logging.info(f"Final validation samples: {len(val_dataset.indices)}")
@@ -762,18 +744,13 @@ def train_informer(
         model.train()
         total_loss = 0.0
 
-        with tqdm(
-            train_loader, desc=f"Epoch {epoch}/{epochs}", unit="batch"
-        ) as tepoch:
+        with tqdm(train_loader, desc=f"Epoch {epoch}/{epochs}", unit="batch") as tepoch:
             for batch_idx, (x, y) in enumerate(tepoch):
                 x, y = x.to(device), y.to(device)
                 batch_size_curr = x.size(0)
 
                 teacher_forcing_ratio = np.exp(-epoch / (epochs / 5))
-                if (
-                    torch.rand(batch_size_curr).mean().item()
-                    < teacher_forcing_ratio
-                ):
+                if torch.rand(batch_size_curr).mean().item() < teacher_forcing_ratio:
                     dec_input = y
                 else:
                     forecast_steps = y.shape[1]
@@ -862,9 +839,7 @@ def train_informer(
     model_package = {"state_dict": model.state_dict(), "metadata": metadata}
 
     torch.save(model_package, final_model_path)
-    logging.info(
-        f"Final model package with metadata saved to {final_model_path}"
-    )
+    logging.info(f"Final model package with metadata saved to {final_model_path}")
     return model, train_losses, val_losses
 
 
@@ -992,18 +967,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Train the Informer model with increased complexity on cloud GPUs."
     )
-    parser.add_argument(
-        "--train", action="store_true", help="If set, run training."
-    )
+    parser.add_argument("--train", action="store_true", help="If set, run training.")
     parser.add_argument(
         "--epochs", type=int, default=10, help="Number of training epochs."
     )
-    parser.add_argument(
-        "--batch_size", type=int, default=16, help="Batch size."
-    )
-    parser.add_argument(
-        "--lr", type=float, default=1e-6, help="Learning rate."
-    )
+    parser.add_argument("--batch_size", type=int, default=16, help="Batch size.")
+    parser.add_argument("--lr", type=float, default=1e-6, help="Learning rate.")
     parser.add_argument(
         "--lookback_len",
         type=int,
@@ -1061,9 +1030,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dec_layers", type=int, default=4, help="Number of decoder layers."
     )
-    parser.add_argument(
-        "--dropout", type=float, default=0.1, help="Dropout rate."
-    )
+    parser.add_argument("--dropout", type=float, default=0.1, help="Dropout rate.")
     parser.add_argument(
         "--model_save_path",
         type=str,
@@ -1082,9 +1049,7 @@ if __name__ == "__main__":
         logging.info(f"Using device: {device}")
 
         model, train_losses, val_losses = train_informer(
-            data_source="parquet"
-            if args.parquet_file is not None
-            else "netcdf",
+            data_source="parquet" if args.parquet_file is not None else "netcdf",
             parquet_file=args.parquet_file,
             data_dir=args.data_dir,
             lookback_len=args.lookback_len,

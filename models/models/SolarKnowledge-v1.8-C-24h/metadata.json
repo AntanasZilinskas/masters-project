@@ -1,0 +1,127 @@
+{
+    "version": 1.8,
+    "timestamp": "2025-05-08T16:29:54.338587",
+    "description": "Iteration on v1.7 model for C-class flares with 24h window",
+    "flare_class": "C",
+    "time_window": "24",
+    "hyperparameters": {
+        "learning_rate": 5e-05,
+        "weight_decay": 0.0001,
+        "batch_size": 512,
+        "early_stopping_patience": 10,
+        "epochs": 300,
+        "num_transformer_blocks": 8,
+        "embed_dim": 256,
+        "num_heads": 8,
+        "ff_dim": 512,
+        "dropout_rate": 0.2,
+        "focal_loss": true,
+        "focal_loss_alpha": 0.25,
+        "focal_loss_gamma": 2.0,
+        "class_weights": {
+            "0": 1.0,
+            "1": 0.4421536237869089
+        },
+        "framework": "pytorch",
+        "weight_initialization": "tf_compatible",
+        "gradient_clipping": true,
+        "max_grad_norm": 1.0,
+        "input_shape": [
+            10,
+            9
+        ],
+        "scheduler": "cosine_with_restarts",
+        "scheduler_params": {
+            "T_0": 10,
+            "T_mult": 2,
+            "min_lr": 1e-07,
+            "eta_min": 1e-07
+        },
+        "use_batch_norm": true,
+        "optimizer": "AdamW",
+        "random_seed": 42,
+        "previous_version": 1.7
+    },
+    "performance": {
+        "final_training_accuracy": 0.9777710322927126,
+        "final_training_loss": 3.1572219814573015,
+        "epochs_trained": 300,
+        "final_training_tss": 0.947558250756732
+    },
+    "git_info": {
+        "commit": "792419d333ff3f4ead8c44167ef94ab8eaccc0fc",
+        "branch": "pytorch-rewrite"
+    },
+    "architecture": {
+        "name": "SolarKnowledge (PyTorch)",
+        "input_shape": [
+            10,
+            9
+        ],
+        "num_params": 4332426,
+        "precision": "torch.float32"
+    },
+    "framework": "PyTorch",
+    "test_results": {
+        "20250508163446": {
+            "accuracy": 0.6558,
+            "precision": 0.7269,
+            "recall": 0.7893,
+            "balanced_accuracy": 0.5817,
+            "TSS": 0.1635,
+            "sensitivity": 0.7893,
+            "specificity": 0.3742,
+            "mean_entropy": 0.4287998080253601,
+            "mean_uncertainty": 0.1256161332130432,
+            "mean_confidence": 0.8004258871078491,
+            "confusion_matrix": [
+                [
+                    5152,
+                    8617
+                ],
+                [
+                    6122,
+                    22936
+                ]
+            ],
+            "test_samples": 42827,
+            "positive_samples": 29058,
+            "negative_samples": 13769,
+            "version": "1.8",
+            "test_date": "2025-05-08 16:34:46",
+            "used_monte_carlo_dropout": true,
+            "mc_passes": 30,
+            "framework": "pytorch"
+        }
+    },
+    "latest_test": {
+        "accuracy": 0.6558,
+        "precision": 0.7269,
+        "recall": 0.7893,
+        "balanced_accuracy": 0.5817,
+        "TSS": 0.1635,
+        "sensitivity": 0.7893,
+        "specificity": 0.3742,
+        "mean_entropy": 0.4287998080253601,
+        "mean_uncertainty": 0.1256161332130432,
+        "mean_confidence": 0.8004258871078491,
+        "confusion_matrix": [
+            [
+                5152,
+                8617
+            ],
+            [
+                6122,
+                22936
+            ]
+        ],
+        "test_samples": 42827,
+        "positive_samples": 29058,
+        "negative_samples": 13769,
+        "version": "1.8",
+        "test_date": "2025-05-08 16:34:46",
+        "used_monte_carlo_dropout": true,
+        "mc_passes": 30,
+        "framework": "pytorch"
+    }
+}

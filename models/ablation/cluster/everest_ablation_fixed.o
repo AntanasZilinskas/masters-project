@@ -1,0 +1,37 @@
+EVEREST Component Ablation Study - Fixed
+Job ID: 1176150[15].pbs
+Array Index: 15
+Node: cx3-11-5.cx3.hpc.ic.ac.uk
+Started: Thu 29 May 03:09:39 BST 2025
+========================================
+Project root: /rds/general/user/az2221/home/repositories/masters-project
+Project structure verified
+Activating everest_env...
+Environment activated
+Experiment Configuration:
+   Array Index: 15
+   Variant: no_evt
+   Seed: 4
+Starting ablation experiment...
+Command: python models/ablation/run_ablation_with_metadata.py --variant no_evt --seed 4
+2025-05-29 03:10:19.930155: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-05-29 03:10:19.930253: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-05-29 03:10:19.931320: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-05-29 03:10:19.938306: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-05-29 03:10:31.653313: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-05-29 03:10:42.704486: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+Experiment completed with exit code: 0
+Finished: Thu 29 May 03:34:05 BST 2025
+Experiment completed successfully!
+
+============================================
+
+        Job resource usage summary 
+
+                 Memory (GB)    NCPUs
+ Requested  :        32             8
+ Used       :         4 (peak)   0.95 (ave)
+
+============================================

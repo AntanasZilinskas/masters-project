@@ -1,0 +1,45 @@
+{
+  "version": "1.4",
+  "timestamp": "2025-05-08T06:35:29.008939",
+  "description": "Iteration on v1.3 model for M-class flares with 48h window",
+  "flare_class": "M",
+  "time_window": "48",
+  "hyperparameters": {
+    "learning_rate": 0.0001,
+    "batch_size": 512,
+    "early_stopping_patience": 5,
+    "epochs": 100,
+    "num_transformer_blocks": 6,
+    "embed_dim": 128,
+    "num_heads": 4,
+    "ff_dim": 256,
+    "dropout_rate": 0.2,
+    "focal_loss": true,
+    "focal_loss_alpha": 0.25,
+    "focal_loss_gamma": 2.0,
+    "class_weights": {
+      "0": 1.0,
+      "1": 7.249014084507043
+    },
+    "previous_version": "1.3"
+  },
+  "performance": {
+    "final_training_accuracy": 0.9727364778518677,
+    "final_training_loss": 0.04203622415661812,
+    "epochs_trained": 77,
+    "final_training_tss": 0.9353369474411011
+  },
+  "git_info": {
+    "commit": "ef830282d47061fe734aa9d99f65f98ba049e29d",
+    "branch": "pytorch-rewrite"
+  },
+  "architecture": {
+    "name": "SolarKnowledge",
+    "input_shape": [
+      10,
+      9
+    ],
+    "num_params": 1999746,
+    "precision": "<Policy \"mixed_float16\">"
+  }
+}

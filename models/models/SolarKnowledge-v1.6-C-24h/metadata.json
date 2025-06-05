@@ -1,0 +1,116 @@
+{
+    "version": 1.6,
+    "timestamp": "2025-05-08T04:57:49.734481",
+    "description": "PyTorch model with TensorFlow-compatible initialization and focal loss",
+    "flare_class": "C",
+    "time_window": "24",
+    "hyperparameters": {
+        "learning_rate": 0.0001,
+        "batch_size": 512,
+        "early_stopping_patience": 5,
+        "epochs": 100,
+        "num_transformer_blocks": 6,
+        "embed_dim": 128,
+        "num_heads": 4,
+        "ff_dim": 256,
+        "dropout_rate": 0.2,
+        "focal_loss": true,
+        "focal_loss_alpha": 0.25,
+        "focal_loss_gamma": 2.0,
+        "class_weights": {
+            "0": 1.0,
+            "1": 0.4421536237869089
+        },
+        "framework": "pytorch",
+        "weight_initialization": "tf_compatible",
+        "gradient_clipping": true,
+        "max_grad_norm": 1.0,
+        "input_shape": [
+            10,
+            9
+        ],
+        "previous_version": 1.5
+    },
+    "performance": {
+        "final_training_accuracy": 0.8563523011184533,
+        "final_training_loss": 0.17350142537837937,
+        "epochs_trained": 100,
+        "final_training_tss": 0.6622208611935956
+    },
+    "git_info": {
+        "commit": "32c7c105f16dc2fd8b8baadb45060d62cbd8acc8",
+        "branch": "pytorch-rewrite"
+    },
+    "architecture": {
+        "name": "SolarKnowledge (PyTorch)",
+        "input_shape": [
+            10,
+            9
+        ],
+        "num_params": 813186,
+        "precision": "torch.float32"
+    },
+    "framework": "PyTorch",
+    "test_results": {
+        "20250508050018": {
+            "accuracy": 0.8755,
+            "precision": 0.8936,
+            "recall": 0.9268,
+            "balanced_accuracy": 0.8469,
+            "TSS": 0.6939,
+            "sensitivity": 0.9268,
+            "specificity": 0.7671,
+            "mean_entropy": 0.5034926533699036,
+            "mean_uncertainty": 0.059267591685056686,
+            "mean_confidence": 0.7341414093971252,
+            "confusion_matrix": [
+                [
+                    10562,
+                    3207
+                ],
+                [
+                    2127,
+                    26931
+                ]
+            ],
+            "test_samples": 42827,
+            "positive_samples": 29058,
+            "negative_samples": 13769,
+            "version": "1.6",
+            "test_date": "2025-05-08 05:00:18",
+            "used_monte_carlo_dropout": true,
+            "mc_passes": 20,
+            "framework": "pytorch"
+        }
+    },
+    "latest_test": {
+        "accuracy": 0.8755,
+        "precision": 0.8936,
+        "recall": 0.9268,
+        "balanced_accuracy": 0.8469,
+        "TSS": 0.6939,
+        "sensitivity": 0.9268,
+        "specificity": 0.7671,
+        "mean_entropy": 0.5034926533699036,
+        "mean_uncertainty": 0.059267591685056686,
+        "mean_confidence": 0.7341414093971252,
+        "confusion_matrix": [
+            [
+                10562,
+                3207
+            ],
+            [
+                2127,
+                26931
+            ]
+        ],
+        "test_samples": 42827,
+        "positive_samples": 29058,
+        "negative_samples": 13769,
+        "version": "1.6",
+        "test_date": "2025-05-08 05:00:18",
+        "used_monte_carlo_dropout": true,
+        "mc_passes": 20,
+        "framework": "pytorch"
+    }
+}

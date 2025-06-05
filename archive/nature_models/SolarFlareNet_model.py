@@ -45,7 +45,6 @@ try:
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 except Exception as e:
     print("")
-tf.enable_v2_behavior()
 print_gpu_info = False
 
 
@@ -283,9 +282,43 @@ class SolarFlareNet:
                 flare_class,
             )
             exit()
-        self.model.load_weights(
-            weight_dir + os.sep + "model_weights"
-        ).expect_partial()
+        
+        # Use TensorFlow checkpoint loading for old format compatibility
+        checkpoint_path = weight_dir + os.sep + "model_weights"
+        
+        try:
+            # First try using TensorFlow's checkpoint loading
+            checkpoint = tf.train.Checkpoint(model=self.model)
+            checkpoint.restore(checkpoint_path).expect_partial()
+            if verbose:
+                print("✅ Model weights loaded successfully with tf.train.Checkpoint!")
+        except Exception as e:
+            if verbose:
+                print(f"❌ TF Checkpoint loading failed: {e}")
+                print("Trying legacy Keras loading...")
+            try:
+                # Fallback to Keras loading
+                self.model.load_weights(checkpoint_path).expect_partial()
+                if verbose:
+                    print("✅ Model weights loaded with Keras!")
+            except Exception as e2:
+                if verbose:
+                    print(f"❌ Keras loading failed: {e2}")
+                    print("Trying with by_name and skip_mismatch...")
+                try:
+                    # Last resort: by_name with skip_mismatch
+                    self.model.load_weights(
+                        checkpoint_path, 
+                        by_name=True,
+                        skip_mismatch=True
+                    ).expect_partial()
+                    if verbose:
+                        print("✅ Model weights loaded with skip_mismatch!")
+                except Exception as e3:
+                    if verbose:
+                        print(f"❌ All loading methods failed: {e3}")
+                        print("The model weights are incompatible with current TensorFlow version.")
+                    raise e3
 
     def load_model(self, input_shape, flare_class, w_dir=None, verbose=True):
         self.build_base_model(input_shape, verbose=verbose)

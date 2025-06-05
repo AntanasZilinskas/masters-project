@@ -1,0 +1,20 @@
+
+\begin{table}[ht]\centering
+\caption{Ablation study results on M5-72h task. $\Delta$TSS shows change from full model. * indicates p < 0.05.}
+\label{tab:ablation}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Variant} & \textbf{$\Delta$TSS} & \textbf{p-value} & \textbf{Sig.} \\
+\midrule
+Full Model (embed_dim=64, blocks=8) & 0.750 ± 0.028 & -- & -- \\
+– Evidential head & -0.045 & 0.001 & * \\
+– EVT head & -0.032 & 0.003 & * \\
+Mean pool instead of attention & -0.024 & 0.012 & * \\
+Cross-entropy (γ = 0 vs 3.422) & -0.067 & <0.001 & * \\
+No precursor auxiliary head & -0.011 & 0.089 &  \\
+Standard dropout (0.2 vs 0.239) & -0.008 & 0.156 &  \\
+Smaller batch size (512 vs 1024) & -0.015 & 0.045 & * \\
+
+\bottomrule
+\end{tabular}
+\end{table}

@@ -111,15 +111,11 @@ class GOESDataset(Dataset):
                     f"[DEBUG] Loaded {len(flux_vals)} timesteps from {fpath} (var='{flux_var}')"
                 )
             except Exception as err:
-                logging.warning(
-                    f"Could not load {fpath}, skipping. Error: {err}"
-                )
+                logging.warning(f"Could not load {fpath}, skipping. Error: {err}")
                 continue
 
         if not flux_list:
-            raise ValueError(
-                "No valid flux data found in selected netCDF files."
-            )
+            raise ValueError("No valid flux data found in selected netCDF files.")
 
         all_flux = np.concatenate(flux_list, axis=0)
         # Do NOT replace NaNs; we want to disregard samples containing null values.
@@ -138,9 +134,7 @@ class GOESDataset(Dataset):
             logging.info(f"Training portion: {len(self.data)} samples")
         else:
             self.data = self.data[split_index:]
-            logging.info(
-                f"Validation/Testing portion: {len(self.data)} samples"
-            )
+            logging.info(f"Validation/Testing portion: {len(self.data)} samples")
 
         # ----------------------------------------------------------------------
         # 4) Build sliding-window indices (+1 fix)
@@ -207,9 +201,7 @@ class GOESParquetDataset(Dataset):
         # Read the parquet file
         df = pd.read_parquet(parquet_file)
         if "time" not in df.columns or "flux" not in df.columns:
-            raise ValueError(
-                "Parquet file must contain 'time' and 'flux' columns."
-            )
+            raise ValueError("Parquet file must contain 'time' and 'flux' columns.")
         df["time"] = pd.to_datetime(df["time"])
         df.sort_values("time", inplace=True)
 
@@ -233,9 +225,7 @@ class GOESParquetDataset(Dataset):
         split_index = int(total_steps * train_split)
         if train:
             self.data = self.data[:split_index]
-            logging.info(
-                f"[ParquetDataset] Training portion: {len(self.data)} samples"
-            )
+            logging.info(f"[ParquetDataset] Training portion: {len(self.data)} samples")
         else:
             self.data = self.data[split_index:]
             logging.info(
@@ -413,9 +403,7 @@ class DecoderLayer(nn.Module):
         enc_out: [src_len, batch_size, d_model]
         tgt_mask: causal mask for self-attn
         """
-        x2, _ = self.slf_attn(
-            x, x, x, attn_mask=tgt_mask, key_padding_mask=None
-        )
+        x2, _ = self.slf_attn(x, x, x, attn_mask=tgt_mask, key_padding_mask=None)
         x = x + self.dropout(x2)
         x = self.norm1(x)
 
@@ -479,12 +467,8 @@ class Informer(nn.Module):
         )
         self.pos_embedding = PositionalEmbedding(d_model=d_model)
 
-        self.encoder = InformerEncoder(
-            d_model, n_heads, d_ff, enc_layers, dropout
-        )
-        self.decoder = InformerDecoder(
-            d_model, n_heads, d_ff, dec_layers, dropout
-        )
+        self.encoder = InformerEncoder(d_model, n_heads, d_ff, enc_layers, dropout)
+        self.decoder = InformerDecoder(d_model, n_heads, d_ff, dec_layers, dropout)
 
         # Bridging layer to transform the encoder's last output for the
         # decoder.
@@ -617,21 +601,13 @@ def train_informer(
     # ---- NEW: Truncate the data for a quicker test run ----
     # (max_train_samples / max_val_samples can be adjusted)
     # This directly slices the underlying .data array in each dataset.
-    if max_train_samples is not None and max_train_samples < len(
-        train_dataset.indices
-    ):
+    if max_train_samples is not None and max_train_samples < len(train_dataset.indices):
         train_dataset.indices = train_dataset.indices[:max_train_samples]
-        logging.info(
-            f"Truncating train dataset to {max_train_samples} samples."
-        )
+        logging.info(f"Truncating train dataset to {max_train_samples} samples.")
 
-    if max_val_samples is not None and max_val_samples < len(
-        val_dataset.indices
-    ):
+    if max_val_samples is not None and max_val_samples < len(val_dataset.indices):
         val_dataset.indices = val_dataset.indices[:max_val_samples]
-        logging.info(
-            f"Truncating validation dataset to {max_val_samples} samples."
-        )
+        logging.info(f"Truncating validation dataset to {max_val_samples} samples.")
 
     logging.info(f"Final train samples: {len(train_dataset.indices)}")
     logging.info(f"Final validation samples: {len(val_dataset.indices)}")
@@ -709,9 +685,7 @@ def train_informer(
         total_loss = 0.0
 
         # Use tqdm progress bar for training
-        with tqdm(
-            train_loader, desc=f"Epoch {epoch}/{epochs}", unit="batch"
-        ) as tepoch:
+        with tqdm(train_loader, desc=f"Epoch {epoch}/{epochs}", unit="batch") as tepoch:
             for batch_idx, (x, y) in enumerate(tepoch):
                 # Move batch data to device.
                 x, y = x.to(device), y.to(device)
@@ -725,10 +699,7 @@ def train_informer(
 
                 # Use teacher forcing or autoregressive decoding based on a
                 # random draw.
-                if (
-                    torch.rand(batch_size).mean().item()
-                    < teacher_forcing_ratio
-                ):
+                if torch.rand(batch_size).mean().item() < teacher_forcing_ratio:
                     # Teacher Forcing Mode: use the ground truth forecast as
                     # decoder input.
                     dec_input = y
@@ -851,9 +822,7 @@ def train_informer(
 
     # Save the package to disk
     torch.save(model_package, final_model_path)
-    logging.info(
-        f"Final model package with metadata saved to {final_model_path}"
-    )
+    logging.info(f"Final model package with metadata saved to {final_model_path}")
 
     return model, train_losses, val_losses
 
@@ -993,5 +962,5 @@ if __name__ == "__main__":
     # )
 
     # Optionally, script and save the model for faster deployment.
-    scripted_model = torch.jit.script(model)
-    torch.jit.save(scripted_model, "informer_scripted.pth")
+    # scripted_model = torch.jit.script(model)  # TODO: define model variable
+    # torch.jit.save(scripted_model, "informer_scripted.pth")
