@@ -1,0 +1,161 @@
+{
+  "version": 5.3,
+  "timestamp": "2025-05-29T03:33:54.743513",
+  "description": "EVEREST Ablation Study - EVEREST model without EVT tail modeling (GPD head removed) (seed 4)",
+  "flare_class": "M5",
+  "time_window": "72",
+  "hyperparameters": {
+    "input_shape": [
+      10,
+      9
+    ],
+    "embed_dim": 128,
+    "num_heads": 4,
+    "ff_dim": 256,
+    "num_blocks": 6,
+    "dropout": 0.2,
+    "ablation_variant": "no_evt",
+    "ablation_seed": 4,
+    "learning_rate": 0.0005337429672856022,
+    "focal_gamma": 2.8033450352296265,
+    "batch_size": 512
+  },
+  "performance": {
+    "accuracy": 0.9990659287038716,
+    "TSS": 0.67261619009263,
+    "ROC_AUC": 0.9976751460855554,
+    "Brier": 0.004189767413972379,
+    "ECE": 0.024029099644827842,
+    "precision": 0.6796116504854369,
+    "recall": 0.6730769230769231,
+    "sensitivity": 0.6730769230769231,
+    "specificity": 0.9995392670157068,
+    "f1_score": 0.6763285024154589,
+    "auc_roc": 0.9969402604376426,
+    "auc_pr": 0.5483887255204276,
+    "true_positives": 70,
+    "false_positives": 33,
+    "true_negatives": 71592,
+    "false_negatives": 34,
+    "positive_rate": 0.001449901713393467,
+    "prediction_rate": 0.0014359603507646838
+  },
+  "git_info": {
+    "commit": "74aef05d93b09fd9f34f6accd214249490453284",
+    "branch": "pytorch-rewrite"
+  },
+  "architecture": {
+    "name": "EVEREST (PyTorch)",
+    "input_shape": [
+      10,
+      9
+    ],
+    "num_params": 548872,
+    "precision": "torch.float32"
+  },
+  "framework": "PyTorch",
+  "latency_sec_per_batch32": 0.002093508243560791,
+  "training_metrics": {
+    "total_training_time_s": 1264.292025089264,
+    "total_training_time_h": 0.3511922291914622,
+    "average_epoch_time_s": 25.284535145759584,
+    "fastest_epoch_time_s": 24.345255851745605,
+    "slowest_epoch_time_s": 25.899685382843018,
+    "epoch_times": [
+      25.239081144332886,
+      25.291343450546265,
+      25.453353881835938,
+      25.667994737625122,
+      25.385533094406128,
+      25.824776887893677,
+      24.97397017478943,
+      24.605982542037964,
+      24.365004062652588,
+      25.366348028182983,
+      25.862929344177246,
+      25.899685382843018,
+      25.600757122039795,
+      25.84802508354187,
+      25.571480989456177,
+      25.82186198234558,
+      25.61362361907959,
+      25.840463399887085,
+      25.600260257720947,
+      25.815239191055298,
+      25.622753858566284,
+      25.79864525794983,
+      25.595791339874268,
+      25.82965612411499,
+      25.616585969924927,
+      25.805683374404907,
+      25.63295292854309,
+      25.78973650932312,
+      25.639076948165894,
+      25.822543144226074,
+      25.63510751724243,
+      25.80191707611084,
+      25.616977214813232,
+      25.80008625984192,
+      25.64322781562805,
+      25.73126220703125,
+      24.41827964782715,
+      24.644484996795654,
+      24.398963928222656,
+      24.62190294265747,
+      24.371851444244385,
+      24.635483264923096,
+      24.345255851745605,
+      24.604496240615845,
+      24.398207664489746,
+      24.690158367156982,
+      24.41772222518921,
+      24.656596660614014,
+      24.404840230941772,
+      24.58879590034485
+    ],
+    "epochs_completed": 50,
+    "early_stopped": false,
+    "gpu_info": {
+      "gpu_name": "Quadro RTX 6000",
+      "gpu_memory_gb": 23
+    },
+    "gpu_power_stats": {
+      "average_power_w": 75.098,
+      "max_power_w": 79.03,
+      "min_power_w": 61.26,
+      "power_readings": 5,
+      "monitoring_duration_s": 1200.3594424724579
+    },
+    "co2_emissions_kg": null,
+    "training_samples": 709447,
+    "batch_size": 512,
+    "mixed_precision": true
+  },
+  "ablation_metadata": {
+    "experiment_type": "component_ablation",
+    "variant": "no_evt",
+    "seed": 4,
+    "ablation_config": {
+      "use_attention_bottleneck": true,
+      "use_evidential": true,
+      "use_evt": false,
+      "use_precursor": true,
+      "loss_weights": {
+        "focal": 0.8,
+        "evid": 0.2,
+        "evt": 0.0,
+        "prec": 0.05
+      },
+      "description": "EVEREST model without EVT tail modeling (GPD head removed)"
+    },
+    "optimal_hyperparams": {
+      "embed_dim": 128,
+      "num_blocks": 4,
+      "dropout": 0.3531616510212273,
+      "focal_gamma": 2.8033450352296265,
+      "learning_rate": 0.0005337429672856022,
+      "batch_size": 512
+    },
+    "description": "EVEREST model without EVT tail modeling (GPD head removed)"
+  }
+}

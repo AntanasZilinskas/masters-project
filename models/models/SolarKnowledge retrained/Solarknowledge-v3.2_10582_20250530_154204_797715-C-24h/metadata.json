@@ -1,0 +1,46 @@
+{
+  "version": "3.2_10582_20250530_154204_797715",
+  "timestamp": "2025-05-30T21:37:42.105007",
+  "description": "Iteration on v3.2 model for C-class flares with 24h window",
+  "flare_class": "C",
+  "time_window": "24",
+  "hyperparameters": {
+    "learning_rate": 0.0001,
+    "batch_size": 512,
+    "early_stopping_patience": 5,
+    "epochs": 100,
+    "num_transformer_blocks": 6,
+    "embed_dim": 128,
+    "num_heads": 4,
+    "ff_dim": 256,
+    "dropout_rate": 0.2,
+    "focal_loss": true,
+    "focal_loss_alpha": 0.25,
+    "focal_loss_gamma": 2.0,
+    "class_weights": {
+      "0": 1.0,
+      "1": 0.5554805656124052
+    },
+    "previous_version": 3.2
+  },
+  "performance": {
+    "final_training_accuracy": 0.9410355687141418,
+    "final_training_loss": 0.02718697488307953,
+    "epochs_trained": 100,
+    "final_training_tss": 0.8858869075775146
+  },
+  "git_info": {
+    "commit": "8def88e0377157404ee1776a46748eadf0a3d12b",
+    "branch": "pytorch-rewrite"
+  },
+  "architecture": {
+    "name": "EVEREST",
+    "input_shape": [
+      10,
+      9
+    ],
+    "num_params": 1999746,
+    "precision": "<Policy \"mixed_float16\">"
+  },
+  "framework": "TensorFlow"
+}

@@ -1,0 +1,81 @@
+#!/bin/bash
+#PBS -N everest_ablation_current
+#PBS -l walltime=12:00:00
+#PBS -l select=1:ncpus=8:mem=32gb:ngpus=1:gpu_type=RTX6000
+#PBS -J 1-35
+#PBS -j oe
+#PBS -o everest_ablation_current.o
+
+echo "EVEREST Component Ablation Study - Current Trainer"
+echo "Job ID: $PBS_JOBID"
+echo "Array Index: $PBS_ARRAY_INDEX"
+echo "Node: $(hostname)"
+echo "Started: $(date)"
+echo "========================================"
+
+# Navigate to project root
+cd $PBS_O_WORKDIR
+cd ../../../  # Go up 3 levels: cluster -> ablation -> models -> project root
+PROJECT_ROOT=$(pwd)
+echo "Project root: $PROJECT_ROOT"
+
+# Verify project structure
+if [ ! -d "models/ablation" ]; then
+    echo "Error: models/ablation/ directory not found"
+    echo "Current directory: $(pwd)"
+    echo "Contents: $(ls -la)"
+    exit 1
+fi
+
+echo "Project structure verified"
+
+# Set Python path
+export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
+
+# Activate conda environment
+echo "Activating everest_env..."
+source ~/.bashrc
+conda activate everest_env
+
+if [ $? -ne 0 ]; then
+    echo "Failed to activate everest_env"
+    exit 1
+fi
+
+echo "Environment activated"
+
+# Define experiment mapping (same as before)
+variants=("full_model" "no_evidential" "no_evt" "mean_pool" "cross_entropy" "no_precursor" "fp32_training")
+seeds=(0 1 2 3 4)
+
+# Calculate variant and seed from array index
+variant_idx=$(( ($PBS_ARRAY_INDEX - 1) / 5 ))
+seed_idx=$(( ($PBS_ARRAY_INDEX - 1) % 5 ))
+
+variant=${variants[$variant_idx]}
+seed=${seeds[$seed_idx]}
+
+echo "Experiment Configuration:"
+echo "   Array Index: $PBS_ARRAY_INDEX"
+echo "   Variant: $variant"
+echo "   Seed: $seed"
+
+# UPDATED: Use current trainer system
+echo "Starting ablation experiment with current trainer..."
+echo "Command: python models/ablation/run_for_cluster.py --variant $variant --seed $seed --memory-efficient"
+
+python models/ablation/run_for_cluster.py --variant $variant --seed $seed --memory-efficient
+
+exit_code=$?
+
+echo "Experiment completed with exit code: $exit_code"
+echo "Finished: $(date)"
+
+if [ $exit_code -eq 0 ]; then
+    echo "Experiment completed successfully!"
+    echo "Results saved to: models/ablation/results/ablation_${variant}_seed${seed}/"
+else
+    echo "Experiment failed"
+fi
+
+exit $exit_code 

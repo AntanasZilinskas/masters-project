@@ -1,0 +1,24 @@
+\begin{table}[ht]\centering
+\caption{Run matrix showing the number of positive (+) and negative (–) examples in the train/val/test partitions for every flare class $\times$ horizon combination.}
+\label{tab:run_matrix}
+\begin{tabular}{lccccccc}
+\toprule
+\multirow{2}{*}{\textbf{Flare}} & \multirow{2}{*}{\textbf{Horizon}} &
+\multicolumn{2}{c}{\textbf{Train}} & \multicolumn{2}{c}{\textbf{Val}} &
+\multicolumn{2}{c}{\textbf{Test}}\\
+& & + & -- & + & -- & + & -- \\
+\midrule
+C & 24 h & 208\,223 & 316\,961 & 36\,745 & 55\,934 & 31\,897 & 30\,663 \\[-0.1em]
+C & 48 h & 268\,727 & 332\,285 & 47\,422 & 58\,638 & 40\,987 & 30\,742 \\[-0.1em]
+C & 72 h & 302\,787 & 346\,265 & 53\,432 & 61\,105 & 46\,066 & 31\,563 \\[-0.1em]
+\addlinespace
+M & 24 h & 11\,891 & 513\,293 & 2\,098 & 90\,581 & 1\,368 & 61\,192 \\[-0.1em]
+M & 48 h & 14\,203 & 586\,809 & 2\,506 & 103\,554 & 1\,775 & 69\,954 \\[-0.1em]
+M & 72 h & 15\,730 & 633\,322 & 2\,775 & 111\,762 & 2\,131 & 75\,498 \\[-0.1em]
+\addlinespace
+M5 & 24 h & 1\,807 & 523\,378 & 318 & 92\,360 & 104 & 62\,456 \\[-0.1em]
+M5 & 48 h & 1\,917 & 599\,095 & 338 & 105\,722 & 104 & 71\,625 \\[-0.1em]
+M5 & 72 h & 2\,019 & 647\,032 & 356 & 114\,182 & 104 & 77\,525 \\[-0.1em]
+\bottomrule
+\end{tabular}
+\end{table}

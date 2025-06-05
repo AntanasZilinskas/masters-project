@@ -1,21 +1,6 @@
 """
- (c) Copyright 2023
- All rights reserved
- Programs written by Yasser Abduallah
- Department of Computer Science
- New Jersey Institute of Technology
- University Heights, Newark, NJ 07102, USA
-
- Permission to use, copy, modify, and distribute this
- software and its documentation for any purpose and without
- fee is hereby granted, provided that this copyright
- notice appears in all copies. Programmer(s) makes no
- representations about the suitability of this
- software for any purpose.  It is provided "as is" without
- express or implied warranty.
-
  Alternative transformer-based model with improved capacity for time-series classification.
- @author: Yasser Abduallah (modified)
+ @author: by Antanas Zilinskas
 """
 
 import json
@@ -100,14 +85,10 @@ class TrueSkillStatisticMetric(tf.keras.metrics.Metric):
 
     def result(self):
         sensitivity = self.true_positives / (
-            self.true_positives
-            + self.false_negatives
-            + tf.keras.backend.epsilon()
+            self.true_positives + self.false_negatives + tf.keras.backend.epsilon()
         )
         specificity = self.true_negatives / (
-            self.true_negatives
-            + self.false_positives
-            + tf.keras.backend.epsilon()
+            self.true_negatives + self.false_positives + tf.keras.backend.epsilon()
         )
         return sensitivity + specificity - 1.0
 
@@ -150,9 +131,7 @@ class PositionalEncoding(layers.Layer):
         seq_len = tf.shape(inputs)[1]
         # Cast the positional encoding to the same dtype as inputs (for mixed
         # precision)
-        pos_encoding = tf.cast(
-            self.pos_encoding[:, :seq_len, :], dtype=inputs.dtype
-        )
+        pos_encoding = tf.cast(self.pos_encoding[:, :seq_len, :], dtype=inputs.dtype)
         return inputs + pos_encoding
 
 
@@ -164,9 +143,7 @@ class PositionalEncoding(layers.Layer):
 class TransformerBlock(layers.Layer):
     def __init__(self, embed_dim, num_heads, ff_dim, dropout_rate=0.2):
         super(TransformerBlock, self).__init__()
-        self.att = layers.MultiHeadAttention(
-            num_heads=num_heads, key_dim=embed_dim
-        )
+        self.att = layers.MultiHeadAttention(num_heads=num_heads, key_dim=embed_dim)
         # Use GELU activation in the feed-forward network for smoother
         # nonlinearities.
         self.ffn = models.Sequential(
@@ -293,14 +270,14 @@ class SolarKnowledge:
                 """
                 # Standard categorical crossentropy
                 cross_entropy = tf.keras.losses.categorical_crossentropy(y_true, y_pred)
-                
+
                 # Get the predicted probability for the correct class
                 y_pred_softmax = tf.nn.softmax(y_pred, axis=-1)
                 p_t = tf.reduce_sum(y_true * y_pred_softmax, axis=-1)
-                
+
                 # Apply the focal term
                 focal_term = tf.pow(1 - p_t, gamma)
-                
+
                 # Apply class weights if using alpha
                 if alpha > 0:
                     alpha_factor = y_true * alpha + (1 - y_true) * (1 - alpha)
@@ -308,9 +285,9 @@ class SolarKnowledge:
                     focal_loss = alpha_weight * focal_term * cross_entropy
                 else:
                     focal_loss = focal_term * cross_entropy
-                
+
                 return focal_loss
-            
+
             loss = categorical_focal_loss
             print("Using Categorical Focal Loss for rare event awareness")
 
@@ -372,9 +349,7 @@ class SolarKnowledge:
 
     def predict(self, X_test, batch_size=1024, verbose=0):
         """Standard prediction - no MC dropout"""
-        predictions = self.model.predict(
-            X_test, verbose=verbose, batch_size=batch_size
-        )
+        predictions = self.model.predict(X_test, verbose=verbose, batch_size=batch_size)
         return predictions
 
     def mc_predict(self, X_test, n_passes=20, batch_size=1024, verbose=0):
@@ -414,9 +389,7 @@ class SolarKnowledge:
                 batch_end = min(j + batch_size, len(X_test))
                 X_batch = X_test[j:batch_end]
                 # training=True keeps dropout active
-                pred_batch = predict_with_dropout(
-                    X_batch, training=True
-                ).numpy()
+                pred_batch = predict_with_dropout(X_batch, training=True).numpy()
                 preds_batches.append(pred_batch)
 
             # Combine batches
@@ -434,14 +407,10 @@ class SolarKnowledge:
 
     def save_weights(self, flare_class=None, w_dir=None, verbose=True):
         if w_dir is None and flare_class is None:
-            print(
-                "You must specify flare_class or w_dir to save the model weights."
-            )
+            print("You must specify flare_class or w_dir to save the model weights.")
             exit()
         if w_dir is None:
-            weight_dir = os.path.join(
-                "models", self.model_name, str(flare_class)
-            )
+            weight_dir = os.path.join("models", self.model_name, str(flare_class))
         else:
             weight_dir = w_dir
         if os.path.exists(weight_dir):
@@ -466,18 +435,12 @@ class SolarKnowledge:
         with open(os.path.join(weight_dir, "metadata.json"), "w") as f:
             json.dump(metadata, f)
 
-    def load_weights(
-        self, flare_class=None, w_dir=None, timestamp=None, verbose=True
-    ):
+    def load_weights(self, flare_class=None, w_dir=None, timestamp=None, verbose=True):
         if w_dir is None and flare_class is None:
-            print(
-                "You must specify flare_class or w_dir to load the model weights."
-            )
+            print("You must specify flare_class or w_dir to load the model weights.")
             exit()
         if w_dir is None:
-            weight_dir = os.path.join(
-                "models", self.model_name, str(flare_class)
-            )
+            weight_dir = os.path.join("models", self.model_name, str(flare_class))
         else:
             weight_dir = w_dir
         if verbose:
@@ -525,8 +488,6 @@ if __name__ == "__main__":
 
     # Test MC dropout prediction
     X_test = np.random.random((10, 100, 14))
-    mean_preds, std_preds = model_instance.mc_predict(
-        X_test, n_passes=5, verbose=1
-    )
+    mean_preds, std_preds = model_instance.mc_predict(X_test, n_passes=5, verbose=1)
     print(f"Mean predictions shape: {mean_preds.shape}")
     print(f"Std predictions shape: {std_preds.shape}")

@@ -9,9 +9,7 @@ def create_simple_model():
     """Create a simple model for testing."""
     model = tf.keras.Sequential(
         [
-            tf.keras.layers.Dense(
-                64, activation="relu", input_shape=(100, 14)
-            ),
+            tf.keras.layers.Dense(64, activation="relu", input_shape=(100, 14)),
             tf.keras.layers.Flatten(),
             tf.keras.layers.Dense(32, activation="relu"),
             tf.keras.layers.Dense(2, activation="softmax"),
@@ -48,9 +46,7 @@ def test_model_output_dtype():
 
     output = model(x)
 
-    assert (
-        output.dtype == tf.float32
-    ), f"Expected dtype float32, got {output.dtype}"
+    assert output.dtype == tf.float32, f"Expected dtype float32, got {output.dtype}"
 
 
 def test_model_output_sum_to_one():

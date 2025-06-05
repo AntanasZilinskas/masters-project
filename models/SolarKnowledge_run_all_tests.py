@@ -160,9 +160,7 @@ def test_model(
         f"Using Monte Carlo dropout with {mc_passes} passes for robust prediction",
         verbose=True,
     )
-    mean_preds, std_preds = model.mc_predict(
-        X_test, n_passes=mc_passes, verbose=1
-    )
+    mean_preds, std_preds = model.mc_predict(X_test, n_passes=mc_passes, verbose=1)
 
     # Get predicted classes from mean probabilities
     predicted_classes = np.argmax(mean_preds, axis=-1)
@@ -192,12 +190,8 @@ def test_model(
     # Compute TSS: sensitivity + specificity - 1. For binary classification,
     # sensitivity = recall for class 1, specificity = recall for class 0.
     cm = confusion_matrix(y_true, predicted_classes)
-    sensitivity = (
-        cm[1, 1] / (cm[1, 1] + cm[1, 0]) if (cm[1, 1] + cm[1, 0]) > 0 else 0
-    )
-    specificity = (
-        cm[0, 0] / (cm[0, 0] + cm[0, 1]) if (cm[0, 0] + cm[0, 1]) > 0 else 0
-    )
+    sensitivity = cm[1, 1] / (cm[1, 1] + cm[1, 0]) if (cm[1, 1] + cm[1, 0]) > 0 else 0
+    specificity = cm[0, 0] / (cm[0, 0] + cm[0, 1]) if (cm[0, 0] + cm[0, 1]) > 0 else 0
     TSS = sensitivity + specificity - 1
 
     print("==============================================")
@@ -328,9 +322,7 @@ def create_uncertainty_plots(
     plt.tight_layout()
 
     # Save the figure
-    confidence_file = os.path.join(
-        output_dir, f"confidence_dist_{timestamp}.png"
-    )
+    confidence_file = os.path.join(output_dir, f"confidence_dist_{timestamp}.png")
     plt.savefig(confidence_file, dpi=300)
     plt.close()
 
@@ -365,9 +357,7 @@ def create_uncertainty_plots(
     plt.tight_layout()
 
     # Save the figure
-    uncertainty_file = os.path.join(
-        output_dir, f"uncertainty_scatter_{timestamp}.png"
-    )
+    uncertainty_file = os.path.join(output_dir, f"uncertainty_scatter_{timestamp}.png")
     plt.savefig(uncertainty_file, dpi=300)
     plt.close()
 
@@ -379,15 +369,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Test SolarKnowledge models for solar flare prediction"
     )
-    parser.add_argument(
-        "--timestamp", "-t", help="Specific model timestamp to test"
-    )
+    parser.add_argument("--timestamp", "-t", help="Specific model timestamp to test")
     parser.add_argument(
         "--latest", action="store_true", help="Test the latest model version"
     )
-    parser.add_argument(
-        "--version", "-v", help="Test a specific model version"
-    )
+    parser.add_argument("--version", "-v", help="Test a specific model version")
     parser.add_argument(
         "--mc-passes",
         type=int,
@@ -456,6 +442,4 @@ if __name__ == "__main__":
         version_output = f"results_v{args.version}.json"
         with open(version_output, "w") as f:
             json.dump(all_metrics, f, indent=4)
-        print(
-            f"Saved test metrics for version v{args.version} into {version_output}"
-        )
+        print(f"Saved test metrics for version v{args.version} into {version_output}")

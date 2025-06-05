@@ -1,0 +1,212 @@
+{
+  "study_name": "everest_hpo_v4.1_M5_72h",
+  "flare_class": "M5",
+  "time_window": "72",
+  "n_trials": 166,
+  "optimization_time": 5586.7878584861755,
+  "timestamp": "2025-05-27T02:29:11.299569",
+  "best_trial": {
+    "number": 8,
+    "value": 0.10567149953013821,
+    "params": {
+      "embed_dim": 64,
+      "num_blocks": 8,
+      "dropout": 0.23876978467047777,
+      "focal_gamma": 3.4223204654921875,
+      "learning_rate": 0.0006926769179941219,
+      "batch_size": 1024
+    },
+    "user_attrs": {}
+  },
+  "stage_statistics": {
+    "unknown": {
+      "trials": 166,
+      "completed": 166,
+      "pruned": 0,
+      "failed": 0,
+      "best_value": 0.10567149953013821
+    }
+  },
+  "param_importance": {},
+  "top_trials": [
+    {
+      "number": 8,
+      "value": 0.10567149953013821,
+      "params": {
+        "embed_dim": 64,
+        "num_blocks": 8,
+        "dropout": 0.23876978467047777,
+        "focal_gamma": 3.4223204654921875,
+        "learning_rate": 0.0006926769179941219,
+        "batch_size": 1024
+      },
+      "user_attrs": {}
+    },
+    {
+      "number": 6,
+      "value": 0.08618942139884544,
+      "params": {
+        "embed_dim": 192,
+        "num_blocks": 4,
+        "dropout": 0.29963567552804826,
+        "focal_gamma": 3.2823551458506923,
+        "learning_rate": 0.00043546428361480047,
+        "batch_size": 256
+      },
+      "user_attrs": {}
+    },
+    {
+      "number": 3,
+      "value": -9.773123909251336e-05,
+      "params": {
+        "embed_dim": 128,
+        "num_blocks": 8,
+        "dropout": 0.11469905943393448,
+        "focal_gamma": 3.9087538832936755,
+        "learning_rate": 0.0005857421224796319,
+        "batch_size": 256
+      },
+      "user_attrs": {}
+    },
+    {
+      "number": 0,
+      "value": -1.0,
+      "params": {
+        "embed_dim": 128,
+        "num_blocks": 4,
+        "dropout": 0.3531616510212273,
+        "focal_gamma": 2.8033450352296265,
+        "learning_rate": 0.0005337429672856022,
+        "batch_size": 512
+      },
+      "user_attrs": {
+        "accuracy": 0.9988707496270686,
+        "brier_score": 0.0042786425449466035,
+        "precision": 0.6533333333333333,
+        "recall": 0.47115384615384615,
+        "roc_auc": 0.9977292253993825,
+        "specificity": 0.9996369982547993
+      }
+    },
+    {
+      "number": 1,
+      "value": -1.0,
+      "params": {
+        "embed_dim": 256,
+        "num_blocks": 8,
+        "dropout": 0.09882285122821466,
+        "focal_gamma": 1.8764339456056545,
+        "learning_rate": 0.00033235468402367823,
+        "batch_size": 512
+      },
+      "user_attrs": {
+        "accuracy": 0.9989962218907276,
+        "brier_score": 0.0015958605998903897,
+        "precision": 0.6632653061224489,
+        "recall": 0.625,
+        "roc_auc": 0.9950034904013961,
+        "specificity": 0.9995392670157068
+      }
+    },
+    {
+      "number": 2,
+      "value": -1.0,
+      "params": {
+        "embed_dim": 192,
+        "num_blocks": 8,
+        "dropout": 0.33293907184076144,
+        "focal_gamma": 1.9138413075201122,
+        "learning_rate": 0.00022899946502903144,
+        "batch_size": 256
+      },
+      "user_attrs": {
+        "accuracy": 0.999288990505932,
+        "brier_score": 0.0010299476146094697,
+        "precision": 0.8441558441558441,
+        "recall": 0.625,
+        "roc_auc": 0.9989350248355484,
+        "specificity": 0.9998324607329843
+      }
+    },
+    {
+      "number": 4,
+      "value": -1.0,
+      "params": {
+        "embed_dim": 256,
+        "num_blocks": 8,
+        "dropout": 0.17486366434275624,
+        "focal_gamma": 1.8428035290621423,
+        "learning_rate": 0.0004243904424890484,
+        "batch_size": 1024
+      },
+      "user_attrs": {
+        "accuracy": 0.9991356355170155,
+        "brier_score": 0.0025183343118225544,
+        "precision": 0.8088235294117647,
+        "recall": 0.5288461538461539,
+        "roc_auc": 0.99886441133038,
+        "specificity": 0.9998184991273996
+      }
+    },
+    {
+      "number": 5,
+      "value": -1.0,
+      "params": {
+        "embed_dim": 256,
+        "num_blocks": 8,
+        "dropout": 0.07591562810693163,
+        "focal_gamma": 2.0753971856328177,
+        "learning_rate": 0.0002348497599653354,
+        "batch_size": 256
+      },
+      "user_attrs": {
+        "accuracy": 0.9989404564402125,
+        "brier_score": 0.0015931135810213154,
+        "precision": 0.7121212121212122,
+        "recall": 0.4519230769230769,
+        "roc_auc": 0.99267633239361,
+        "specificity": 0.9997347294938917
+      }
+    },
+    {
+      "number": 7,
+      "value": -1.0,
+      "params": {
+        "embed_dim": 256,
+        "num_blocks": 8,
+        "dropout": 0.13725228020210622,
+        "focal_gamma": 2.2311487691068894,
+        "learning_rate": 0.0005700554572106822,
+        "batch_size": 768
+      },
+      "user_attrs": {
+        "accuracy": 0.9988568082644398,
+        "brier_score": 0.0029388271435489494,
+        "precision": 0.6,
+        "recall": 0.6346153846153846,
+        "roc_auc": 0.9981072627198282,
+        "specificity": 0.9993856893542757
+      }
+    },
+    {
+      "number": 9,
+      "value": -1.0,
+      "params": {
+        "embed_dim": 128,
+        "num_blocks": 4,
+        "dropout": 0.1681653099912698,
+        "focal_gamma": 3.8287291117375575,
+        "learning_rate": 0.0003130527694136157,
+        "batch_size": 1024
+      },
+      "user_attrs": {
+        "accuracy": 0.9983688605724323,
+        "brier_score": 0.006197255179906458,
+        "precision": 0.4591194968553459,
+        "recall": 0.7019230769230769,
+        "roc_auc": 0.9982341253859578,
+        "specificity": 0.9987993019197208
+      }
+    }
+  ]
+}

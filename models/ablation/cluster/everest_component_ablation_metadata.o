@@ -1,0 +1,21 @@
+🔬 EVEREST Component Ablation Study - Enhanced Metadata
+Job ID: 1175831[13].pbs
+Array Index: 13
+Node: cx3-11-7.cx3.hpc.ic.ac.uk
+Started: Thu 29 May 00:07:02 BST 2025
+= * 60
+Project root: /rds/general/user/az2221/home/repositories/masters-project/models
+✅ Project structure verified
+🐍 Activating everest_env conda environment...
+✅ Environment activated: everest_env          * /rds/general/user/az2221/home/miniforge3/envs/everest_env
+🔍 Validating environment...
+
+============================================
+
+        Job resource usage summary 
+
+                 Memory (GB)    NCPUs
+ Requested  :        32             8
+ Used       :         0 (peak)   0.18 (ave)
+
+============================================

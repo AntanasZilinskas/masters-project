@@ -1,0 +1,104 @@
+{
+  "experiment_name": "ablation_full_model_seed99",
+  "variant_name": "full_model",
+  "seed": 99,
+  "sequence_variant": null,
+  "best_epoch": 1,
+  "total_epochs": 3,
+  "final_metrics": {
+    "tss": 0.0,
+    "accuracy": 0.9985500982866066,
+    "precision": 0.0,
+    "recall": 0.0,
+    "specificity": 1.0,
+    "f1": 0.0,
+    "roc_auc": 0.4733641428379648,
+    "brier": 0.05045952804916572,
+    "brier_99th": 0.04965582489967346,
+    "brier_95th": 0.04965582489967346,
+    "brier_90th": 0.04965582489967346,
+    "ece": 0.2213858962059021,
+    "latency_ms": 0.21363068372011185
+  },
+  "history": {
+    "epoch": [
+      1,
+      2,
+      3
+    ],
+    "train_loss": [
+      0.007152565244522521,
+      0.007281758534927768,
+      0.007254865033765937
+    ],
+    "train_acc": [
+      0.9931242221053863,
+      0.9933046443215632,
+      0.9933018252244353
+    ],
+    "test_tss": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "test_acc": [],
+    "test_precision": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "test_recall": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "test_specificity": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "test_f1": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "test_brier": [
+      0.03917744347270503,
+      0.05472088605178139,
+      0.05045952804916572
+    ],
+    "test_roc_auc": [
+      0.7101955967243925,
+      0.2457723184320043,
+      0.4733641428379648
+    ]
+  },
+  "config": {
+    "variant_config": {
+      "use_evidential": true,
+      "use_evt": true,
+      "use_attention_bottleneck": true,
+      "use_precursor": true,
+      "focal_gamma": 3.4223204654921875,
+      "use_amp": true,
+      "loss_weights": {
+        "focal": 0.7,
+        "evid": 0.1,
+        "evt": 0.2,
+        "prec": 0.05
+      }
+    },
+    "hyperparams": {
+      "embed_dim": 64,
+      "num_blocks": 8,
+      "dropout": 0.23876978467047777,
+      "focal_gamma": 3.4223204654921875,
+      "learning_rate": 0.0006926769179941219,
+      "batch_size": 128
+    },
+    "input_shape": [
+      10,
+      9
+    ]
+  }
+}

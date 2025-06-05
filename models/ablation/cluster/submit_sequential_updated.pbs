@@ -1,0 +1,151 @@
+#!/bin/bash
+#PBS -N everest_ablation_seq
+#PBS -l walltime=48:00:00
+#PBS -l select=1:ncpus=8:mem=32gb:ngpus=1
+#PBS -q gpu72
+#PBS -j oe
+#PBS -o logs/ablation_sequential_${PBS_JOBID}.log
+
+# EVEREST Ablation Study - Sequential Execution (Updated for Imperial RCS)
+# This script runs experiments sequentially on a single GPU
+# Updated to use correct queue (gpu72) and current GPU specifications
+
+# Load environment
+module load anaconda3/personal
+source activate everest_env
+
+# Set up paths
+cd $PBS_O_WORKDIR
+export PYTHONPATH="${PBS_O_WORKDIR}:${PYTHONPATH}"
+
+# Create logs directory
+mkdir -p logs
+mkdir -p models/ablation/results
+
+echo "=== EVEREST Ablation Study - Sequential (Updated) ==="
+echo "Job ID: $PBS_JOBID"
+echo "Node: $(hostname)"
+echo "Working Directory: $(pwd)"
+echo "GPU Device: $CUDA_VISIBLE_DEVICES"
+echo "CPUs: 8"
+echo "Memory: 32GB"
+echo "Queue: gpu72"
+echo "Start Time: $(date)"
+echo "Walltime: 48 hours"
+echo ""
+
+# Check GPU type and memory
+nvidia-smi
+echo ""
+
+# Define experiment configurations with updated hyperparameters
+VARIANTS=("full_model" "no_evidential" "no_evt" "mean_pool" "cross_entropy" "no_precursor" "fp32_training")
+SEEDS=(0 1 2)  # 3 seeds for faster completion
+
+# Track progress
+TOTAL_EXPERIMENTS=$((${#VARIANTS[@]} * ${#SEEDS[@]}))
+CURRENT_EXP=0
+
+echo "📊 Sequential Experiment Plan:"
+echo "   Variants: ${#VARIANTS[@]} (${VARIANTS[*]})"
+echo "   Seeds: ${#SEEDS[@]} (${SEEDS[*]})"
+echo "   Total experiments: $TOTAL_EXPERIMENTS"
+echo "   Updated hyperparameters: embed_dim=64, num_blocks=8, batch_size=1024"
+echo "   GPU Types: L40S (48GB) or A100 (40GB)"
+echo ""
+
+# Function to run single experiment
+run_experiment() {
+    local variant=$1
+    local seed=$2
+    local exp_num=$3
+    
+    echo "🔬 [$exp_num/$TOTAL_EXPERIMENTS] Starting experiment:"
+    echo "   Variant: $variant"
+    echo "   Seed: $seed"
+    echo "   Time: $(date)"
+    
+    # Run the experiment with timeout
+    timeout 7200 python -m ablation.trainer --variant $variant --seed $seed
+    
+    local exit_code=$?
+    
+    if [ $exit_code -eq 0 ]; then
+        echo "   ✅ Completed successfully"
+    elif [ $exit_code -eq 124 ]; then
+        echo "   ⏰ Timeout after 2 hours"
+    else
+        echo "   ❌ Failed with exit code $exit_code"
+    fi
+    
+    echo "   Finished at $(date)"
+    echo ""
+    
+    return $exit_code
+}
+
+# Sequential execution
+start_time=$(date +%s)
+failed_experiments=()
+completed_experiments=()
+
+echo "🚀 Starting sequential execution..."
+echo ""
+
+for variant in "${VARIANTS[@]}"; do
+    for seed in "${SEEDS[@]}"; do
+        ((CURRENT_EXP++))
+        
+        run_experiment $variant $seed $CURRENT_EXP
+        
+        if [ $? -eq 0 ]; then
+            completed_experiments+=("$variant:$seed")
+        else
+            failed_experiments+=("$variant:$seed")
+        fi
+        
+        # Check remaining walltime
+        elapsed=$(($(date +%s) - start_time))
+        remaining=$((172800 - elapsed))  # 48 hours = 172800 seconds
+        
+        if [ $remaining -lt 7200 ]; then  # Less than 2 hours
+            echo "⚠️  Less than 2 hours remaining, stopping early"
+            echo "   Completed: $CURRENT_EXP/$TOTAL_EXPERIMENTS experiments"
+            break 2
+        fi
+        
+        echo "⏱️  Progress: $CURRENT_EXP/$TOTAL_EXPERIMENTS | Remaining walltime: $((remaining/3600))h"
+        
+        # Brief pause between experiments
+        sleep 60
+    done
+done
+
+# Summary
+total_time=$(($(date +%s) - start_time))
+echo ""
+echo "🎉 Sequential execution completed!"
+echo "   Total experiments attempted: $CURRENT_EXP"
+echo "   Completed successfully: ${#completed_experiments[@]}"
+echo "   Failed: ${#failed_experiments[@]}"
+echo "   Total time: $((total_time/3600))h $((total_time%3600/60))m"
+echo "   Average time per experiment: $((total_time/CURRENT_EXP/60)) minutes"
+
+if [ ${#failed_experiments[@]} -gt 0 ]; then
+    echo "   ❌ Failed experiments: ${failed_experiments[*]}"
+else
+    echo "   ✅ All experiments completed successfully"
+fi
+
+echo ""
+echo "📊 Results summary:"
+ls -la models/ablation/results/ | wc -l
+echo "   Result directories created: $(ls -d models/ablation/results/ablation_* 2>/dev/null | wc -l)"
+
+echo ""
+echo "📋 Next steps:"
+echo "   1. Check results: ls models/ablation/results/"
+echo "   2. Run analysis: python run_updated_ablation.py --analysis-only"
+echo "   3. Generate thesis figures and tables"
+echo ""
+echo "End Time: $(date)" 

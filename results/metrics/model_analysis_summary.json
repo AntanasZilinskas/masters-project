@@ -1,0 +1,20 @@
+{
+  "progress": {
+    "total_tasks": 9,
+    "completed_tasks": 9,
+    "completion_rate": 1.0,
+    "missing_tasks": []
+  },
+  "best_models": {
+    "M5_72h": "EVEREST-v1.3-M5-72h",
+    "M_24h": "EVEREST-v1.4-M-24h",
+    "M5_24h": "EVEREST-v4.2-M5-24h",
+    "M_48h": "EVEREST-v1.1-M-48h",
+    "C_72h": "EVEREST-v1.2-C-72h",
+    "C_24h": "EVEREST-v2.1-C-24h",
+    "M5_48h": "EVEREST-v1.2-M5-48h",
+    "C_48h": "EVEREST-v1.3-C-48h",
+    "M_72h": "EVEREST-v1.0-M-72h"
+  },
+  "generation_timestamp": "2025-05-31T22:05:01.981626"
+}

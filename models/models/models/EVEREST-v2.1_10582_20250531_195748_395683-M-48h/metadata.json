@@ -1,0 +1,46 @@
+{
+  "version": "2.1_10582_20250531_195748_395683",
+  "timestamp": "2025-06-01T04:57:21.110467",
+  "description": "Iteration on v2.1 model for M-class flares with 48h window",
+  "flare_class": "M",
+  "time_window": "48",
+  "hyperparameters": {
+    "learning_rate": 0.0001,
+    "batch_size": 512,
+    "early_stopping_patience": 5,
+    "epochs": 100,
+    "num_transformer_blocks": 6,
+    "embed_dim": 128,
+    "num_heads": 4,
+    "ff_dim": 256,
+    "dropout_rate": 0.2,
+    "focal_loss": true,
+    "focal_loss_alpha": 0.25,
+    "focal_loss_gamma": 2.0,
+    "class_weights": {
+      "0": 1.0,
+      "1": 7.595571249027471
+    },
+    "previous_version": 2.1
+  },
+  "performance": {
+    "final_training_accuracy": 0.9824212193489075,
+    "final_training_loss": 0.02076253853738308,
+    "epochs_trained": 100,
+    "final_training_tss": 0.9564900398254395
+  },
+  "git_info": {
+    "commit": "8def88e0377157404ee1776a46748eadf0a3d12b",
+    "branch": "pytorch-rewrite"
+  },
+  "architecture": {
+    "name": "EVEREST",
+    "input_shape": [
+      10,
+      9
+    ],
+    "num_params": 1999746,
+    "precision": "<Policy \"mixed_float16\">"
+  },
+  "framework": "TensorFlow"
+}

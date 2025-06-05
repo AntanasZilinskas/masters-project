@@ -1,0 +1,89 @@
+#!/bin/bash
+#PBS -l select=1:ncpus=4:mem=24gb:ngpus=1
+#PBS -l walltime=24:00:00
+#PBS -N hpo_array
+#PBS -J 1-9
+#PBS -o hpo_array_${PBS_ARRAY_INDEX}.out
+#PBS -e hpo_array_${PBS_ARRAY_INDEX}.err
+
+# Initialize conda
+source ~/miniforge3/etc/profile.d/conda.sh
+
+# Change to submission directory (should be project root)
+cd $PBS_O_WORKDIR
+
+# Ensure we're in the project root by checking for key files
+if [[ ! -f "models/hpo/run_hpo.py" ]]; then
+    echo "Error: Not in project root directory. Expected to find models/hpo/run_hpo.py"
+    echo "Current directory: $(pwd)"
+    echo "Contents: $(ls -la)"
+    exit 1
+fi
+
+echo "Working directory: $(pwd)"
+echo "Project root confirmed"
+
+# Activate conda environment
+conda activate everest_env
+
+# Set environment variables for GPU and Python path
+export CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES
+export PYTHONPATH="$(pwd):$PYTHONPATH"
+
+# Define the target configurations
+declare -a FLARE_CLASSES=("C" "M" "M5")
+declare -a TIME_WINDOWS=(24 48 72)
+
+# Calculate flare class and time window indices from array index
+FLARE_IDX=$(( ($PBS_ARRAY_INDEX - 1) % 3 ))
+TIME_IDX=$(( ($PBS_ARRAY_INDEX - 1) / 3 ))
+
+FLARE_CLASS=${FLARE_CLASSES[$FLARE_IDX]}
+TIME_WINDOW=${TIME_WINDOWS[$TIME_IDX]}
+
+echo "Array job ${PBS_ARRAY_INDEX}: ${FLARE_CLASS} class, ${TIME_WINDOW}h window"
+echo "Using GPU: $CUDA_VISIBLE_DEVICES"
+echo "Conda environment: $CONDA_DEFAULT_ENV"
+echo "Python path: $PYTHONPATH"
+echo "Python executable: $(which python)"
+echo "Python version: $(python --version)"
+
+# Test basic imports before running the main script
+echo "Testing imports..."
+python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
+python -c "import models.hpo; print('HPO imports successful')"
+
+# Validate GPU availability - CRITICAL for HPO
+echo "Validating GPU..."
+python -c "
+import torch
+if torch.cuda.is_available():
+    gpu_name = torch.cuda.get_device_name(0)
+    print(f'✅ GPU available: {gpu_name}')
+else:
+    print('❌ GPU not available - HPO cannot proceed')
+    exit(1)
+"
+
+if [ $? -ne 0 ]; then
+    echo "❌ GPU validation failed - terminating job"
+    exit 1
+fi
+
+echo "Starting HPO optimization..."
+
+# Monitor available resources
+echo "Memory info: $(free -h | head -2)"
+echo "Disk space: $(df -h . | tail -1)"
+echo "GPU memory: $(nvidia-smi --query-gpu=memory.total,memory.used --format=csv,noheader,nounits || echo 'GPU info unavailable')"
+
+# Run HPO optimization - use python -m to ensure module path is correct
+python -m models.hpo.run_hpo \
+    --target single \
+    --flare-class $FLARE_CLASS \
+    --time-window $TIME_WINDOW \
+    --max-trials 166 \
+    --timeout 82800 \
+    --quiet
+
+echo "Completed HPO optimization for ${FLARE_CLASS} class, ${TIME_WINDOW}h window (Array job ${PBS_ARRAY_INDEX})" 

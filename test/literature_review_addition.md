@@ -1,0 +1,13 @@
+# Suggested Addition to Literature Review
+
+## Multi-Task Learning for Improved Representation Learning
+
+The integration of auxiliary tasks during model training—while using only the primary output for inference—represents a well-established paradigm in modern machine learning known as multi-task learning (MTL). This approach has demonstrated consistent benefits across domains, from natural language processing to computer vision \citep{ruder2017overview}.
+
+**Theoretical Foundation.** Multi-task learning improves primary task performance through several mechanisms: (1) shared representation learning that captures common patterns across related tasks, (2) implicit regularization that prevents overfitting to the main task, and (3) enhanced feature learning through diverse supervisory signals \citep{caruana1997multitask}. Crucially, these benefits manifest during training through improved gradient dynamics and representation quality, making it standard practice to deploy only the primary output while retaining auxiliary heads solely for training \citep{vandenhende2021revisiting}.
+
+**Empirical Evidence.** Recent comprehensive surveys of MTL approaches demonstrate that auxiliary tasks consistently improve primary task performance even when unused during inference \citep{vandenhende2021revisiting}. For instance, BERT achieves its strong performance through multi-task pre-training (masked language modeling + next sentence prediction) but deploys only task-specific heads for downstream applications \citep{devlin2018bert}. Similarly, computer vision models frequently employ auxiliary supervision (depth estimation, surface normals) to improve primary tasks (semantic segmentation) without requiring auxiliary outputs at inference time \citep{standley2020tasks}.
+
+**Relevance to Solar Flare Forecasting.** In the context of rare-event prediction, auxiliary tasks offer particular value by providing additional supervisory signal that improves the learning of shared representations. Evidential uncertainty estimation and extreme value modeling serve as natural auxiliary objectives that enhance the primary binary classification task's performance while offering interpretable diagnostic information during development and validation phases.
+
+This multi-task framework directly motivates EVEREST's architecture: evidential learning provides uncertainty-aware representations, EVT modeling captures tail behavior essential for rare events, and precursor detection offers temporal structure learning—all contributing to improved primary flare prediction while maintaining operational simplicity through single-output deployment. 

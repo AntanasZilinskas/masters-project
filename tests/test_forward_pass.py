@@ -3,15 +3,14 @@ Tests to ensure the model's forward pass works correctly and loss decreases duri
 """
 
 import tensorflow as tf
+import numpy as np
 
 
 def create_training_model():
     """Create a model for training tests."""
     model = tf.keras.Sequential(
         [
-            tf.keras.layers.Dense(
-                64, activation="relu", input_shape=(100, 14)
-            ),
+            tf.keras.layers.Dense(64, activation="relu", input_shape=(100, 14)),
             tf.keras.layers.Flatten(),
             tf.keras.layers.Dense(32, activation="relu"),
             tf.keras.layers.Dense(2, activation="softmax"),
@@ -69,5 +68,5 @@ def test_can_predict():
         2,
     ), f"Expected shape (batch_size, 2), got {preds.shape}"
     assert isinstance(preds, tf.Tensor) or isinstance(
-        preds, tf.numpy.ndarray
+        preds, np.ndarray
     ), f"Expected TensorFlow tensor or numpy array, got {type(preds)}"

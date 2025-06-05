@@ -1,0 +1,90 @@
+#!/bin/bash
+#PBS -N everest_production_analysis
+#PBS -l walltime=02:00:00
+#PBS -l select=1:ncpus=4:mem=16gb
+#PBS -j oe
+#PBS -o logs/production_analysis.log
+
+# EVEREST Production Training - Analysis Job
+# This script runs statistical analysis after all training jobs complete
+
+echo "📊 EVEREST Production Training Analysis"
+echo "Job ID: $PBS_JOBID"
+echo "Node: $(hostname)"
+echo "Started: $(date)"
+echo "====================================="
+
+# Navigate to project root and verify structure
+cd $PBS_O_WORKDIR
+PROJECT_ROOT=$(pwd)
+echo "Project root: $PROJECT_ROOT"
+
+# Verify project structure
+if [ ! -d "models/training" ]; then
+    echo "Error: models/training/ directory not found"
+    echo "Current directory: $(pwd)"
+    echo "Contents: $(ls -la)"
+    exit 1
+fi
+
+echo "Project structure verified"
+
+# Set Python path
+export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
+
+# Initialize conda - try multiple initialization methods
+if [ -f "$HOME/miniforge3/etc/profile.d/conda.sh" ]; then
+    source "$HOME/miniforge3/etc/profile.d/conda.sh"
+elif [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then
+    source "$HOME/anaconda3/etc/profile.d/conda.sh"
+elif [ -f "$HOME/.bashrc" ]; then
+    source "$HOME/.bashrc"
+else
+    echo "Warning: Could not find conda initialization script"
+fi
+
+# Activate conda environment
+echo "Activating everest_env..."
+conda activate everest_env
+
+if [ $? -ne 0 ]; then
+    echo "Failed to activate everest_env, trying alternative method..."
+    module load anaconda3/personal 2>/dev/null || echo "Module load failed"
+    source activate everest_env
+    
+    if [ $? -ne 0 ]; then
+        echo "Failed to activate everest_env with alternative method"
+        exit 1
+    fi
+fi
+
+echo "Environment activated successfully"
+echo "Python executable: $(which python)"
+
+# Create logs directory
+mkdir -p logs
+
+echo ""
+echo "📊 Starting EVEREST Production Training Analysis"
+echo "Time: $(date)"
+echo ""
+
+# Run the analysis script
+python models/training/analysis.py
+
+# Check exit status
+exit_code=$?
+
+echo ""
+echo "Analysis completed with exit code: $exit_code"
+echo "Finished: $(date)"
+
+if [ $exit_code -eq 0 ]; then
+    echo "✅ Production training analysis completed successfully"
+    echo "📁 Results saved to models/training/analysis/"
+    echo "📈 Plots saved to models/training/plots/"
+else
+    echo "❌ Production training analysis failed"
+fi
+
+exit $exit_code 

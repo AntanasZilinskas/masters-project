@@ -1,0 +1,71 @@
+{
+    "24": {
+        "C": {
+            "accuracy": 0.8562,
+            "precision": 0.9264,
+            "recall": 0.856,
+            "balanced_accuracy": 0.8563,
+            "TSS": 0.7125
+        },
+        "M": {
+            "accuracy": 0.9815,
+            "precision": 0.7794,
+            "recall": 0.4934,
+            "balanced_accuracy": 0.7447,
+            "TSS": 0.4893
+        },
+        "M5": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A"
+        }
+    },
+    "48": {
+        "C": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A"
+        },
+        "M": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A"
+        },
+        "M5": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A"
+        }
+    },
+    "72": {
+        "C": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A"
+        },
+        "M": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A"
+        },
+        "M5": {
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "balanced_accuracy": "N/A",
+            "TSS": "N/A"
+        }
+    }
+}

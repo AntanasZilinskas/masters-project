@@ -1,0 +1,130 @@
+#!/bin/bash
+#PBS -N everest_ablation_sequential
+#PBS -l walltime=48:00:00
+#PBS -l select=1:ncpus=8:mem=32gb:ngpus=1
+#PBS -q v1_gpu72
+#PBS -j oe
+#PBS -o logs/ablation_sequential_${PBS_JOBID}.log
+
+# EVEREST Ablation Study - Sequential Execution on Single GPU
+# This script runs multiple ablation experiments sequentially on the same GPU
+# Much more efficient than array jobs that request separate GPUs
+
+# Load environment
+module load anaconda3/personal
+source activate everest_env
+
+# Set up paths
+cd $PBS_O_WORKDIR
+export PYTHONPATH="${PBS_O_WORKDIR}:${PYTHONPATH}"
+
+# Create logs directory
+mkdir -p logs
+mkdir -p models/ablation/results
+
+echo "=== EVEREST Ablation Study - Sequential Batch ==="
+echo "Job ID: $PBS_JOBID"
+echo "Node: $(hostname)"
+echo "Working Directory: $(pwd)"
+echo "GPU Devices: $CUDA_VISIBLE_DEVICES"
+echo "Start Time: $(date)"
+echo "Walltime: 48 hours"
+echo ""
+
+# Define experiment configurations with updated hyperparameters
+VARIANTS=("full_model" "no_evidential" "no_evt" "mean_pool" "cross_entropy" "no_precursor" "fp32_training")
+SEEDS=(0 1 2)  # Run 3 seeds for statistical significance
+
+# Track progress
+TOTAL_EXPERIMENTS=$((${#VARIANTS[@]} * ${#SEEDS[@]}))
+CURRENT_EXP=0
+
+echo "📊 Experiment Plan:"
+echo "   Variants: ${#VARIANTS[@]} (${VARIANTS[*]})"
+echo "   Seeds: ${#SEEDS[@]} (${SEEDS[*]})"
+echo "   Total experiments: $TOTAL_EXPERIMENTS"
+echo "   Updated hyperparameters: embed_dim=64, num_blocks=8, batch_size=1024"
+echo ""
+
+# Function to run single experiment with error handling
+run_experiment() {
+    local variant=$1
+    local seed=$2
+    local exp_num=$3
+    
+    echo "🔬 [$exp_num/$TOTAL_EXPERIMENTS] Starting experiment:"
+    echo "   Variant: $variant"
+    echo "   Seed: $seed"
+    echo "   Time: $(date)"
+    
+    # Run the experiment with timeout and error handling
+    timeout 7200 python -m ablation.trainer --variant $variant --seed $seed
+    local exit_code=$?
+    
+    if [ $exit_code -eq 0 ]; then
+        echo "   ✅ Completed successfully"
+    elif [ $exit_code -eq 124 ]; then
+        echo "   ⏰ Timeout after 2 hours"
+    else
+        echo "   ❌ Failed with exit code $exit_code"
+    fi
+    
+    echo "   Duration: $(($(date +%s) - start_time)) seconds"
+    echo ""
+    
+    return $exit_code
+}
+
+# Run all experiments sequentially
+start_time=$(date +%s)
+failed_experiments=()
+
+for variant in "${VARIANTS[@]}"; do
+    for seed in "${SEEDS[@]}"; do
+        CURRENT_EXP=$((CURRENT_EXP + 1))
+        
+        exp_start_time=$(date +%s)
+        run_experiment $variant $seed $CURRENT_EXP
+        
+        if [ $? -ne 0 ]; then
+            failed_experiments+=("${variant}_seed${seed}")
+        fi
+        
+        # Brief pause between experiments to let GPU cool down
+        sleep 30
+        
+        # Check remaining walltime (stop if less than 3 hours remaining)
+        elapsed=$(($(date +%s) - start_time))
+        remaining=$((172800 - elapsed))  # 48 hours = 172800 seconds
+        
+        if [ $remaining -lt 10800 ]; then  # Less than 3 hours
+            echo "⚠️  Less than 3 hours remaining, stopping early"
+            echo "   Completed: $CURRENT_EXP/$TOTAL_EXPERIMENTS experiments"
+            break 2
+        fi
+        
+        echo "⏱️  Progress: $CURRENT_EXP/$TOTAL_EXPERIMENTS | Remaining walltime: $((remaining/3600))h"
+    done
+done
+
+# Summary
+total_time=$(($(date +%s) - start_time))
+echo ""
+echo "🎉 Sequential batch completed!"
+echo "   Total experiments attempted: $CURRENT_EXP"
+echo "   Total time: $((total_time/3600))h $((total_time%3600/60))m"
+echo "   Average time per experiment: $((total_time/CURRENT_EXP/60)) minutes"
+
+if [ ${#failed_experiments[@]} -gt 0 ]; then
+    echo "   ❌ Failed experiments: ${failed_experiments[*]}"
+else
+    echo "   ✅ All experiments completed successfully"
+fi
+
+echo ""
+echo "📋 Next steps:"
+echo "   1. Check results: ls models/ablation/results/"
+echo "   2. Run analysis: python run_updated_ablation.py --analysis-only"
+echo "   3. Submit additional batches if needed"
+echo ""
+echo "End Time: $(date)" 

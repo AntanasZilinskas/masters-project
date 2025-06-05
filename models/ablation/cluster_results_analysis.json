@@ -1,0 +1,46 @@
+{
+  "summary_by_variant": {
+    "full_model": {
+      "count": 1,
+      "seeds": [
+        99
+      ],
+      "tss_mean": 0.0,
+      "tss_std": NaN,
+      "tss_values": [
+        0.0
+      ],
+      "accuracy_mean": 0.9985500982866066,
+      "accuracy_std": NaN,
+      "f1_mean": 0.0,
+      "f1_std": NaN,
+      "brier_mean": 0.05045952804916572,
+      "brier_std": NaN,
+      "ece_mean": 0.2213858962059021,
+      "ece_std": NaN
+    }
+  },
+  "sorted_results": {
+    "full_model": {
+      "count": 1,
+      "seeds": [
+        99
+      ],
+      "tss_mean": 0.0,
+      "tss_std": NaN,
+      "tss_values": [
+        0.0
+      ],
+      "accuracy_mean": 0.9985500982866066,
+      "accuracy_std": NaN,
+      "f1_mean": 0.0,
+      "f1_std": NaN,
+      "brier_mean": 0.05045952804916572,
+      "brier_std": NaN,
+      "ece_mean": 0.2213858962059021,
+      "ece_std": NaN
+    }
+  },
+  "total_experiments": 1,
+  "unique_variants": 1
+}

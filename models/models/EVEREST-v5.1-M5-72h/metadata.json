@@ -1,0 +1,149 @@
+{
+  "version": 5.1,
+  "timestamp": "2025-05-29T01:26:14.716801",
+  "description": "EVEREST Ablation Study - EVEREST model without evidential uncertainty (NIG head removed) (seed 0)",
+  "flare_class": "M5",
+  "time_window": "72",
+  "hyperparameters": {
+    "input_shape": [
+      10,
+      9
+    ],
+    "embed_dim": 64,
+    "num_blocks": 8,
+    "dropout": 0.23876978467047777,
+    "ablation_variant": "no_evidential",
+    "ablation_seed": 0,
+    "use_attention_bottleneck": true,
+    "use_evidential": false,
+    "use_evt": true,
+    "use_precursor": true,
+    "loss_weights": {
+      "focal": 0.9,
+      "evid": 0.0,
+      "evt": 0.1,
+      "prec": 0.05
+    }
+  },
+  "performance": {
+    "accuracy": 0.9966452744179621,
+    "TSS": 0.607683146835311
+  },
+  "git_info": {
+    "commit": "c7ea6cf76813c99df1dd974ebc9da3aaa8d5a4b2",
+    "branch": "pytorch-rewrite"
+  },
+  "architecture": {
+    "name": "EVEREST (PyTorch)",
+    "input_shape": [
+      10,
+      9
+    ],
+    "num_params": 813574,
+    "precision": "torch.float32"
+  },
+  "framework": "PyTorch",
+  "training_metrics": {
+    "total_training_time_s": 898.307070016861,
+    "total_training_time_h": 0.24952974167135028,
+    "average_epoch_time_s": 17.96445682525635,
+    "fastest_epoch_time_s": 17.60835361480713,
+    "slowest_epoch_time_s": 19.04383373260498,
+    "epoch_times": [
+      19.04383373260498,
+      17.692853689193726,
+      18.219461917877197,
+      18.43843674659729,
+      18.03719997406006,
+      17.746952533721924,
+      18.111083269119263,
+      18.087045669555664,
+      18.18303370475769,
+      17.750776052474976,
+      18.03427815437317,
+      18.019484996795654,
+      17.980271100997925,
+      17.944897174835205,
+      17.876007556915283,
+      17.922884464263916,
+      17.90488624572754,
+      17.821767330169678,
+      17.703489303588867,
+      17.91734004020691,
+      18.055782794952393,
+      17.993455171585083,
+      18.024507522583008,
+      17.96251916885376,
+      18.26946449279785,
+      17.97832202911377,
+      17.95572066307068,
+      18.027196407318115,
+      17.914485454559326,
+      18.037046432495117,
+      18.080670833587646,
+      18.005057096481323,
+      17.82436466217041,
+      18.0467791557312,
+      18.110800743103027,
+      17.941535711288452,
+      17.976617097854614,
+      17.75869083404541,
+      17.966935634613037,
+      17.974348545074463,
+      17.846115112304688,
+      17.845542907714844,
+      17.612249851226807,
+      17.8530056476593,
+      17.844895124435425,
+      17.822495222091675,
+      17.60835361480713,
+      17.813820838928223,
+      17.836345911026,
+      17.79973292350769
+    ],
+    "epochs_completed": 50,
+    "early_stopped": false,
+    "gpu_info": {
+      "gpu_name": "Quadro RTX 6000",
+      "gpu_memory_gb": 23
+    },
+    "gpu_power_stats": {
+      "average_power_w": 45.666666666666664,
+      "max_power_w": 60.47,
+      "min_power_w": 19.22,
+      "power_readings": 3,
+      "monitoring_duration_s": 600.2063438892365
+    },
+    "co2_emissions_kg": null,
+    "training_samples": 709447,
+    "batch_size": 1024,
+    "mixed_precision": true
+  },
+  "ablation_metadata": {
+    "experiment_type": "component_ablation",
+    "variant": "no_evidential",
+    "seed": 0,
+    "ablation_config": {
+      "use_attention_bottleneck": true,
+      "use_evidential": false,
+      "use_evt": true,
+      "use_precursor": true,
+      "loss_weights": {
+        "focal": 0.9,
+        "evid": 0.0,
+        "evt": 0.1,
+        "prec": 0.05
+      },
+      "description": "EVEREST model without evidential uncertainty (NIG head removed)"
+    },
+    "optimal_hyperparams": {
+      "embed_dim": 64,
+      "num_blocks": 8,
+      "dropout": 0.23876978467047777,
+      "focal_gamma": 3.4223204654921875,
+      "learning_rate": 0.0006926769179941219,
+      "batch_size": 1024
+    },
+    "description": "EVEREST model without evidential uncertainty (NIG head removed)"
+  }
+}

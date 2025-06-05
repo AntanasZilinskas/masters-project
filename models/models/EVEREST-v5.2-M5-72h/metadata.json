@@ -1,0 +1,161 @@
+{
+  "version": 5.2,
+  "timestamp": "2025-05-29T03:13:54.423785",
+  "description": "EVEREST Ablation Study - EVEREST model without evidential uncertainty (NIG head removed) (seed 0)",
+  "flare_class": "M5",
+  "time_window": "72",
+  "hyperparameters": {
+    "input_shape": [
+      10,
+      9
+    ],
+    "embed_dim": 128,
+    "num_heads": 4,
+    "ff_dim": 256,
+    "num_blocks": 6,
+    "dropout": 0.2,
+    "ablation_variant": "no_evidential",
+    "ablation_seed": 0,
+    "learning_rate": 0.0005337429672856022,
+    "focal_gamma": 2.8033450352296265,
+    "batch_size": 512
+  },
+  "performance": {
+    "accuracy": 0.9985640396492353,
+    "TSS": 0.009615384615384581,
+    "ROC_AUC": 0.9967624235365659,
+    "Brier": 0.004650358655342968,
+    "ECE": 0.01776940865951079,
+    "precision": 1.0,
+    "recall": 0.009615384615384616,
+    "sensitivity": 0.009615384615384616,
+    "specificity": 1.0,
+    "f1_score": 0.01904761904761905,
+    "auc_roc": 0.9973905222177474,
+    "auc_pr": 0.4629297882450088,
+    "true_positives": 1,
+    "false_positives": 0,
+    "true_negatives": 71625,
+    "false_negatives": 103,
+    "positive_rate": 0.001449901713393467,
+    "prediction_rate": 1.3941362628783337e-05
+  },
+  "git_info": {
+    "commit": "0cbc56edf81be6250c0c43de7c244eb04ba1dfee",
+    "branch": "pytorch-rewrite"
+  },
+  "architecture": {
+    "name": "EVEREST (PyTorch)",
+    "input_shape": [
+      10,
+      9
+    ],
+    "num_params": 548614,
+    "precision": "torch.float32"
+  },
+  "framework": "PyTorch",
+  "latency_sec_per_batch32": 0.0020898818969726563,
+  "training_metrics": {
+    "total_training_time_s": 1194.4252831935883,
+    "total_training_time_h": 0.3317848008871078,
+    "average_epoch_time_s": 23.88716450214386,
+    "fastest_epoch_time_s": 22.52887225151062,
+    "slowest_epoch_time_s": 25.645923137664795,
+    "epoch_times": [
+      23.27989172935486,
+      23.077810049057007,
+      22.538367986679077,
+      22.769913911819458,
+      22.57452082633972,
+      22.734763383865356,
+      22.52887225151062,
+      23.267815351486206,
+      25.432365894317627,
+      25.499715089797974,
+      25.20816707611084,
+      25.36920928955078,
+      25.26198649406433,
+      25.44697642326355,
+      25.20626139640808,
+      25.386913537979126,
+      25.199660778045654,
+      25.470637559890747,
+      25.204362154006958,
+      25.42401361465454,
+      25.445903301239014,
+      25.645923137664795,
+      25.28060531616211,
+      24.64516854286194,
+      24.132137775421143,
+      23.90747332572937,
+      22.97008466720581,
+      23.178026914596558,
+      23.230217933654785,
+      24.435120582580566,
+      24.241375207901,
+      24.164031982421875,
+      23.996970891952515,
+      24.168104648590088,
+      23.95511269569397,
+      24.17703628540039,
+      22.900995016098022,
+      22.969869136810303,
+      22.7171733379364,
+      22.894953966140747,
+      22.723416090011597,
+      22.94125747680664,
+      22.67206382751465,
+      22.944507837295532,
+      22.674066305160522,
+      22.927573442459106,
+      22.734419584274292,
+      22.948484659194946,
+      22.91317892074585,
+      22.940747499465942
+    ],
+    "epochs_completed": 50,
+    "early_stopped": false,
+    "gpu_info": {
+      "gpu_name": "Quadro RTX 6000",
+      "gpu_memory_gb": 23
+    },
+    "gpu_power_stats": {
+      "average_power_w": 28.0775,
+      "max_power_w": 28.36,
+      "min_power_w": 27.97,
+      "power_readings": 4,
+      "monitoring_duration_s": 900.2813286781311
+    },
+    "co2_emissions_kg": null,
+    "training_samples": 709447,
+    "batch_size": 512,
+    "mixed_precision": true
+  },
+  "ablation_metadata": {
+    "experiment_type": "component_ablation",
+    "variant": "no_evidential",
+    "seed": 0,
+    "ablation_config": {
+      "use_attention_bottleneck": true,
+      "use_evidential": false,
+      "use_evt": true,
+      "use_precursor": true,
+      "loss_weights": {
+        "focal": 0.9,
+        "evid": 0.0,
+        "evt": 0.1,
+        "prec": 0.05
+      },
+      "description": "EVEREST model without evidential uncertainty (NIG head removed)"
+    },
+    "optimal_hyperparams": {
+      "embed_dim": 128,
+      "num_blocks": 4,
+      "dropout": 0.3531616510212273,
+      "focal_gamma": 2.8033450352296265,
+      "learning_rate": 0.0005337429672856022,
+      "batch_size": 512
+    },
+    "description": "EVEREST model without evidential uncertainty (NIG head removed)"
+  }
+}

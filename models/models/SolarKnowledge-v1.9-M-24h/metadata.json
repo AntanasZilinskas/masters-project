@@ -1,0 +1,36 @@
+{
+  "version": 1.9,
+  "timestamp": "2025-05-11T11:17:48.317875",
+  "description": "EVEREST model trained on SHARP data with evidential and EVT losses.",
+  "flare_class": "M",
+  "time_window": 24,
+  "hyperparameters": {
+    "input_shape": [
+      10,
+      9
+    ],
+    "embed_dim": 128,
+    "num_heads": 4,
+    "ff_dim": 256,
+    "num_blocks": 6,
+    "dropout": 0.2
+  },
+  "performance": {
+    "accuracy": 0.9732259873265507,
+    "TSS": 0.94644810924905
+  },
+  "git_info": {
+    "commit": "e86d19d349bc94c6b192ac39f05695dcb597378b",
+    "branch": "pytorch-rewrite"
+  },
+  "architecture": {
+    "name": "SolarKnowledge (PyTorch)",
+    "input_shape": [
+      10,
+      9
+    ],
+    "num_params": 814089,
+    "precision": "torch.float32"
+  },
+  "framework": "PyTorch"
+}

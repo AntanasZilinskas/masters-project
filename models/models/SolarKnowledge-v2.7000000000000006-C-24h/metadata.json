@@ -1,0 +1,68 @@
+{
+  "version": 2.7000000000000006,
+  "timestamp": "2025-05-09T03:18:28.744464",
+  "description": "Iteration on v2.6000000000000005 model for C-class flares with 24h window",
+  "flare_class": "C",
+  "time_window": "24",
+  "hyperparameters": {
+    "learning_rate": 0.0003,
+    "weight_decay": 0.0,
+    "batch_size": 512,
+    "early_stopping_patience": 5,
+    "epochs": 100,
+    "num_transformer_blocks": 6,
+    "embed_dim": 128,
+    "num_heads": 4,
+    "ff_dim": 256,
+    "dropout_rate": 0.2,
+    "focal_loss": true,
+    "focal_loss_alpha": 0.25,
+    "focal_loss_gamma": 2.0,
+    "class_weights": {
+      "0": 1.0,
+      "1": 0.4421536237869089
+    },
+    "framework": "pytorch",
+    "weight_initialization": "tf_compatible",
+    "gradient_clipping": true,
+    "max_grad_norm": 1.0,
+    "input_shape": [
+      10,
+      9
+    ],
+    "scheduler": "reduce_on_plateau",
+    "scheduler_params": {
+      "mode": "min",
+      "factor": 0.5,
+      "patience": 5,
+      "min_lr": 1e-06,
+      "T_0": 5,
+      "T_mult": 2,
+      "eta_min": 1e-07
+    },
+    "use_batch_norm": true,
+    "optimizer": "Adam",
+    "random_seed": 42,
+    "previous_version": 2.6000000000000005
+  },
+  "performance": {
+    "final_training_accuracy": 0.9782765770242328,
+    "final_training_loss": 0.01542055543645152,
+    "epochs_trained": 29,
+    "final_training_tss": 0.8626177763605634
+  },
+  "git_info": {
+    "commit": "9854d7a0a7b26ccc5e322918d559bd771cbe467a",
+    "branch": "pytorch-rewrite"
+  },
+  "architecture": {
+    "name": "SolarKnowledge (PyTorch)",
+    "input_shape": [
+      10,
+      9
+    ],
+    "num_params": 813186,
+    "precision": "torch.float32"
+  },
+  "framework": "PyTorch"
+}
