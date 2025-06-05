@@ -1,137 +1,120 @@
+#!/usr/bin/env python3
 """
-EVEREST Publication Results Generator
-
-This script generates all the results, tables, and figures needed for the
-thesis validation chapter, including:
-
-1. Main performance tables (Table 5.1, 5.2)
-2. Ablation study results (Table 5.3)
-3. ROC curves and reliability diagrams
-4. Cost-loss analysis
-5. Statistical significance testing
-6. Baseline comparisons
-
-Run this after all training, HPO, and ablation studies are complete.
+Generate comprehensive results for thesis publication.
 """
 
-from scipy import stats
-from sklearn.metrics import roc_curve, auc, calibration_curve, brier_score_loss
-from models.hpo.analysis import HPOAnalyzer
-from models.ablation.analysis import AblationAnalyzer
-from models.training.analysis import ProductionAnalyzer
 import os
-import sys
+import shutil
 import json
-import numpy as np
+from pathlib import Path
+from typing import Dict, Any, List, Tuple
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from typing import Dict, List, Any, Tuple
-from pathlib import Path
-import warnings
+from datetime import datetime
 
-warnings.filterwarnings("ignore")
-
-# Add project root to path
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
+# Set style
+plt.style.use('seaborn-v0_8')
+sns.set_palette("husl")
 
 class PublicationResultsGenerator:
-    """Generate all results needed for thesis publication."""
-
+    """Generate all publication results."""
+    
     def __init__(self):
-        """Initialize the results generator."""
+        self.base_dir = Path(__file__).parent.parent.parent
         self.output_dir = Path("publication_results")
-        self.output_dir.mkdir(exist_ok=True)
+        self.setup_directories()
 
-        # Create subdirectories
-        (self.output_dir / "tables").mkdir(exist_ok=True)
-        (self.output_dir / "figures").mkdir(exist_ok=True)
-        (self.output_dir / "data").mkdir(exist_ok=True)
-
-        print("📊 EVEREST Publication Results Generator")
-        print("=" * 50)
-        print(f"Output directory: {self.output_dir}")
+    def setup_directories(self):
+        """Setup output directory structure."""
+        directories = [
+            self.output_dir / "tables",
+            self.output_dir / "figures", 
+            self.output_dir / "data",
+            self.output_dir / "latex_sections"
+        ]
+        for directory in directories:
+            directory.mkdir(parents=True, exist_ok=True)
+        print(f"📁 Output directories created in: {self.output_dir}")
 
     def generate_all_results(self):
         """Generate all publication results."""
-        print("\n🚀 Generating all publication results...")
-
-        # 1. Load all experimental data
+        print("🚀 Starting comprehensive publication results generation...")
+        print(f"📅 Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        # Load data
         production_data = self._load_production_results()
         ablation_data = self._load_ablation_results()
         hpo_data = self._load_hpo_results()
-
-        # 2. Generate main performance tables
+        
+        # Generate tables
         self._generate_main_performance_table(production_data)
         self._generate_run_matrix_table(production_data)
-
-        # 3. Generate ablation study table
         self._generate_ablation_table(ablation_data)
-
-        # 4. Generate figures
+        
+        # Generate figures
         self._generate_roc_tss_figure(production_data)
         self._generate_reliability_diagrams(production_data)
         self._generate_cost_loss_analysis(production_data)
-
-        # 5. Generate baseline comparison
+        
+        # Generate additional analyses
         self._generate_baseline_comparison()
-
-        # 6. Generate statistical significance tests
         self._generate_significance_tests(production_data, ablation_data)
-
-        # 7. Generate summary statistics
         self._generate_summary_statistics(production_data, ablation_data)
-
-        print(f"\n✅ All publication results generated in {self.output_dir}")
+        
+        print("\n✅ All publication results generated successfully!")
+        print(f"📂 Results saved to: {self.output_dir.absolute()}")
+        
+        return {
+            'production_data': production_data,
+            'ablation_data': ablation_data,
+            'hpo_data': hpo_data,
+            'output_directory': str(self.output_dir.absolute())
+        }
 
     def _load_production_results(self) -> pd.DataFrame:
         """Load production training results."""
-        print("\n📂 Loading production training results...")
-
-        analyzer = ProductionAnalyzer()
-        df = analyzer.load_all_results()
-
-        if len(df) == 0:
-            print("⚠️ No production results found. Using simulated data.")
-            df = self._generate_simulated_production_data()
-
-        print(f"✅ Loaded {len(df)} production experiments")
-        return df
+        results_path = self.base_dir / "models" / "results" / "comprehensive_results.json"
+        
+        if results_path.exists():
+            with open(results_path, 'r') as f:
+                data = json.load(f)
+            df = pd.json_normalize(data, sep='_')
+            print("✅ Loaded production results from file")
+            return df
+        else:
+            print("⚠️ No production results found. Generating simulated data.")
+            return self._generate_simulated_production_data()
 
     def _load_ablation_results(self) -> Dict[str, Any]:
         """Load ablation study results."""
-        print("\n📂 Loading ablation study results...")
-
-        analyzer = AblationAnalyzer()
-        try:
-            analyzer.load_all_results()
-            analyzer.aggregate_results()
-            analyzer.perform_statistical_tests()
-            return {
-                "results": analyzer.results,
-                "aggregated": analyzer.aggregated_results,
-                "statistical_tests": analyzer.statistical_tests,
-            }
-        except Exception as e:
-            print(f"⚠️ No ablation results found: {e}. Using simulated data.")
+        ablation_path = self.base_dir / "models" / "ablation_results" / "final_ablation_results.json"
+        
+        if ablation_path.exists():
+            with open(ablation_path, 'r') as f:
+                data = json.load(f)
+            print("✅ Loaded ablation results from file")
+            return data
+        else:
+            print("⚠️ No ablation results found. Generating simulated data.")
             return self._generate_simulated_ablation_data()
 
     def _load_hpo_results(self) -> Dict[str, Any]:
         """Load HPO study results."""
-        print("\n📂 Loading HPO study results...")
-
-        # Try to load HPO results
-        hpo_dir = Path("models/hpo/results")
-        if hpo_dir.exists():
-            # Load actual HPO results
-            return self._load_actual_hpo_results()
+        hpo_path = self.base_dir / "models" / "hpo" / "optuna_study_results.json"
+        
+        if hpo_path.exists():
+            with open(hpo_path, 'r') as f:
+                data = json.load(f)
+            print("✅ Loaded HPO results from file")
+            return data
         else:
             print("⚠️ No HPO results found. Using optimal hyperparameters.")
             return self._get_optimal_hyperparameters()
 
     def _generate_main_performance_table(self, df: pd.DataFrame):
-        """Generate Table 5.2: Main performance metrics."""
+        """Generate main performance metrics table."""
         print("\n📋 Generating main performance table...")
 
         # Calculate summary statistics
@@ -202,7 +185,7 @@ class PublicationResultsGenerator:
         print(f"✅ Main performance table saved")
 
     def _generate_run_matrix_table(self, df: pd.DataFrame):
-        """Generate Table 5.1: Run matrix with train/val/test splits."""
+        """Generate run matrix with train/val/test splits."""
         print("\n📋 Generating run matrix table...")
 
         # This would need actual data loading to get exact counts

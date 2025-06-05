@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-EVEREST Hyperparameter Optimization Runner
+Run hyperparameter optimization studies.
 
 This script provides a convenient interface to run hyperparameter optimization
 studies using the three-tier Bayesian search framework.

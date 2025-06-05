@@ -1,8 +1,5 @@
 """
-Configuration for EVEREST Ablation Studies
-
-This module defines all configurations for systematic ablation studies
-following the experimental protocol described in the paper.
+Configuration for EVEREST ablation studies.
 """
 
 import os

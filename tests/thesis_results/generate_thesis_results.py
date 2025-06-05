@@ -5,13 +5,7 @@ import pandas as pd
 
 #!/usr/bin/env python3
 """
-EVEREST Thesis Results Generator - Master Script
-
-This script orchestrates the complete generation of all results needed for the thesis:
-1. Extract actual experimental data
-2. Generate publication-ready tables and figures
-3. Create missing analysis components
-4. Validate completeness and generate final report
+Generate all thesis results, tables, and figures.
 
 Usage:
     python generate_thesis_results.py [--mode MODE] [--output-dir DIR]

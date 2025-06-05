@@ -1,5 +1,6 @@
+#!/usr/bin/env python3
 """
-Generate publication-ready plots for ECE comparison between EVEREST and SolarKnowledge.
+Generate calibration plots for paper.
 
 This script creates the graphs needed for the paper showing calibration improvements.
 """

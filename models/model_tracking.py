@@ -697,22 +697,7 @@ def get_latest_version(flare_class, time_window):
 
 
 def get_next_version_safe(flare_class, time_window, max_retries=10):
-    """
-    Get the next version number with atomic directory creation to prevent race conditions.
-
-    This function handles concurrent access by:
-    1. Adding process ID and timestamp to make versions unique
-    2. Using atomic directory creation to prevent collisions
-    3. Retrying with incremented versions if conflicts occur
-
-    Args:
-        flare_class: Target flare class (e.g., "M", "C", "M5")
-        time_window: Time window in hours (e.g., "24", "48", "72")
-        max_retries: Maximum number of retry attempts
-
-    Returns:
-        str: Unique version string that's safe for concurrent use
-    """
+    """Get next version number with atomic directory creation."""
     import os
     import time
     from datetime import datetime
@@ -724,17 +709,15 @@ def get_next_version_safe(flare_class, time_window, max_retries=10):
     # Add unique identifiers for concurrent safety
     process_id = os.getpid()
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    microseconds = int(time.time() * 1000000) % 1000000  # Last 6 digits of microseconds
+    microseconds = int(time.time() * 1000000) % 1000000
 
     # Try to create directory atomically
     for attempt in range(max_retries):
         try:
             # Create unique version string
             if attempt == 0:
-                # First attempt: use base version with unique suffix
                 version_str = f"{base_version}_{process_id}_{timestamp}_{microseconds}"
             else:
-                # Subsequent attempts: increment base version
                 incremented_version = round(base_version + (attempt * 0.01), 2)
                 version_str = (
                     f"{incremented_version}_{process_id}_{timestamp}_{microseconds}"
@@ -743,24 +726,20 @@ def get_next_version_safe(flare_class, time_window, max_retries=10):
             # Try to create the model directory atomically
             model_dir = create_model_dir(version_str, flare_class, time_window)
 
-            # If we get here, directory creation succeeded
             print(f"🔄 Created unique version: {version_str} (attempt {attempt + 1})")
             return version_str
 
         except (OSError, FileExistsError) as e:
             if attempt == max_retries - 1:
-                # Last attempt failed, use timestamp-based fallback
                 fallback_version = f"{base_version}_{int(time.time())}_{process_id}"
                 print(
                     f"⚠️ Using fallback version after {max_retries} attempts: {fallback_version}"
                 )
                 return fallback_version
             else:
-                # Wait a tiny bit and retry
-                time.sleep(0.01 * (attempt + 1))  # Exponential backoff
+                time.sleep(0.01 * (attempt + 1))
                 continue
 
-    # This should never be reached, but just in case
     return f"{base_version}_{int(time.time())}_{process_id}"
 
 
