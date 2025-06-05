@@ -225,6 +225,39 @@ python model_tracking.py scan
 python model_tracking.py compare --metric TSS --top 5
 ```
 
+## 🖥️ Web Application Demo
+
+The `webapp-demo/` directory contains a modern web interface for the EVEREST solar flare prediction system, showcasing significant improvements in user experience and functionality.
+
+### UI Evolution
+
+The web application demonstrates a complete transformation from the previous state-of-the-art interface:
+
+| Previous Interface | Current Interface |
+|-------------------|-------------------|
+| ![Old UI](webapp-demo/screenshoots/UI_old.png) | ![New UI](webapp-demo/screenshoots/UI_new.png) |
+| Legacy design with limited functionality | Modern, responsive interface with enhanced UX |
+
+### Key Improvements
+
+- **🎨 Modern Design**: Clean, responsive interface built with React and Tailwind CSS
+- **📊 Enhanced Visualizations**: Interactive charts and real-time prediction displays  
+- **⚡ Real-time Updates**: Live solar flare predictions with confidence intervals
+- **📱 Mobile Responsive**: Optimized for all device sizes and screen resolutions
+- **🔍 Advanced Filtering**: Sophisticated filtering and search capabilities
+- **📈 Performance Metrics**: Integrated model performance visualization
+- **🎯 User-Centric**: Intuitive navigation and streamlined user workflows
+
+### Getting Started with the Web Demo
+
+```bash
+cd webapp-demo
+npm install
+npm run dev
+```
+
+For complete setup instructions and deployment guide, see [`webapp-demo/README.md`](webapp-demo/README.md).
+
 ## 📈 Continuous Integration
 
 The project uses GitHub Actions for automated testing:

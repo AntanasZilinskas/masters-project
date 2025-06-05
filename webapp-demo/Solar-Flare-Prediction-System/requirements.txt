@@ -1,0 +1,24 @@
+# Solar Flare Prediction System Dependencies
+
+# Core scientific computing
+numpy>=1.20.0
+pandas>=1.3.0
+
+# Solar physics and data access
+sunpy>=4.0.0
+drms>=0.6.0
+
+# Date/time handling
+python-dateutil>=2.8.0
+
+# HTTP requests for real-time APIs
+requests>=2.25.0
+
+# Optional: Machine learning (uncomment as needed)
+# scikit-learn>=1.0.0
+# tensorflow>=2.8.0
+# torch>=1.10.0
+
+# Optional: Plotting and visualization (uncomment as needed)
+# matplotlib>=3.5.0
+# seaborn>=0.11.0 

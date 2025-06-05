@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@400;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-everest-1000 text-glacier-300 font-sans;
+    overflow-x: hidden;
+  }
+  
+  /* Custom scrollbar for webkit browsers */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-everest-1000;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-glacier-600 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-glacier-300;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-white/5 backdrop-blur-md border border-white/10 shadow-lg shadow-black/40 rounded-2xl;
+  }
+  
+  .glass-panel-heavy {
+    @apply bg-white/5 backdrop-blur-lg border border-white/10 shadow-lg shadow-black/40 rounded-2xl;
+  }
+  
+  .aurora-glow {
+    @apply drop-shadow-[0_0_4px_rgba(22,224,162,0.3)];
+  }
+  
+  .aurora-purple-glow {
+    @apply drop-shadow-[0_0_4px_rgba(181,105,255,0.3)];
+  }
+  
+  /* Smooth section transitions */
+  .section-transition {
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Enhanced scroll arrow animations */
+  .scroll-arrow {
+    animation: float 3s ease-in-out infinite;
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-8px); }
+  }
+}
