@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15570398.svg)](https://doi.org/10.5281/zenodo.15570398)
 
-**EVEREST** (Enhanced Voltage and Electric field Regression for Enhanced Solar flare prediction using Transformers) is a state-of-the-art solar flare prediction system using transformer-based architectures trained on SDO/HMI SHARP magnetogram data.
+**EVEREST** (An Extreme-Value/Evidential-Retentive Transformer for Operational Solar-Flare Forecasting) is a state-of-the-art solar flare prediction system using transformer-based architectures trained on SDO/HMI SHARP magnetogram data.
 
 ## 🌟 Key Features
 
@@ -18,8 +18,16 @@
 
 ## 📂 Repository Structure
 
+This repository serves dual purposes: **reproducibility** and **research showcase**. The `reproducibility/` folder provides a complete, self-contained pipeline for assessors to reproduce all results from scratch, while the remaining directories demonstrate the full scope of research work, including experimental implementations, ablation studies, and comprehensive evaluation frameworks.
+
 ```
 masters-project/
+├── reproducibility/                 # Complete reproduction pipeline
+│   ├── data/                        # Data download and preprocessing
+│   ├── training/                    # Model training scripts
+│   ├── evaluation/                  # Testing and evaluation
+│   ├── environment/                 # Environment setup
+│   └── README.md                    # Step-by-step reproduction guide
 ├── models/                          # Main TensorFlow implementation
 │   ├── SolarKnowledge_model.py      # Core TensorFlow model
 │   ├── SolarKnowledge_run_all_trainings.py
@@ -37,6 +45,21 @@ masters-project/
 ├── requirements.txt                 # Python dependencies
 ├── environment.yml                  # Conda environment
 └── Nature_data/                     # Training data (local)
+```
+
+## 🔄 Reproducibility
+
+**For assessors and researchers seeking to reproduce results:** Navigate to the `reproducibility/` folder which contains a complete, self-contained pipeline including:
+
+- **Data acquisition**: Automated scripts for downloading and preprocessing SDO/HMI SHARP data
+- **Environment setup**: Containerized environments ensuring consistent dependencies
+- **Model training**: Streamlined training scripts with optimal hyperparameters
+- **Evaluation**: Comprehensive testing and metrics generation
+- **Documentation**: Step-by-step reproduction guide
+
+```bash
+cd reproducibility/
+# Follow the README.md for complete reproduction pipeline
 ```
 
 ## 🚀 Quick Start
@@ -280,6 +303,12 @@ Raw solar data from NASA/SDO and NOAA are in the public domain.
 
 **⚡ Getting Started Checklist:**
 
+**For Full Reproduction:**
+- [ ] Navigate to `reproducibility/` folder
+- [ ] Follow the step-by-step reproduction guide
+- [ ] Execute complete pipeline from data download to final results
+
+**For Research and Development:**
 - [ ] Clone repository and install dependencies
 - [ ] Run `pytest tests/` to verify setup
 - [ ] Download data or use existing `Nature_data/`
@@ -287,4 +316,4 @@ Raw solar data from NASA/SDO and NOAA are in the public domain.
 - [ ] Run evaluation: `cd nature_models && python SolarKnowledge_run_all_tests.py`
 - [ ] Check results in generated JSON files
 
-For issues or questions, please open a GitHub issue or refer to the documentation in the `docs/` directory.
+For issues or questions, please open a GitHub issue or refer to the documentation in the respective directories.
