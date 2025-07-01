@@ -21,7 +21,7 @@ seaborn==0.13.2
 # HPO dependencies
 optuna==3.6.1
 ray[tune]==2.9.3
-plotly==5.18.0
+plotly==6.2.0
 kaleido==0.2.1
 
 # Environmental impact tracking
