@@ -20,7 +20,7 @@ seaborn==0.13.2
 
 # HPO dependencies
 optuna==3.6.1
-ray[tune]==2.9.3
+ray[tune]==2.47.1
 plotly==5.18.0
 kaleido==0.2.1
 
