@@ -22,7 +22,7 @@ seaborn==0.13.2
 optuna==3.6.1
 ray[tune]==2.9.3
 plotly==5.18.0
-kaleido==0.2.1
+kaleido==1.0.0
 
 # Environmental impact tracking
 codecarbon==2.3.4
